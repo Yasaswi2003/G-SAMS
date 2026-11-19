@@ -114,6 +114,7 @@ if os.getenv('VERCEL') == '1':
     allowed = (
         os.getenv('VERCEL_URL', ''),
         os.getenv('VERCEL_PROJECT_PRODUCTION_URL', ''),
+        'gsams-yasaswi3.vercel.app',
         *os.getenv('GSAMS_ALLOWED_HOSTS', '').split(','),
     )
     ALLOWED_HOSTS = [host.strip() for host in allowed if host.strip()]
