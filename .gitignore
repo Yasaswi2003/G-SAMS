@@ -2,6 +2,8 @@
 /.vscode/
 /.verification/
 /.venv/
+/.vercel/
+/staticfiles/
 /myvenv/
 /artifacts/
 /backups/

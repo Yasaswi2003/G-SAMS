@@ -100,6 +100,35 @@ DATABASES = {
     },
 }
 
+if os.getenv('VERCEL') == '1':
+    import dj_database_url
+    from django.core.exceptions import ImproperlyConfigured
+
+    DEBUG = False
+    SECRET_KEY = os.getenv('GSAMS_SECRET_KEY')
+    encryption_key = os.getenv('GSAMS_ENCRYPT_KEY')
+    if not SECRET_KEY or not encryption_key:
+        raise ImproperlyConfigured('Set GSAMS_SECRET_KEY and GSAMS_ENCRYPT_KEY on Vercel.')
+    ENCRYPT_KEY = encryption_key.encode('ascii')
+    Fernet(ENCRYPT_KEY)
+    allowed = (
+        os.getenv('VERCEL_URL', ''),
+        os.getenv('VERCEL_PROJECT_PRODUCTION_URL', ''),
+        *os.getenv('GSAMS_ALLOWED_HOSTS', '').split(','),
+    )
+    ALLOWED_HOSTS = [host.strip() for host in allowed if host.strip()]
+    CSRF_TRUSTED_ORIGINS = [f'https://{host}' for host in ALLOWED_HOSTS]
+    SESSION_COOKIE_SECURE = True
+
+    for alias, variable in [('default', 'DATABASE_URL'), ('GITAM', 'GSAMS_GITAM_DATABASE_URL')]:
+        url = os.getenv(variable)
+        if not url:
+            raise ImproperlyConfigured(f'Set {variable} on Vercel.')
+        database = dj_database_url.parse(url, ssl_require=True)
+        if database['ENGINE'] != 'django.db.backends.postgresql':
+            raise ImproperlyConfigured(f'{variable} must point to PostgreSQL.')
+        DATABASES[alias] = database
+
 
 
 # Password validation
@@ -143,6 +172,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('GSAMS_EMAIL_HOST_PASSWORD', LOCAL_SETTINGS
 EMAIL_PORT = 587
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
