@@ -401,7 +401,7 @@ def _filters(request, rooms, schedules, semesters, reference_date=None):
         ]
 
     floor_rooms = list(available_rooms)
-    floor_choices = sorted({room.get('floor_code','') or '__unrecorded__' for room in floor_rooms}) if selected_building else []
+    floor_choices = sorted({room.get('floor_code','') or '__unrecorded__' for room in floor_rooms}) if selected_campus and selected_building else []
     selected_floor = str(request.GET.get('floor') or '')
     requested_room = next((room for room in floor_rooms if room['key']==request.GET.get('room')),None)
     if requested_room and not selected_floor:

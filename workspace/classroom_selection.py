@@ -64,7 +64,7 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
                     'room_count':sum(1 for room in rooms if room['campus_key']==campus and room['building_key']==building
                                      and (room.get('floor_code','') or '__unrecorded__')==choice['key'])}
                    for choice in filters['floor_choices']]
-    step = 5 if selected else 4 if floor else 3 if building else 2 if campus else 1
+    step = 5 if selected else 4 if floor else 3 if campus and building else 2 if campus else 1
     campus_cards=[]
     for choice in filters['campuses']:
         scoped=[room for room in rooms if room['campus_key']==choice['key']]
@@ -78,5 +78,5 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
             'floor_cards':floor_cards,'back_to_floors_url':link(floor='',room=''),
             'classroom_cards':cards,'selected_classroom':selected,
             'back_to_classrooms_url':link(room='',booking_id=None),
-            'selection_step':5 if selected else 4 if floor else 3 if building else 2 if campus else 1,
+            'selection_step':step,
             'availability_timestamp':now.strftime('%d %b %Y, %H:%M')}

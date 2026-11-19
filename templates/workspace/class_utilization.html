@@ -966,7 +966,7 @@
             <div class="cu-filter-field"><label for="cuSemester">Academic Semester</label><input id="cuSemester" value="{{ current_semester }}" readonly aria-label="Academic semester, automatically selected from the timetable date" title="Updates automatically for the selected date: July?December ODD; January?June EVEN"></div>
             <div class="cu-filter-field">
                 <label for="cuCampus">Campus</label>
-                <select id="cuCampus" name="campus">
+                <select id="cuCampus" name="campus" required>
                     <option value="">Select campus</option>
                     {% for campus in campuses %}
                     <option value="{{ campus.key }}" {% if selected_campus == campus.key %}selected{% endif %}>{{ campus.label }}</option>
@@ -976,7 +976,7 @@
 
             {% if selected_campus %}<div class="cu-filter-field">
                 <label for="cuBuilding">Building</label>
-                <select id="cuBuilding" name="building">
+                <select id="cuBuilding" name="building" required>
                     <option value="">Select building</option>
                     {% for building in buildings %}
                     <option value="{{ building.key }}" {% if selected_building == building.key %}selected{% endif %}>{{ building.label }}</option>
