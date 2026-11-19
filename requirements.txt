@@ -1,3 +1,5 @@
--r req.txt
+cryptography==46.0.5
+Django==5.2.12
+mssql-django==1.6
 dj-database-url==3.1.0
 psycopg[binary]==3.2.13
