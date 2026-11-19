@@ -126,7 +126,7 @@ if os.getenv('VERCEL') == '1':
     if not database_url:
         raise ImproperlyConfigured('Set DATABASE_URL on Vercel.')
     database_urls = {
-        'default': database_url,
+        'default': os.getenv('DATABASE_URL_UNPOOLED') or database_url,
         'GITAM': os.getenv('GSAMS_GITAM_DATABASE_URL') or database_url,
     }
     for alias, url in database_urls.items():
@@ -134,6 +134,7 @@ if os.getenv('VERCEL') == '1':
         if database['ENGINE'] != 'django.db.backends.postgresql':
             raise ImproperlyConfigured(f'The {alias} database must use PostgreSQL on Vercel.')
         DATABASES[alias] = database
+    DATABASES['default']['OPTIONS']['options'] = '-c search_path=gsams_app'
 
 
 

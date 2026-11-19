@@ -12,6 +12,6 @@ Set the following Vercel environment variables for the deployment environment.
 | `GSAMS_ENCRYPT_KEY` | A stable Fernet key. Use the original key when migrating data encrypted with it. |
 | `GSAMS_ALLOWED_HOSTS` | Optional comma-separated custom hostnames without a scheme |
 
-Production builds run `python manage.py migrate --noinput` against the application database. They use the direct connection in `DATABASE_URL_UNPOOLED` when available. The GITAM master tables are unmanaged and must be provisioned separately. Import approved user and application records and master data separately. The local SQLite files are excluded from Git.
+Production builds create the `gsams_app` PostgreSQL schema if needed and apply Django migrations there, using `DATABASE_URL_UNPOOLED` when available. Django reads the unmanaged GITAM master tables through the separate GITAM connection, which keeps its default database search path. Import approved user and application records into `gsams_app` and provision the master tables separately. The local SQLite files are excluded from Git.
 
 After the deployment succeeds, its production URL appears on the Vercel project dashboard.
