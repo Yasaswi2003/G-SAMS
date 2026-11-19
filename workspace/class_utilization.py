@@ -763,7 +763,7 @@ def class_utilization(request):
             occupancy[(row["room_key"], row["weekday"])].append(row)
 
     available_room_keys = set()
-    from .classroom_maintenance import available_reasons, covers_full_day, display_window, window_map
+    from .classroom_maintenance import available_reasons, window_map
     maintenance_rooms = {room['key'] for room in rooms
                          if not filters['selected_campus'] or room['campus_key'] == filters['selected_campus']}
     maintenance_windows = window_map(week_start, week_end, maintenance_rooms)
@@ -960,8 +960,6 @@ def class_utilization(request):
         selection = selection_context(request, rooms, card_schedules, filters, today,
                                       partially_booked=rooms_with_open_slots & rooms_with_booked_slots,
                                       maintenance_windows=maintenance_windows,grid_hours=(grid_start,grid_end))
-    room_windows = [window for (room_key, day), windows in maintenance_windows.items()
-                    if room_key == filters['selected_room_key'] for window in windows]
     context = {
         **selection,
         "revision_context": revision_context,
@@ -989,8 +987,6 @@ def class_utilization(request):
         "unmatched_count": sum(not row["room_master_match"] for row in filters["classes"]),
         "show_schedule": bool(filters["selected_room_key"]) or maintenance_picker,
         "maintenance_picker": maintenance_picker,
-        "room_maintenance": [display_window(window) for window in room_windows],
-        "maintenance_status": 'Under Maintenance' if covers_full_day(room_windows,grid_start,grid_end) else 'Partially Under Maintenance',
         "maintenance_room": room_by_key.get(filters['selected_room_key']),
         "maintenance_building_label": next((room['building'] for room in rooms
                                             if room['building_key']==filters['selected_building']), ''),

@@ -1008,6 +1008,7 @@
         <div class="cu-panel-head">
             <div>
                 <h2>Weekly Timetable</h2>
+                {% if maintenance_room.room_code %}<p>Room {{ maintenance_room.room_code }}</p>{% endif %}
             </div>
             <div class="cu-panel-actions">
                 {% if not maintenance_picker %}
@@ -1020,21 +1021,6 @@
             </div>
         </div>
         {% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %}{% include 'workspace/maintenance_selection_bar.html' %}{% endif %}
-        {% if room_maintenance and not maintenance_picker %}
-        <details class="cm-room-details" open>
-            <summary><i class="bx bx-wrench" aria-hidden="true"></i> Classroom maintenance windows · {{ maintenance_status }}</summary>
-            <p>{{ maintenance_room.campus }} · {{ maintenance_room.building }} · Floor {{ maintenance_room.floor_code|default:'Not recorded' }} · Classroom {{ maintenance_room.room_code }}</p>
-            {% for entry in room_maintenance %}
-            <article>
-                <strong>{{ entry.scope }} · {{ entry.date|date:'l, d M Y'|default:entry.date }} · {{ entry.start }}–{{ entry.end }}</strong>
-                <p>{{ entry.reasons|join:', ' }}{% if entry.expected_completion %} · Expected {{ entry.expected_completion|date:'d M Y, H:i' }}{% endif %}</p>
-                {% if entry.description %}<p>{{ entry.description }}</p>{% endif %}
-                {% if entry.recurring %}<small>Recurring schedule</small>{% endif %}
-            </article>
-            {% endfor %}
-        </details>
-        {% endif %}
-
         {% if timetable_popup and data_error %}<p class="cu-calendar-missing" role="alert">{{ data_error }}</p>{% endif %}
         <nav class="cu-week-nav" aria-label="Weekly timetable navigation"><a href="{{ previous_week_url }}">&larr; Previous Week</a><a href="{{ current_week_url }}">Current Week</a><a href="{{ next_week_url }}">Next Week &rarr;</a></nav>
         {% if not holiday_calendar_available %}<p class="cu-calendar-missing" role="note">The official holiday calendar has not been loaded for this period. No holiday dates have been assumed.</p>{% endif %}
