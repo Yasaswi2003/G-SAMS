@@ -1,0 +1,610 @@
+{% load static %}
+<!-- ═══════════════════════════════════════════════════════════════════
+     Shared "Utilization" widgets — Employee Type donut, Room Type
+     Utilization bar chart (+ Building/Room filter), Seat Type Utilization
+     mini-card grid, and the Occupied/Available Seats modal (Excel/PDF
+     export). Included on both templates/workspace/space_utilization.html
+     and the dashboard templates so all three stay visually and
+     functionally identical instead of drifting apart.
+
+     Requires the including page to pass (or already have in context):
+       emp_type_stats, room_type_stats, seat_type_stats, buildings, rooms_list
+     Requires jQuery, Bootstrap 5 JS, DataTables (+ Buttons/JSZip/pdfmake) —
+     all already loaded globally via base.html. Loads Select2 itself.
+     ═══════════════════════════════════════════════════════════════════ -->
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+/* ── CARD ── */
+.su-card {
+    background: #fff;
+    border: 1px solid #e3efec;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,115,103,.06);
+}
+.su-card:hover { border-color: #b2d8d2; }
+.su-card-header {
+    background: #f5faf9;
+    border-bottom: 1px solid #e0eeec;
+    padding: 13px 18px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.su-card-header-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    background: rgba(0,115,103,.1);
+    color: #007367;
+    flex-shrink: 0;
+}
+.su-card-title { font-size: 13.5px; font-weight: 700; color: #007367; margin: 0; }
+.su-card-body { padding: 20px; }
+
+/* ── DONUT ── */
+.su-donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.su-donut-svg { overflow: visible; }
+.su-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
+.su-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #4d6f6a; }
+.su-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.su-bar-clickable { cursor: pointer; border-radius: 8px; transition: background .15s; }
+.su-bar-clickable:hover { background: #f0f9f7; }
+
+/* ── TYPE CARDS (Seat Type Utilization grid) ── */
+.su-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+.su-type-card {
+    background: #ffffff;
+    border: 1px solid #e0eeec;
+    border-radius: 12px;
+    padding: 16px;
+    transition: transform .15s, border-color .2s;
+}
+.su-type-card:hover { transform: translateY(-2px); border-color: #007367; }
+.su-type-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.su-type-icon {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+.su-type-name { font-size: 13px; font-weight: 700; color: #1a2e2b; }
+.su-type-total { font-size: 11px; color: #7a9e96; }
+.su-type-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.su-type-stat { text-align: center; padding: 6px 4px; border-radius: 8px; }
+.su-type-stat-val { font-size: 18px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+.su-type-stat-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.su-mini-track { height: 5px; background: #e0eeec; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.su-mini-fill { height: 100%; border-radius: 4px; transition: width .8s ease; }
+
+.su-hm-dot {
+    width: 12px; height: 12px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.su-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #7a9e96;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.su-section-label::after { content: ''; flex: 1; height: 1px; background: #e0eeec; }
+
+/* ── SEAT FILTER LOADER ── */
+.su-loader-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 20px;
+    width: 100%;
+    color: #7a9e96;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+.su-loader {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid #e0eeec;
+    border-top-color: #007367;
+    animation: su-spin .7s linear infinite;
+}
+@keyframes su-spin { to { transform: rotate(360deg); } }
+
+/* ── SUMMARY TABLE (used inside the Occupied Seats modal) ── */
+.su-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.su-table thead tr { background: linear-gradient(135deg,#007367,#0d9488); }
+.su-table thead th {
+    padding: 11px 14px;
+    text-align: left;
+    color: rgba(61, 61, 61, 0.9);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    white-space: nowrap;
+}
+.su-table tbody tr { border-bottom: 1px solid #f0f7f5; transition: background .15s; }
+.su-table tbody tr:hover { background: #f5faf9; }
+.su-table tbody tr:last-child { border-bottom: none; }
+.su-table tbody td { padding: 10px 14px; color: #2d4f47; vertical-align: middle; }
+
+/* ── SEARCHABLE FILTER DROPDOWNS (Select2) ── */
+.su-filter-select2 + .select2-container .select2-selection--single {
+    height: 32px;
+    border: 1px solid #dbe7e4;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    font-size: 12.5px;
+}
+.su-filter-select2 + .select2-container .select2-selection--single .select2-selection__rendered {
+    padding-left: 10px;
+    color: #1a2e2b;
+}
+.su-filter-select2 + .select2-container .select2-selection--single .select2-selection__arrow { height: 30px; }
+.su-filter-select2 + .select2-container.select2-container--open .select2-selection--single { border-color: #007367; }
+.select2-dropdown { border-color: #dbe7e4; font-size: 12.5px; }
+.select2-container--default .select2-results__option--highlighted[aria-selected] { background-color: #007367 !important; }
+</style>
+
+<!-- EMPLOYEE TYPE DONUT + ROOM TYPE UTILIZATION (side by side) -->
+{% if emp_type_stats.total > 0 or room_type_stats %}
+<div class="row g-3 mb-4">
+    {% if emp_type_stats.total > 0 %}
+    <div class="col-md-4">
+        <div class="su-card h-100">
+            <div class="su-card-header">
+                <div class="su-card-header-icon"><i class="bx bx-id-card"></i></div>
+                <span class="su-card-title">Occupied Seats by Employee Type</span>
+            </div>
+            <div class="su-card-body d-flex align-items-center justify-content-center" style="min-height:220px">
+                <div class="su-donut-wrap">
+                    <svg width="140" height="140" class="su-donut-svg" style="transform:rotate(-90deg)">
+                        <circle cx="70" cy="70" r="50" fill="none" stroke="#e8f5f3" stroke-width="14"/>
+                        {% for item in emp_type_stats.items %}
+                        {% if item.count > 0 %}
+                        <circle cx="70" cy="70" r="50" fill="none" stroke="{{ item.ring_color }}" stroke-width="14"
+                            stroke-dasharray="{{ item.dash }} {{ item.gap }}"
+                            stroke-dashoffset="{{ item.offset }}"
+                            stroke-linecap="round"/>
+                        {% endif %}
+                        {% endfor %}
+                    </svg>
+                    <div style="text-align:center;margin-top:-8px">
+                        <div style="font-size:26px;font-weight:800;color:#1a2e2b;font-family:'JetBrains Mono',monospace;line-height:1">{{ emp_type_stats.total }}</div>
+                        <div style="font-size:10px;color:#7a9e96;font-weight:600;text-transform:uppercase;letter-spacing:.6px">Occupied Seats</div>
+                    </div>
+                    <div class="su-legend">
+                        {% for item in emp_type_stats.items %}
+                        <div class="su-legend-item su-bar-clickable" style="cursor:pointer;padding:2px 6px;border-radius:6px"
+                             title="Click to view {{ item.name }} seats"
+                             onclick="showOccupiedByEmpType('{{ item.name|escapejs }}')">
+                            <div class="su-legend-dot" style="background:{{ item.color }}"></div>{{ item.name }} &nbsp;<strong>{{ item.count }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if room_type_stats %}
+    <div class="col-md-8">
+        <div class="su-card h-100">
+            <div class="su-card-header" style="flex-wrap:wrap;gap:8px">
+                <div class="su-card-header-icon"><i class="bx bx-bar-chart-alt-2"></i></div>
+                <span class="su-card-title">Room Type Utilization</span>
+                <span style="margin-left:auto;display:flex;gap:16px;font-size:11px;color:#4d6f6a">
+                    <span><span class="su-hm-dot" style="background:#dcfce7;border:1px solid #bbf7d0"></span>Available</span>
+                    <span><span class="su-hm-dot" style="background:#fee2e2;border:1px solid #fecaca"></span>Occupied</span>
+                </span>
+            </div>
+            <div style="padding:10px 18px;border-bottom:1px solid #e0eeec;background:#f9fcfb;display:flex;align-items:center;gap:10px;flex-wrap:nowrap;overflow-x:auto">
+                <select id="rtuBuildingFilter" class="form-control form-select su-filter-select2" style="width:170px">
+                    <option value="">All Buildings</option>
+                    {% for b in buildings %}
+                    <option value="{{ b.id }}">{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+                <select id="rtuRoomFilter" class="form-control form-select su-filter-select2" style="width:170px">
+                    <option value="">All Rooms</option>
+                    {% for r in rooms_list %}
+                    <option value="{{ r.id }}" data-building="{{ r.building_id }}">{{ r.room_number }} &middot; {{ r.building.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" id="rtuClearBtn" style="flex:0 0 auto;white-space:nowrap;font-size:11px;font-weight:600;color:#7a9e96;background:none;border:1px solid #e0eeec;border-radius:8px;padding:4px 10px;cursor:pointer">
+                    Clear
+                </button>
+            </div>
+            <div class="su-card-body">
+                <div id="roomTypeChartBars" style="display:flex;align-items:flex-end;gap:24px;min-height:220px;padding:0 8px 4px;overflow-x:auto">
+                    {% for rt in room_type_stats %}
+                    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:64px">
+                        <div style="display:flex;align-items:flex-end;gap:6px;height:170px">
+                            <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                                <span style="font-size:11px;font-weight:700;color:#166534;margin-bottom:4px">{{ rt.available }}</span>
+                                <div style="width:20px;height:{{ rt.avail_bar_pct }}%;background:#dcfce7;border:1px solid #bbf7d0;border-radius:5px 5px 0 0;cursor:pointer;transition:opacity .15s"
+                                     title="Click to view available seats"
+                                     onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"
+                                     onclick="showAvailableByRoomType('{{ rt.name|escapejs }}')"></div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                                <span style="font-size:11px;font-weight:700;color:#991b1b;margin-bottom:4px">{{ rt.occupied }}</span>
+                                <div style="width:20px;height:{{ rt.occ_bar_pct }}%;background:#fee2e2;border:1px solid #fecaca;border-radius:5px 5px 0 0;cursor:pointer;transition:opacity .15s"
+                                     title="Click to view occupied seats"
+                                     onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"
+                                     onclick="showOccupiedByRoomType('{{ rt.name|escapejs }}')"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;font-size:11px;font-weight:600;color:#1a2e2b;text-align:center;max-width:74px">{{ rt.name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- SEAT TYPE UTILIZATION (Cubicles, Cabins, etc.) -->
+{% if seat_type_stats %}
+<div class="su-section-label">Seat Type Utilization — Cubicles &amp; Cabins</div>
+<div class="su-type-grid mb-4">
+    {% for st in seat_type_stats %}
+    <div class="su-type-card">
+        <div class="su-type-top">
+            <div class="su-type-icon" style="background:{{ st.bg_color }}18;color:{{ st.bg_color }}">
+                <i class="{{ st.icon }}"></i>
+            </div>
+            <div>
+                <div class="su-type-name">{{ st.name }}</div>
+                <div class="su-type-total">{{ st.total }} total seats</div>
+            </div>
+        </div>
+        <!-- Mini donut -->
+        <div style="text-align:center;margin-bottom:10px">
+            <svg width="90" height="90" style="transform:rotate(-90deg);overflow:visible">
+                <circle cx="45" cy="45" r="34" fill="none" stroke="#e8f5f3" stroke-width="9"/>
+                <circle cx="45" cy="45" r="34" fill="none" stroke="#fee2e2" stroke-width="9"
+                    stroke-dasharray="{{ st.occ_dash }} {{ st.occ_gap }}" stroke-linecap="round"
+                    style="transition:stroke-dasharray .8s ease"/>
+                <circle cx="45" cy="45" r="34" fill="none" stroke="#dcfce7" stroke-width="9"
+                    stroke-dasharray="{{ st.avail_dash }} {{ st.avail_gap }}"
+                    stroke-dashoffset="{{ st.occ_dash|floatformat:0 }}"
+                    stroke-linecap="round"/>
+            </svg>
+            <div style="margin-top:-10px;font-size:15px;font-weight:800;color:{{ st.bg_color }};font-family:'JetBrains Mono',monospace">{{ st.pct }}%</div>
+            <div style="font-size:9px;color:#7a9e96;font-weight:700;text-transform:uppercase;letter-spacing:.5px">occupied</div>
+        </div>
+        <div class="su-type-stats">
+            <div class="su-type-stat" style="background:#fee2e2;cursor:pointer" title="Click to view occupied seats"
+                 onclick="showOccupiedSeats('{{ st.name|escapejs }}')">
+                <div class="su-type-stat-val" style="color:#991b1b">{{ st.occupied }}</div>
+                <div class="su-type-stat-lbl" style="color:#991b1b">Occupied</div>
+            </div>
+            <div class="su-type-stat" style="background:#dcfce7;cursor:pointer" title="Click to view available seats"
+                 onclick="showAvailableSeats('{{ st.name|escapejs }}')">
+                <div class="su-type-stat-val" style="color:#166534">{{ st.available }}</div>
+                <div class="su-type-stat-lbl" style="color:#166534">Available</div>
+            </div>
+            {% if st.reserved > 0 %}
+            <div class="su-type-stat" style="background:#fef3c7">
+                <div class="su-type-stat-val" style="color:#92400e">{{ st.reserved }}</div>
+                <div class="su-type-stat-lbl" style="color:#92400e">Reserved</div>
+            </div>
+            {% endif %}
+            {% if st.maintenance > 0 %}
+            <div class="su-type-stat" style="background:#f1f5f9">
+                <div class="su-type-stat-val" style="color:#475569">{{ st.maintenance }}</div>
+                <div class="su-type-stat-lbl" style="color:#475569">Maint.</div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="su-mini-track">
+            <div class="su-mini-fill" style="width:{{ st.pct }}%;background:{{ st.bg_color }}"></div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- OCCUPIED SEATS MODAL -->
+<div class="modal fade" id="occupiedSeatsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:1px solid #e3efec;">
+            <div class="modal-header" style="background:#f5faf9;border-bottom:1px solid #e0eeec;">
+                <h6 class="modal-title" style="color:#007367;font-weight:700;">
+                    <i class="bx bx-user-check"></i> <span id="occSeatsTypeName"></span>
+                    <span id="occSeatsCount" style="font-size:12px;font-weight:600;color:#7a9e96;margin-left:6px;"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="occSeatsLoading" class="su-loader-wrap">
+                    <div class="su-loader"></div><span>Loading seats…</span>
+                </div>
+                <div class="table-responsive" id="occSeatsTableWrap" style="display:none">
+                    <table class="su-table table table-bordered table-hover" id="occupiedSeatsTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Seat No.</th>
+                                <th>Room</th>
+                                <th>Room Name</th>
+                                <th>Floor</th>
+                                <th>Building</th>
+                                <th>Campus</th>
+                                <th>Emp ID</th>
+                                <th>Name</th>
+                                <th>Designation</th>
+                                <th>Department</th>
+                            </tr>
+                        </thead>
+                        <tbody id="occupiedSeatsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+
+<script>
+var occupiedSeatsDT = null;
+var occupiedSeatsReqSeq = 0;
+
+/* Shared loader for the Occupied Seats modal — used by seat type, employee
+   type, and room type triggers alike. `url` picks which backend endpoint to
+   hit; `params` is an object of extra POST filters (seat_type/emp_type/
+   room_type, plus optionally building/room to match the chart's own filter);
+   `label` is just the display text. */
+function openOccupiedSeatsModal(url, params, label) {
+    $('#occSeatsTypeName').text(label);
+    $('#occSeatsCount').text('');
+    $('#occSeatsTableWrap').hide();
+    $('#occSeatsLoading').show();
+    $('#occupiedSeatsModal').modal('show');
+
+    /* Fetch immediately rather than waiting on the modal's 'shown.bs.modal'
+       event — that event only fires on a genuine hidden->shown transition,
+       so clicking a second stat while the modal is already open (a real
+       Bootstrap quirk) would never re-fire it, leaving the loader stuck
+       forever with no data ever loaded. A request sequence number guards
+       against an earlier, slower request overwriting a later one's result. */
+    var reqId = ++occupiedSeatsReqSeq;
+    var ajaxData = $.extend({ csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').first().val() }, params);
+
+    $.ajax({
+        url: url,
+        type: 'POST',
+        data: ajaxData,
+        success: function (response) {
+            if (reqId !== occupiedSeatsReqSeq) return; // a newer click superseded this one
+
+            var rows = response.data || [];
+            var html = rows.map(function (r, i) {
+                return '<tr>'
+                    + '<td>' + (i + 1) + '</td>'
+                    + '<td>' + $('<div>').text(r.seat_number).html() + '</td>'
+                    + '<td>' + $('<div>').text(r.room).html() + '</td>'
+                    + '<td>' + $('<div>').text(r.room_name || '—').html() + '</td>'
+                    + '<td>' + $('<div>').text(r.floor).html() + '</td>'
+                    + '<td>' + $('<div>').text(r.building).html() + '</td>'
+                    + '<td>' + $('<div>').text(r.campus).html() + '</td>'
+                    + '<td>' + $('<div>').text(r.empid).html() + '</td>'
+                    + '<td>' + $('<div>').text(r.emp_name || '—').html() + '</td>'
+                    + '<td>' + $('<div>').text(r.designation || '—').html() + '</td>'
+                    + '<td>' + $('<div>').text(r.department || '—').html() + '</td>'
+                    + '</tr>';
+            }).join('');
+
+            if (occupiedSeatsDT) {
+                occupiedSeatsDT.destroy();
+                occupiedSeatsDT = null;
+            }
+
+            $('#occupiedSeatsBody').html(html);
+            $('#occSeatsCount').text('(' + response.count + ' seat' + (response.count == 1 ? '' : 's') + ')');
+            $('#occSeatsLoading').hide();
+            $('#occSeatsTableWrap').show();
+
+            /* Small delay so the modal's fade-in has finished before DataTables
+               measures column widths — avoids a squashed/misrendered table. */
+            setTimeout(function () {
+                occupiedSeatsDT = $('#occupiedSeatsTable').DataTable({
+                    dom: 'Bfrtip',
+                    buttons: [
+                        {
+                            extend: 'excelHtml5',
+                            text: '<i class="fa fa-download" style="font-size:12px"></i> Excel',
+                            className: 'btn btn-secondary btn-sm',
+                            title: label
+                        },
+                        {
+                            extend: 'pdfHtml5',
+                            text: '<i class="fa fa-file-pdf-o" style="font-size:12px"></i> PDF',
+                            className: 'btn btn-secondary btn-sm',
+                            title: label,
+                            orientation: 'landscape',
+                            pageSize: 'A4'
+                        }
+                    ],
+                    pageLength: 10,
+                    lengthChange: false,
+                    scrollX: true
+                });
+            }, 200);
+        },
+        error: function (xhr) {
+            if (reqId !== occupiedSeatsReqSeq) return;
+            $('#occSeatsLoading').hide();
+            $('#occSeatsTableWrap').show();
+            $('#occupiedSeatsBody').html(
+                '<tr><td colspan="11" style="text-align:center;color:#991b1b;padding:20px">Failed to load seats (' + xhr.status + ').</td></tr>'
+            );
+        }
+    });
+}
+
+function showOccupiedSeats(seatTypeName) {
+    openOccupiedSeatsModal('/workspace/occupied_seats_by_type', { seat_type: seatTypeName }, 'Occupied Seats — ' + seatTypeName);
+}
+
+function showAvailableSeats(seatTypeName) {
+    openOccupiedSeatsModal('/workspace/available_seats_by_type', { seat_type: seatTypeName }, 'Available Seats — ' + seatTypeName);
+}
+
+function showOccupiedByEmpType(empType) {
+    openOccupiedSeatsModal('/workspace/occupied_seats_by_emp_type', { emp_type: empType }, 'Occupied Seats — ' + empType);
+}
+
+/* Room Type Utilization chart's own Building/Room filter must carry through
+   into the modal too, otherwise clicking a bar shows the unfiltered totals
+   for that room type instead of the scoped data the chart is displaying. */
+function currentRoomTypeChartFilter() {
+    return {
+        building: $('#rtuBuildingFilter').val() || '',
+        room: $('#rtuRoomFilter').val() || ''
+    };
+}
+
+function showOccupiedByRoomType(roomTypeName) {
+    var params = $.extend({ room_type: roomTypeName }, currentRoomTypeChartFilter());
+    openOccupiedSeatsModal('/workspace/occupied_seats_by_room_type', params, 'Occupied Seats — ' + roomTypeName);
+}
+
+function showAvailableByRoomType(roomTypeName) {
+    var params = $.extend({ room_type: roomTypeName }, currentRoomTypeChartFilter());
+    openOccupiedSeatsModal('/workspace/available_seats_by_room_type', params, 'Available Seats — ' + roomTypeName);
+}
+
+/* ── Room Type Utilization chart: Building / Room filter ── */
+function esc(s) {
+    return $('<div>').text(s == null ? '' : s).html();
+}
+
+function renderRoomTypeBars(items) {
+    if (!items || items.length === 0) {
+        $('#roomTypeChartBars').html(
+            '<div style="width:100%;text-align:center;color:#7a9e96;padding:30px 0">No seats match this filter</div>'
+        );
+        return;
+    }
+    var html = items.map(function (rt) {
+        var name = esc(rt.name);
+        return '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:64px">'
+            + '<div style="display:flex;align-items:flex-end;gap:6px;height:170px">'
+            + '<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">'
+            + '<span style="font-size:11px;font-weight:700;color:#166534;margin-bottom:4px">' + rt.available + '</span>'
+            + '<div style="width:20px;height:' + rt.avail_bar_pct + '%;background:#dcfce7;border:1px solid #bbf7d0;border-radius:5px 5px 0 0;cursor:pointer;transition:opacity .15s" '
+            + 'title="Click to view available seats" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" '
+            + 'onclick="showAvailableByRoomType(\'' + name.replace(/'/g, "\\'") + '\')"></div>'
+            + '</div>'
+            + '<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">'
+            + '<span style="font-size:11px;font-weight:700;color:#991b1b;margin-bottom:4px">' + rt.occupied + '</span>'
+            + '<div style="width:20px;height:' + rt.occ_bar_pct + '%;background:#fee2e2;border:1px solid #fecaca;border-radius:5px 5px 0 0;cursor:pointer;transition:opacity .15s" '
+            + 'title="Click to view occupied seats" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" '
+            + 'onclick="showOccupiedByRoomType(\'' + name.replace(/'/g, "\\'") + '\')"></div>'
+            + '</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;font-size:11px;font-weight:600;color:#1a2e2b;text-align:center;max-width:74px">' + name + '</div>'
+            + '</div>';
+    }).join('');
+    $('#roomTypeChartBars').html(html);
+}
+
+function refreshRoomTypeChart() {
+    var building = $('#rtuBuildingFilter').val();
+    var room = $('#rtuRoomFilter').val();
+
+    $.ajax({
+        url: '/workspace/filter_room_type_utilization',
+        type: 'POST',
+        data: {
+            building: building,
+            room: room,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').first().val()
+        },
+        success: function (response) {
+            renderRoomTypeBars(response.items || []);
+        },
+        error: function () {
+            $('#roomTypeChartBars').html(
+                '<div style="width:100%;text-align:center;color:#991b1b;padding:30px 0">Failed to load chart data</div>'
+            );
+        }
+    });
+}
+
+/* Room dropdown: only show rooms belonging to the selected building. Detach/
+   re-append the actual <option> elements rather than CSS-hiding them — native
+   <select> popups don't reliably honor display:none on options across browsers. */
+var rtuAllRoomOptions = $('#rtuRoomFilter option[data-building]').detach();
+
+function syncRtuRoomOptions() {
+    var buildingId = $('#rtuBuildingFilter').val();
+    var $room = $('#rtuRoomFilter');
+    var currentRoom = $room.val();
+
+    rtuAllRoomOptions.detach();
+    var matched = rtuAllRoomOptions.filter(function () {
+        return !buildingId || $(this).data('building').toString() === buildingId;
+    });
+    matched.appendTo($room);
+
+    var stillValid = matched.filter(function () { return $(this).val() === currentRoom; }).length > 0;
+    if (!stillValid) { $room.val(''); }
+}
+
+$(document).ready(function () {
+    $('.su-filter-select2').select2({
+        width: 'style',
+        minimumResultsForSearch: 0
+    });
+
+    syncRtuRoomOptions(); // populate the Room dropdown with its full list on first load
+
+    $('#rtuBuildingFilter').on('change', function () {
+        syncRtuRoomOptions();
+        refreshRoomTypeChart();
+    });
+    $('#rtuRoomFilter').on('change', refreshRoomTypeChart);
+    $('#rtuClearBtn').on('click', function () {
+        $('#rtuBuildingFilter').val('');
+        $('#rtuRoomFilter').val('');
+        syncRtuRoomOptions();
+        refreshRoomTypeChart();
+    });
+});
+</script>

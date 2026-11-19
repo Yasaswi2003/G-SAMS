@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+.select2-container .select2-selection--single { height:31px !important; }
+.select2-container--default .select2-selection--single { background:#fff; border:1px solid #ced4da; border-radius:4px; }
+.select2-container--open { z-index:9999; }
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable { background:#007367 !important; color:#fff; }
+
+.card { border-radius:12px; border:1px solid #e3efec; box-shadow:0 2px 12px rgba(0,115,103,0.08); }
+.card-header { background:#f5faf9; border:1px solid #e0eeec; font-weight:600; color:#0b6b50; }
+.form-control, .form-select { border-radius:8px; border:1px solid #d9eeeb; font-size:13px; }
+.form-control:focus, .form-select:focus { border-color:#0b6b50; box-shadow:0 0 0 2px rgba(11,107,80,.10); }
+label { font-size:12px; font-weight:600; color:#4d6f6a; margin-bottom:4px; }
+
+/* ── TABLE ── */
+#permTable thead th {
+    background:#f5faf9; color:#0b6b50;
+    font-size:12px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.5px;
+    border-bottom:2px solid #e0eeec;
+}
+#permTable tbody tr:hover { background:#f5faf9; }
+#permTable tbody td { font-size:13px; color:#2d4f47; vertical-align:middle; }
+
+
+.level-badge {
+    padding:3px 10px; border-radius:20px;
+    font-size:11px; font-weight:700; display:inline-block;
+}
+.lv-campus   { background:#dbeafe; color:#1d4ed8; }
+.lv-building { background:#e6f3ee; color:#0b6b50; }
+.lv-block    { background:#ede9fe; color:#5b21b6; }
+.lv-floor    { background:#fef3c7; color:#92400e; }
+.lv-room     { background:#dcfce7; color:#166534; }
+.lv-global   { background:#f1f5f9; color:#475569; }
+
+.perm-yes { color:#166534; font-weight:700; font-size:13px; }
+.perm-no  { color:#cbd5e1; font-size:13px; }
+
+.status-active   { background:#dcfce7; color:#166534; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.status-inactive { background:#fee2e2; color:#991b1b; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+</style>
+
+<section class="content-container contentContainer" id="homeSection">
+<div class="d-flex flex-row justify-content-between">
+    <h3 class="page-title" style="color: #007367;
+    font-weight: 600;">{{ user.username }} || {{ user.first_name }} || {{ user.campus }} || {{ user.college_code }} || {{ user.dept_code }}</h3>
+    <div class="mb-1">
+        <a href="/staff" class="btn btn-primary btn-sm">
+          <i class="ri-corner-up-left-line"></i> Back
+        </a>
+    </div>
+</div>
+<div class="row mb-4">
+
+    <!-- FORM -->
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-shield-alt-2"></i> Add Access Permission</h6>
+            </div>
+            <div class="card-body">
+                <form id="permForm" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ user_id }}">
+
+                    <div class="row">
+                         <div class="col-md-2">
+                            <div class="form-group mb-2">
+                                <label>Campus</label>
+                                <select name="campus" id="pCampus" class="form-control form-select">
+                                    <option value="">— All Campuses —</option>
+                                    {% for c in campuses %}
+                                        <option value="{{ c.id }}">{{ c.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                         <div class="col-md-2">
+                            <div class="form-group mb-2">
+                                <label>Building</label>
+                                <select name="building" id="pBuilding" class="form-control form-select">
+                                    <option value="">— All Buildings —</option>
+                                </select>
+                            </div>
+                        </div>
+                         <div class="col-md-2">
+                            <div class="form-group mb-2">
+                                <label>Block</label>
+                                <select name="block" id="pBlock" class="form-control form-select">
+                                    <option value="">— All Blocks —</option>
+                                </select>
+                            </div>
+                        </div>
+                         <div class="col-md-2">
+                            <div class="form-group mb-2">
+                                <label>Floor</label>
+                                <select name="floor" id="pFloor" class="form-control form-select">
+                                    <option value="">— All Floors —</option>
+                                </select>
+                            </div>
+                        </div>
+                         <div class="col-md-2">
+                            <div class="form-group mb-2">
+                                <label>Room</label>
+                                <!-- CHANGE 1: added multiple, removed form-select, width:100% for Select2 -->
+                                <select name="room" id="pRoom" class="form-control" multiple style="width:100%;"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Access Level Preview -->
+                    <div id="levelPreview" style="background:#f0faf7;border:1px solid #b2e4d8;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#0b6b50;font-weight:600;display:none;">
+                        <i class="bx bx-info-circle"></i> Access Level: <span id="levelText"></span>
+                    </div>
+                    <div class="col-12 btns-group">
+                          <button class="btn btn-primary " type="submit">
+                            <i class="bx bx-shield-plus"></i> Save Permission
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="col-md-12 mt-2">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bx bx-list-check"></i> Access Permissions</h6>
+                <small class="text-muted">{{ permissions|length }} records</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="permTable" class="table table-bordered table-hover">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Campus</th>
+            <th>Building</th>
+            <th>Block</th>
+            <th>Floor</th>
+            <th>Room</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Created By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in permissions %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ p.campus.name|default:"—" }}</td>
+            <td>{{ p.building.name|default:"—" }}</td>
+            <td>{{ p.block.name|default:"—" }}</td>
+            <td>{{ p.floor.floor_label|default:"—" }}</td>
+            <td>{{ p.room.room_number|default:"—" }}</td>
+            <td>
+                <span class="{% if p.is_active %}status-active{% else %}status-inactive{% endif %}"
+                      style="cursor:pointer;" onclick="togglePerm({{ p.id }}, this)">
+                    {% if p.is_active %}Active{% else %}Inactive{% endif %}
+                </span>
+            </td>
+            <td>{{ p.created_at|date:"d M Y, H:i"|default:"—" }}</td>
+            <td>{{ p.createdby.first_name|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="9" style="text-align:center;color:#b0c4c0;padding:20px;">No permissions found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</section>
+
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+<script>
+$(document).ready(function () {
+
+    // CHANGE 2: init Select2 multi on room
+    $('#pRoom').select2({ placeholder: '— Select Rooms —', allowClear: true });
+
+    /* ── Floor → Rooms ── */
+    $('#pFloor').change(function () {
+        var floor_id = $(this).val();
+        // CHANGE 3: empty() + trigger('change') instead of html() so Select2 resets cleanly
+        $('#pRoom').empty().trigger('change');
+        updateLevelPreview();
+        if (!floor_id) return;
+        $.ajax({ url: '/workspace/get_rooms_by_floor', type: 'POST', data: { floor_id },
+            success: function (data) {
+                $.each(data.rooms, function (k, v) {
+                    $('#pRoom').append(new Option(v.room_number, v.id));
+                });
+                $('#pRoom').trigger('change');
+            }
+        });
+    });
+
+    $('#pRoom').on('change', updateLevelPreview);
+    $('#pCampus').change(function () {
+        var campus_id = $(this).val();
+        $('#pBuilding').html('<option value="">— All Buildings —</option>');
+        $('#pBlock').html('<option value="">— All Blocks —</option>');
+        $('#pFloor').html('<option value="">— All Floors —</option>');
+        $('#pRoom').empty().trigger('change');
+        updateLevelPreview();
+        if (!campus_id) return;
+        $.ajax({ url: '/workspace/get_buildings_by_campus', type: 'POST', data: { campus_id },
+            success: function (data) {
+                $.each(data.buildings, function (k, v) { $('#pBuilding').append('<option value="' + v.id + '">' + v.name + '</option>'); });
+            }
+        });
+    });
+
+    /* ── Building → Blocks ── */
+    $('#pBuilding').change(function () {
+        var building_id = $(this).val(), campus_id = $('#pCampus').val();
+        $('#pBlock').html('<option value="">— All Blocks —</option>');
+        $('#pFloor').html('<option value="">— All Floors —</option>');
+        $('#pRoom').empty().trigger('change');
+        updateLevelPreview();
+        if (!building_id) return;
+        $.ajax({ url: '/workspace/get_blocks_by_building_campus', type: 'POST', data: { building_id, campus_id },
+            success: function (data) {
+                $.each(data.block, function (k, v) { $('#pBlock').append('<option value="' + v.id + '">' + v.name + '</option>'); });
+            }
+        });
+    });
+
+    /* ── Block → Floors ── */
+    $('#pBlock').change(function () {
+        var block_id = $(this).val(), building_id = $('#pBuilding').val();
+        $('#pFloor').html('<option value="">— All Floors —</option>');
+        $('#pRoom').empty().trigger('change');
+        updateLevelPreview();
+        if (!block_id) return;
+        $.ajax({ url: '/workspace/get_floors_by_block', type: 'POST', data: { block_id, building_id },
+            success: function (data) {
+                $.each(data.floors, function (k, v) { $('#pFloor').append('<option value="' + v.id + '">' + v.floor_label + '</option>'); });
+            }
+        });
+    });
+
+    /* ── DataTable ── */
+    $('#permTable').DataTable({ dom: 'Bfrtip', buttons: ['excel'], pageLength: 10 });
+
+    $('#overlay').fadeOut();
+});
+
+/* ── Level Preview ── */
+function updateLevelPreview() {
+    var level = '';
+    if ($('#pRoom').val() && $('#pRoom').val().length) level = 'Room Level';
+    else if ($('#pFloor').val())    level = 'Floor Level';
+    else if ($('#pBlock').val())    level = 'Block Level';
+    else if ($('#pBuilding').val()) level = 'Building Level';
+    else if ($('#pCampus').val())   level = 'Campus Level';
+    else                            level = 'Global (No Restriction)';
+    $('#levelText').text(level);
+    $('#levelPreview').show();
+}
+
+/* ── Toggle Active/Inactive ── */
+function togglePerm(id, el) {
+    $.ajax({
+        url: '/workspace/toggle_permission', type: 'POST',
+        data: { perm_id: id, csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').first().val() },
+        success: function (r) {
+            if (r.status === 200) {
+                $(el).text(r.active ? 'Active' : 'Inactive');
+                $(el).attr('class', r.active ? 'status-active' : 'status-inactive');
+            }
+        }
+    });
+}
+
+/* ── Form Submit ── */
+$('#permForm').validate({
+    rules: {
+        'campus':{
+            required:true
+        },
+        'building':{
+            required:true
+        },
+        'floor':{
+            required:true
+        },
+        'block':{
+            required:true
+        },
+        'room':{
+            required:true
+        }
+    },
+    errorElement: 'div',
+    submitHandler: function (form) {
+        // At least one scope field must be selected
+        var campus   = $('#pCampus').val();
+        var building = $('#pBuilding').val();
+        var block    = $('#pBlock').val();
+        var floor    = $('#pFloor').val();
+        var rooms    = $('#pRoom').val();   // array for multi-select
+
+        var hasScope = campus || building || block || floor || (rooms && rooms.length > 0);
+        if (!hasScope) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Scope Required',
+                text: 'Please select at least one access scope (Campus, Building, Block, Floor, or Room).',
+                confirmButtonColor: '#0b6b50'
+            });
+            return false;
+        }
+        Swal.fire({
+            title: 'Save Permission?', text: 'Do you want to save this access permission?',
+            icon: 'question', showCancelButton: true,
+            confirmButtonColor: '#0b6b50', cancelButtonColor: '#d33', confirmButtonText: 'Yes, Save'
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: '', type: 'POST', data: $(form).serialize(),
+                    beforeSend: function () { $('#overlay').fadeIn(); },
+                    success: function (r) {
+                        $('#overlay').fadeOut();
+                        if (r.status === 200) {
+                            Swal.fire({ icon: 'success', title: 'Saved!', text: r.message, timer: 1800, showConfirmButton: false });
+                            setTimeout(function () { location.reload(); }, 1800);
+                        } else if (r.status === 300) {
+                            Swal.fire({ icon: 'warning', title: 'Warning', text: r.message, confirmButtonColor: '#0b6b50' });
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong' });
+                        }
+                    },
+                    error: function () { $('#overlay').fadeOut(); Swal.fire('Error', 'Something went wrong', 'error'); }
+                });
+            }
+        });
+    }
+});
+
+$('#overlay').fadeIn();
+$(function () { $('#overlay').fadeOut(); });
+</script>
+
+{% endblock %}

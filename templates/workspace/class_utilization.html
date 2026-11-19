@@ -1,0 +1,1421 @@
+{% extends timetable_layout|default:'base.html' %}
+{% load static %}
+{% block body %}
+<style>
+/* ================================================================
+   CLASS UTILIZATION — GITAM Project Colors
+   Primary:  #007367  (GITAM Teal)
+   Dark:     #005a51
+   Mid:      #009688
+   Light bg: #f0faf9 / #e6f5f2
+   Text:     #0d3d35 / #2d6b62
+   ================================================================ */
+
+/* ── Page shell ── */
+.cu-page {
+    min-height: calc(100vh - 70px);
+    padding: 24px 28px 40px;
+    background: linear-gradient(160deg, #e9f7f5 0%, #f4f9f8 220px, #f7f9fb 100%);
+    color: #0d3d35;
+}
+
+/* ── Header banner ── */
+.cu-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-height: 108px;
+    margin-bottom: 20px;
+    padding: 22px 28px;
+    border-radius: 20px;
+    background: linear-gradient(120deg, #005a51 0%, #007367 55%, #00a896 100%);
+    box-shadow: 0 10px 32px rgba(0, 90, 81, .22), inset 0 1px 0 rgba(255,255,255,.12);
+    color: #fff;
+    overflow: hidden;
+}
+.cu-header::before {
+    content: "";
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.06);
+    pointer-events: none;
+}
+.cu-header::after {
+    content: "";
+    position: absolute;
+    bottom: -60px; right: 80px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.04);
+    pointer-events: none;
+}
+.cu-header h1 {
+    position: relative;
+    margin: 0 0 5px;
+    color: #fff;
+    font-size: clamp(20px, 2.4vw, 26px);
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -.01em;
+}
+.cu-header h1 i { opacity: .9; }
+.cu-header p { margin: 0; color: rgba(255,255,255,.8); font-size: 13px; position: relative; }
+.cu-header-actions { display: flex; align-items: center; gap: 10px; position: relative; }
+.cu-source-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1.5px solid rgba(255,255,255,.35);
+    border-radius: 999px;
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+}
+
+/* ── Info notice ── */
+.cu-data-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border: 1px solid #b2ddd5;
+    border-left: 4px solid #007367;
+    border-radius: 12px;
+    background: #eaf6f4;
+    color: #2d6b62;
+    font-size: 12.5px;
+    line-height: 1.55;
+}
+.cu-data-notice i { margin-top: 2px; color: #007367; font-size: 18px; flex-shrink: 0; }
+
+/* ── Cards shared ── */
+.cu-filter-card, .cu-panel {
+    border: 1px solid #d4e9e5;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 4px 18px rgba(0, 90, 81, .07);
+}
+.cu-filter-card { margin-bottom: 16px; padding: 20px; }
+
+/* ── Filter form ── */
+.cu-filter-form {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    align-items: end;
+    gap: 14px;
+}
+.cu-filter-field label {
+    display: block;
+    margin-bottom: 6px;
+    color: #3d7a72;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.cu-filter-field select, .cu-filter-field input {
+    width: 100%;
+    height: 42px;
+    min-width: 0;
+    border: 1.5px solid #c0dbd6;
+    border-radius: 10px;
+    padding: 0 12px;
+    background: #f9fdfc;
+    color: #0d3d35;
+    font-size: 13px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.cu-filter-field select:focus, .cu-filter-field input:focus {
+    border-color: #007367;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 115, 103, .13);
+    background: #fff;
+}
+.cu-semester-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 13px;
+    border: 1.5px solid #8ecfc7;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #e0f4f1, #f0faf8);
+    color: #005a51;
+    font-weight: 700;
+    font-size: 13px;
+}
+.cu-semester-badge i { font-size: 17px; color: #007367; }
+.cu-semester-badge small {
+    margin-left: auto;
+    font-size: 9.5px;
+    color: #005a51;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(0,115,103,.15);
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: .05em;
+}
+.cu-filter-actions { display: flex; gap: 8px; grid-column: 1 / -1; justify-content: flex-end; }
+
+/* ── Buttons ── */
+.cu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-size: 12.5px;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: .02em;
+    transition: transform .12s, box-shadow .15s, background .15s, border-color .15s;
+}
+.cu-button:hover { transform: translateY(-1px); }
+.cu-button-primary {
+    background: linear-gradient(135deg, #007367, #009688);
+    color: #fff;
+    border-color: #006358;
+    box-shadow: 0 3px 10px rgba(0,115,103,.25);
+}
+.cu-button-primary:hover { box-shadow: 0 6px 18px rgba(0,115,103,.35); }
+.cu-button-secondary {
+    border-color: #b8d9d4;
+    background: #fff;
+    color: #2d6b62;
+}
+.cu-button-secondary:hover { background: #f0faf8; border-color: #007367; }
+.cu-button-danger { background: linear-gradient(135deg,#dc2626,#b91c1c); color: #fff; box-shadow: 0 3px 8px rgba(220,38,38,.22); }
+.cu-button-danger:hover { box-shadow: 0 5px 14px rgba(220,38,38,.32); }
+.cu-button-success { background: linear-gradient(135deg,#16a34a,#15803d); color: #fff; box-shadow: 0 3px 8px rgba(22,163,74,.22); }
+.cu-button-success:hover { box-shadow: 0 5px 14px rgba(22,163,74,.32); }
+.cu-filter-clear { border-color: #b9d4ce; color: #4a7a73; }
+
+/* ── Stats strip ── */
+.cu-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 0 0 16px;
+}
+.cu-stat {
+    position: relative;
+    overflow: hidden;
+    min-height: 100px;
+    padding: 16px 18px;
+    border: 1px solid #d4e9e5;
+    border-top: 3px solid #007367;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(0, 90, 81, .07);
+    transition: transform .15s, box-shadow .15s;
+}
+.cu-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,90,81,.12); }
+.cu-stat::after {
+    content: "";
+    position: absolute;
+    top: -28px; right: -22px;
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #e0f4f1 0%, transparent 70%);
+}
+.cu-stat-label {
+    position: relative; z-index: 1;
+    color: #5a8880;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.cu-stat-value {
+    position: relative; z-index: 1;
+    margin-top: 7px;
+    color: #005a51;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.cu-stat-note {
+    position: relative; z-index: 1;
+    margin-top: 4px;
+    color: #8aada8;
+    font-size: 11px;
+}
+
+/* ── Timetable panel ── */
+.cu-panel { overflow: hidden; margin-bottom: 22px; }
+.cu-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 22px;
+    border-bottom: 1px solid #e0eeed;
+    background: linear-gradient(90deg, #f5fbfa, #fff);
+}
+.cu-panel-head h2 { margin: 0; color: #005a51; font-size: 16px; font-weight: 800; }
+.cu-panel-head p { margin: 4px 0 0; color: #6a908a; font-size: 12px; }
+.cu-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Weekend toggle bar ── */
+.cu-weekend-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 22px;
+    background: linear-gradient(90deg, #eaf7f4, #f5fbf9);
+    border-bottom: 1px solid #d0ece6;
+}
+.cu-weekend-toggle-wrap { display: flex; align-items: center; gap: 12px; }
+.cu-weekend-prompt {
+    font-size: 13px;
+    font-weight: 700;
+    color: #005a51;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.cu-weekend-prompt i { font-size: 17px; color: #007367; }
+.cu-weekend-hint { font-size: 12px; color: #5a8880; }
+
+/* ── Toggle switch ── */
+.cu-switch { position: relative; display: inline-block; width: 46px; height: 25px; vertical-align: middle; margin: 0; }
+.cu-switch input { opacity: 0; width: 0; height: 0; }
+.cu-slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #c8d8d5;
+    transition: .25s;
+    border-radius: 25px;
+}
+.cu-slider:before {
+    position: absolute; content: "";
+    height: 19px; width: 19px;
+    left: 3px; bottom: 3px;
+    background-color: #fff;
+    transition: .25s;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,.2);
+}
+.cu-switch input:checked + .cu-slider { background-color: #007367; }
+.cu-switch input:checked + .cu-slider:before { transform: translateX(21px); }
+.cu-weekend-status-text { font-size: 12px; font-weight: 700; color: #005a51; }
+
+/* ══════════════════════════════════════════════
+   TIMETABLE GRID  — Medium
+   ══════════════════════════════════════════════ */
+.cu-grid-wrap {
+    overflow-x: auto;
+    border-radius: 0 0 18px 18px;
+}
+.cu-grid {
+    width: 100%;
+    min-width: 650px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+
+/* ── Column headers ── */
+.cu-grid thead tr {
+    background: linear-gradient(135deg, #005a51 0%, #007367 60%, #009688 100%);
+}
+.cu-grid thead th {
+    padding: 11px 8px 10px;
+    border-bottom: 2px solid #005a51;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+.cu-grid thead th:not(:first-child) {
+    border-left: 1px solid rgba(255,255,255,.12);
+}
+.cu-grid thead th:first-child {
+    width: 82px;
+    background: rgba(0,0,0,.14);
+    font-size: 9px;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.7);
+}
+.cu-day-pill {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: .03em;
+}
+.cu-day-date {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+    min-width: 28px;
+    height: 19px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+    color: rgba(255,255,255,.9);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* ── Time column ── */
+.cu-grid tbody th {
+    width: 82px;
+    padding: 0 6px;
+    border-bottom: 1px solid #e0eee9;
+    border-right: 2px solid #c8e4de;
+    background: linear-gradient(90deg, #eaf6f3, #f4fbf9);
+    color: #2d6b62;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    height: 44px;
+}
+.cu-time-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 0;
+}
+.cu-time-label .cu-time-hr {
+    font-size: 11px;
+    font-weight: 800;
+    color: #005a51;
+    line-height: 1.3;
+}
+.cu-time-label .cu-time-sep {
+    font-size: 8px;
+    color: #9abfb8;
+    font-weight: 400;
+    line-height: 1;
+}
+
+/* ── Data cells ── */
+.cu-grid td {
+    min-width: 110px;
+    padding: 4px 5px;
+    border-bottom: 1px solid #e0eee9;
+    border-left: 1px solid #eaf3f0;
+    background: #fff;
+    vertical-align: middle;
+    height: 44px;
+    max-height: 44px;
+}
+.cu-grid tbody tr:nth-child(even) td { background: #fafdfb; }
+.cu-grid tbody tr:hover td { background: #f1faf7 !important; transition: background .15s; }
+.cu-grid tbody tr:hover th { background: linear-gradient(90deg, #d8efe9, #e8f6f2); }
+
+/* Cell inner wrapper — clips overflow chips */
+.cu-cell-inner {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* "+N more" overflow badge */
+.cu-more-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 26px;
+    min-width: 32px;
+    padding: 0 6px;
+    border-radius: 5px;
+    background: #e53e3e;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .03em;
+    cursor: pointer;
+    white-space: nowrap;
+    border: none;
+    transition: background .12s, transform .1s;
+}
+.cu-more-badge:hover { background: #c53030; transform: scale(1.06); }
+
+/* Popover list that opens when +N clicked */
+.cu-overflow-pop {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 9999;
+    min-width: 180px;
+    max-width: 240px;
+    padding: 6px;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,.14);
+    display: none;
+    flex-direction: column;
+    gap: 3px;
+}
+.cu-overflow-pop.open { display: flex; }
+.cu-overflow-pop .cu-slot-booked {
+    width: 100%;
+    flex-shrink: 0;
+}
+
+/* ── BOOKED chip ── */
+.cu-slot-booked {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    height: 30px;
+    margin: 1px 0;
+    padding: 0 8px 0 6px;
+    background: #e0f4e8;
+    border: 1px solid #8ac5a1;
+    border-left: 3px solid #2f9965;
+    border-radius: 5px;
+    color: #166534;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform .1s, box-shadow .12s, background .1s;
+    white-space: nowrap;
+}
+.cu-slot-booked:hover {
+    transform: translateY(-1px);
+    background: #d3eedf;
+    border-color: #2f9965;
+    box-shadow: 0 2px 8px #2f99652e;
+}
+.cu-slot-user-booking {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    border-left-color: #f59e0b;
+    color: #92400e;
+}
+.cu-slot-user-booking:hover {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    box-shadow: 0 2px 8px rgba(245,158,11,.18);
+}
+.cu-slot-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2f9965;
+}
+.cu-slot-user-booking .cu-slot-dot { background: #f59e0b; }
+.cu-slot-code {
+    font-size: 11px;
+    font-weight: 800;
+    color: inherit;
+    letter-spacing: .01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+.cu-slot-user-booking .cu-slot-code { color: #92400e; }
+.cu-slot-view-hint {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: #fca5a5;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.cu-slot-booked:hover .cu-slot-view-hint { opacity: 1; }
+.cu-slot-user-booking .cu-slot-view-hint { color: #fcd34d; }
+.cu-slot-faculty { display: none !important; }
+.cu-tag-booked  { display: none !important; }
+
+/* ── AVAILABLE chip ── */
+.cu-slot-available {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    background: linear-gradient(90deg, #e8faf5, #f0fdf8);
+    border: 1px dashed #4db89d;
+    border-radius: 5px;
+    color: #005a51;
+    font-size: 10.5px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: .04em;
+    transition: transform .1s, box-shadow .12s, background .1s, border-color .1s;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.cu-slot-available:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(90deg, #ccf7ec, #d1fae5);
+    border-color: #007367;
+    border-style: solid;
+    box-shadow: 0 2px 10px rgba(0,115,103,.18);
+    color: #004d44;
+}
+.cu-slot-available i { font-size: 12px; color: #007367; flex-shrink: 0; }
+.cu-slot-available span { font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+
+/* ── Passed / No room ── */
+.cu-no-availability {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    height: 30px;
+    color: #cdd5d2;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+/* ── Legend bar ── */
+.cu-grid-legend {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 9px 18px;
+    border-top: 1px solid #ddeee9;
+    background: linear-gradient(90deg, #f2faf8, #fff);
+    color: #5a8880;
+    font-size: 10.5px;
+    border-radius: 0 0 18px 18px;
+}
+.cu-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #4a7a73;
+}
+.cu-legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.cu-legend-dot-booked { background: #2f9965; }
+.cu-legend-dot-pending { background: #f59e0b; }
+.cu-legend-dot-avail { background: #007367; }
+.cu-legend-dot-pending { background: #d97706; }
+.cu-legend-dot-avail { background: #007367; }
+
+/* ── Dialog (modal) ── */
+.cu-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    width: min(540px, calc(100vw - 32px)) !important;
+    max-height: 85vh !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 20px !important;
+    color: #0d3d35;
+    box-shadow: 0 30px 90px rgba(0,0,0,.38) !important;
+    z-index: 100000 !important;
+}
+.cu-dialog::backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 40, 35, .62) !important;
+    backdrop-filter: blur(6px) !important;
+    z-index: 99999 !important;
+}
+.cu-dialog-shell { padding: 26px 28px; max-height: 85vh; overflow-y: auto; }
+.cu-dialog-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #d8eeea;
+}
+.cu-dialog-title {
+    margin: 0;
+    color: #005a51;
+    font-size: 19px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cu-dialog-subtitle { margin: 4px 0 0; color: #6a908a; font-size: 12px; }
+.cu-dialog-close {
+    width: 34px; height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: #edf7f5;
+    color: #3a6960;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .15s;
+}
+.cu-dialog-close:hover { background: #d4ede8; color: #0d3d35; }
+
+.cu-confirm-banner {
+    margin: 0 0 16px;
+    padding: 13px 15px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e6f7f4, #edf9f6);
+    border: 1px solid #a8ddd4;
+    color: #005a51;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+.cu-confirm-banner i { font-size: 21px; color: #007367; flex-shrink: 0; }
+
+/* Dialog form fields */
+.cu-dialog-field {
+    display: block;
+    margin: 0 0 13px;
+    color: #3d7a72;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.cu-dialog-field input, .cu-dialog-field select, .cu-dialog-field textarea {
+    display: block;
+    width: 100%;
+    margin-top: 5px;
+    border: 1.5px solid #c0dbd6;
+    border-radius: 9px;
+    padding: 8px 12px;
+    color: #0d3d35;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    background: #f9fdfc;
+    transition: border-color .15s, box-shadow .15s;
+}
+.cu-dialog-field input:focus, .cu-dialog-field select:focus, .cu-dialog-field textarea:focus {
+    border-color: #007367;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0,115,103,.12);
+    background: #fff;
+}
+.cu-dialog-field textarea { min-height: 72px; resize: vertical; }
+.cu-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #d8eeea;
+}
+.cu-dialog-error {
+    margin: 0 0 14px;
+    padding: 11px 14px;
+    border-radius: 9px;
+    background: #fff1f0;
+    color: #a52a21;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid #fecaca;
+}
+.cu-dialog-success {
+    margin: 0 0 14px;
+    padding: 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg,#e6f7f4,#f0fdf4);
+    color: #005a51;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #a8ddd4;
+    text-align: center;
+}
+.cu-dialog-success i { font-size: 34px; display: block; margin-bottom: 7px; color: #007367; }
+
+/* ── Empty states ── */
+.cu-empty-state {
+    margin: 20px;
+    padding: 40px 20px;
+    text-align: center;
+    color: #5a8880;
+    border: 1.5px dashed #b8d9d4;
+    border-radius: 14px;
+    background: linear-gradient(135deg,#f5fbfa,#edf9f6);
+}
+
+/* ── Responsive ── */
+@media (max-width:1100px) { .cu-filter-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width:760px) {
+    .cu-page { padding: 16px 14px 28px; }
+    .cu-header { flex-direction: column; align-items: flex-start; padding: 20px; }
+    .cu-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cu-panel-head { flex-direction: column; align-items: flex-start; }
+    .cu-filter-actions { justify-content: stretch; }
+    .cu-filter-actions .cu-button { flex: 1; }
+    .cu-weekend-bar { flex-direction: column; align-items: flex-start; }
+}
+.cu-status-pending{background:#fff4d6!important;border-color:#df9a27!important;color:#a65a08!important}.cu-status-hod_rejected,.cu-status-admin_rejected{background:#ffe7e8!important;border-color:#d96570!important;color:#a72e3a!important}.cu-status-hod_approved,.cu-status-confirmed{background:#e0f4e8!important;border-color:#54a97c!important;color:#166534!important}.cu-status-cancelled{background:#eee!important;color:#666!important}.swal2-container{z-index:100010!important}.cb-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:left}.cb-popup-form label{display:grid;gap:6px;text-align:left;font-size:13px}.cb-popup-form input,.cb-popup-form select,.cb-popup-form textarea{width:100%;padding:10px;border:1px solid #b8d3ca;border-radius:7px;box-sizing:border-box;font-size:14px}.cb-duration{display:flex;align-items:center;gap:8px}.cb-duration button{background:#007367;color:white;border:0;border-radius:7px;padding:10px 15px}.cb-duration input{width:58px;text-align:center}.cb-duration button:disabled{opacity:.35}.cb-time-range{padding:10px;background:#eef8f4;color:#007367;font-weight:600}@media(max-width:600px){.cb-grid{grid-template-columns:1fr}}
+
+/* Roomy weekly calendar with readable faculty and subject cards. */
+.cu-grid-wrap{border:1px solid #deebe6;border-radius:14px;margin:0 18px 18px;background:#fff}
+.cu-grid{table-layout:fixed;min-width:1020px;font-size:13px}
+.cu-grid thead tr{background:#f3f8f6}
+.cu-grid thead th{padding:18px 12px;background:#f3f8f6;border-bottom:1px solid #d7e8e1;border-left:1px solid #e0ece6;color:#195c51;text-transform:none;letter-spacing:0}
+.cu-grid thead th:first-child{width:104px;background:#eaf3ef;color:#476f62}
+.cu-grid thead th:first-child span{font-size:11px!important}
+.cu-day-pill{font-size:14px;font-weight:700;color:#155f52;letter-spacing:0}
+.cu-day-date{background:#e1eee7;color:#557568;font-size:11px;padding:3px 10px;height:auto;margin-top:7px}
+.cu-grid tbody th{width:104px;background:#f5f9f7;border-right:1px solid #dce9e2;padding:14px 8px;vertical-align:top;height:94px}
+.cu-time-label{gap:5px;padding:7px 0}.cu-time-label .cu-time-hr{font-size:13px;font-weight:700;color:#315e50}.cu-time-label .cu-time-sep{font-size:10px;color:#8aa195}
+.cu-grid td{padding:10px;vertical-align:top;height:94px;max-height:none;border-color:#e6eee9;background:white}
+.cu-grid tbody tr:nth-child(even) td{background:#fcfdfc}
+.cu-cell-inner{flex-direction:column;align-items:stretch;gap:8px;overflow:visible}
+.cu-grid .cu-slot-booked{display:flex;align-items:flex-start;gap:8px;height:auto;min-height:98px;padding:12px 10px;border-radius:10px;white-space:normal;overflow:visible;border-left-width:3px;box-shadow:0 2px 5px #17473e06}
+.cu-slot-content{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.cu-grid .cu-slot-code{display:block;flex:none;font-size:12px;line-height:1.4;color:inherit;overflow:visible;white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+.cu-slot-state{font-size:10px;font-weight:800;line-height:1.5;letter-spacing:.2px;color:inherit}
+.cu-slot-subject{font-size:11px;font-weight:500;line-height:1.5;color:inherit;opacity:.85;overflow-wrap:anywhere}
+.cu-grid .cu-slot-faculty{display:flex!important;align-items:flex-start;gap:5px;font-size:12px;font-weight:600;line-height:1.5;color:inherit;overflow-wrap:anywhere;margin-top:3px}
+.cu-slot-faculty i{font-size:14px;margin-top:2px}.cu-slot-room{font-size:10px;line-height:1.5;opacity:.7;color:inherit}
+.cu-slot-dot{margin-top:5px}.cu-slot-view-hint{margin-top:3px;opacity:.6;color:inherit!important}
+.cu-grid .cu-slot-available{min-height:66px;height:auto;padding:14px 8px;border-radius:10px;background:#f2fbf7;border-color:#8cc8b5;color:#176d56;gap:8px}
+.cu-grid .cu-slot-available span{font-size:12px;letter-spacing:.03em}.cu-grid .cu-slot-available i{font-size:16px}
+.cu-status-hod_approved .cu-slot-dot,.cu-status-confirmed .cu-slot-dot{background:#2f9965}.cu-status-hod_rejected .cu-slot-dot,.cu-status-admin_rejected .cu-slot-dot{background:#cd5265}.cu-status-cancelled .cu-slot-dot{background:#88928b}
+.cu-grid .cu-no-availability{padding:20px 6px;line-height:1.6;white-space:normal}.cu-grid-legend{gap:16px;padding:16px 20px}
+@media(max-width:700px){.cu-grid-wrap{margin:0 10px 12px}.cu-grid{min-width:960px}.cu-grid td{padding:8px}.cu-grid thead th:first-child,.cu-grid tbody th{width:86px}}
+
+/* Compact timetable sizing. */
+.cu-grid-wrap{margin:0 12px 12px}
+.cu-grid{min-width:800px;font-size:11px}
+.cu-grid thead th{padding:10px 7px}
+.cu-grid thead th:first-child,.cu-grid tbody th{width:76px}
+.cu-day-pill{font-size:12px}.cu-day-date{font-size:10px;padding:2px 7px;margin-top:4px}
+.cu-grid tbody th{height:62px;padding:8px 5px}
+.cu-time-label{gap:2px;padding:3px 0}.cu-time-label .cu-time-hr{font-size:11px}.cu-time-label .cu-time-sep{font-size:9px}
+.cu-grid td{height:62px;padding:6px;min-width:100px}
+.cu-cell-inner{gap:5px}
+.cu-grid .cu-slot-booked{min-height:0;padding:7px 8px;gap:6px;border-radius:7px}
+.cu-slot-content{gap:2px}.cu-grid .cu-slot-code{font-size:11px;line-height:1.3}
+.cu-slot-state{font-size:9px;line-height:1.35;letter-spacing:0}
+.cu-slot-subject{font-size:10px;line-height:1.3}
+.cu-grid .cu-slot-faculty{font-size:10px;line-height:1.35;margin-top:2px;gap:4px}
+.cu-slot-faculty i{font-size:11px;margin-top:1px}.cu-slot-room{font-size:9px;line-height:1.3}
+.cu-grid .cu-slot-available{min-height:38px;padding:8px 5px;border-radius:7px;gap:5px}
+.cu-grid .cu-slot-available span{font-size:10px}.cu-grid .cu-slot-available i{font-size:13px}
+.cu-grid .cu-no-availability{padding:10px 4px;font-size:10px}
+.cu-grid-legend{gap:12px;padding:10px 14px}
+@media(max-width:700px){.cu-grid{min-width:760px}.cu-grid thead th:first-child,.cu-grid tbody th{width:66px}.cu-grid td{padding:5px}}
+
+/* Compact two-line cards; all remaining information is in the detail popup. */
+.cu-grid-wrap{max-width:980px;width:calc(100% - 24px);margin:0 auto 12px;max-height:540px;overflow:auto;scrollbar-width:thin}
+.cu-grid{min-width:720px;font-size:11px}
+.cu-grid thead th{position:sticky;top:0;z-index:3;padding:9px 6px}
+.cu-grid thead th:first-child,.cu-grid tbody th{width:64px;position:sticky;left:0}
+.cu-grid thead th:first-child{z-index:4}.cu-grid tbody th{z-index:2;height:46px;padding:5px 4px;background:#f2f7f4}
+.cu-grid td{height:46px;padding:4px 5px;min-width:96px}
+.cu-time-label{padding:1px 0;gap:1px}.cu-time-label .cu-time-hr{font-size:10px}.cu-time-label .cu-time-sep{font-size:8px}
+.cu-grid .cu-slot-booked{min-height:40px;padding:6px 7px;gap:5px;border-radius:6px;margin:0;align-items:center}
+.cu-slot-content{gap:2px}.cu-grid .cu-slot-code{font-size:10px;line-height:1.25;letter-spacing:0}
+.cu-grid .cu-slot-faculty{display:block!important;font-size:10px;font-weight:500;line-height:1.25;margin:0;white-space:normal;overflow-wrap:anywhere}
+.cu-slot-dot{width:5px;height:5px;margin:0}.cu-slot-view-hint{font-size:12px;margin:0;opacity:.45}
+.cu-grid .cu-slot-available{min-height:32px;padding:6px;border-radius:6px}.cu-grid .cu-slot-available span{font-size:9px}
+.cu-grid .cu-slot-booked:focus-visible,.cu-grid .cu-slot-available:focus-visible{outline:2px solid #007367;outline-offset:2px}
+.cu-grid .cu-slot-booked:hover .cu-slot-view-hint{opacity:1}.cu-grid thead th.cu-day-today{background:#dcefe5;box-shadow:inset 0 -3px #008574}
+.cu-calendar-help{font-size:11px!important}
+.cu-grid .cu-slot-passed {
+    min-height: 30px;
+    padding: 4px;
+    background: transparent !important;
+    border: 0 !important;
+    color: #cdd5d2 !important;
+    text-align: center;
+    box-shadow: none;
+}
+.cu-grid .cu-slot-passed:hover { transform: none; }
+.cu-grid .cu-slot-passed .cu-slot-code,
+.cu-grid .cu-slot-passed .cu-slot-faculty,
+.cu-grid .cu-slot-passed .cu-slot-state {
+    font-size: 10px;
+    font-weight: 600;
+}
+.cu-grid .cu-slot-passed .cu-slot-dot,
+.cu-grid .cu-slot-passed .cu-slot-view-hint { display: none; }
+.swal2-popup.cu-class-details-popup {
+    max-width: calc(100vw - 32px);
+    padding: 24px;
+    border: 1px solid #d5e8e0;
+    border-radius: 14px;
+    color: #193f39;
+}
+.cu-class-details-popup .swal2-html-container { margin: 0; padding: 0; }
+.cu-class-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    text-align: left;
+    line-height: normal;
+}
+.cu-class-details > div {
+    padding: 12px;
+    background: #f4f9f6;
+    border-radius: 7px;
+}
+.cu-class-details dt {
+    margin: 0 0 4px;
+    color: #72877d;
+    font-size: var(--font-size-label);
+    font-weight: var(--font-weight-label);
+    letter-spacing: var(--letter-spacing-body);
+    text-transform: uppercase;
+}
+.cu-class-details dd { margin: 0; font-size: 12px; font-weight: 550; overflow-wrap: anywhere; white-space: pre-wrap; }
+@media (max-width: 600px) {
+    .swal2-popup.cu-class-details-popup { max-width: calc(100vw - 24px); padding: 18px; }
+    .cu-class-details { grid-template-columns: minmax(0, 1fr); }
+}
+@media(max-width:700px){.cu-grid{min-width:680px}.cu-grid thead th:first-child,.cu-grid tbody th{width:58px}.cu-grid-wrap{width:calc(100% - 16px)}}
+.cu-booking-focus{display:flex;gap:12px;align-items:flex-start;padding:14px 18px;margin-bottom:18px;background:#edf7f2;border:1px solid #b6d9c9;border-radius:12px;color:#225c48;font-size:13px;line-height:1.7}.cu-booking-focus>i{font-size:22px;margin-top:3px}.cu-grid td.cu-selected-booking-period{background:#fff8df!important;box-shadow:inset 3px 0 #dba633,inset -3px 0 #dba633}.cu-grid td.cu-selected-booking-period:after{content:'';pointer-events:none;position:absolute;inset:0;border-top:1px solid #e3bf62;border-bottom:1px solid #e3bf62}.cu-grid:has(thead th:nth-child(2):last-child){max-width:100%;min-width:320px}.cu-grid:has(thead th:nth-child(2):last-child) td .cu-cell-inner{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.cu-grid:has(thead th:nth-child(2):last-child) .cu-slot-booked{width:100%}
+.cu-status-changes_requested{background:#fff2d6!important;border-color:#d5b36b!important;color:#875c19!important}
+</style>
+
+{{ revision_context|json_script:'cu-revision-context' }}
+<main class="classroom-design cu-page{% if timetable_popup %} cu-popup-page{% endif %}">
+    {% if timetable_popup %}
+    <form id="cuFilterForm" method="get" hidden>
+        <input type="hidden" name="timetable_popup" value="1">
+        {% if maintenance_picker %}<input type="hidden" name="maintenance_picker" value="1">{% endif %}
+        <input type="hidden" name="campus" value="{{ selected_campus }}">
+        <input type="hidden" name="building" value="{{ selected_building }}">
+        <input type="hidden" name="floor" value="{{ selected_floor }}">
+        <input type="hidden" name="room" value="{{ selected_room_key }}">
+        <input type="hidden" name="date" value="{{ selected_date }}">
+        <input type="hidden" name="q" value="{{ search }}">
+        <input type="hidden" name="include_weekends" id="cuIncludeWeekendsHidden" value="{% if include_weekends %}1{% else %}0{% endif %}">
+        {% if revision_context %}<input type="hidden" name="revision" value="{{ revision_context.token }}">{% endif %}
+    </form>
+    {% else %}
+    <header class="cu-header">
+        <div>
+            <h1>Classroom Utilization</h1>
+            <p>Analyze classroom usage across campus and time slots.</p>
+        </div>
+        <div class="cu-header-actions">
+            {% if booking_role == 'ADMIN' and not selected_building %}<a class="cu-button cu-button-secondary" href="{% url 'classroom_maintenance' %}">Manage Maintenance</a>{% endif %}
+            {% if revision_popup %}<a class="cu-button cu-button-primary" href="{{ revision_context.return_url }}" data-revision-back>Back to Form</a>{% endif %}
+            <span class="cu-source-label"><span class="cu-live-dot" aria-hidden="true"></span> Live Schedule</span>
+        </div>
+    </header>
+
+    {% if data_error %}
+    <div class="cu-data-notice" role="alert" style="background:#fff1f0;border-color:#fecaca;color:#a52a21;">
+        <i class="bx bx-error-circle" style="color:#dc2626;"></i>
+        <div>{{ data_error }}</div>
+    </div>
+    {% endif %}
+
+    {% if not revision_popup %}{% include 'workspace/utilization_overview.html' %}{% endif %}
+    <!-- Filter Card: Day filter removed; Semester auto-updated -->
+    <section class="cu-filter-card" aria-label="Schedule filters">
+        <form class="cu-filter-form" id="cuFilterForm" method="get">
+            {% if revision_context %}<input type="hidden" name="revision" value="{{ revision_context.token }}">{% endif %}
+            {% if revision_popup %}<input type="hidden" name="revision_popup" value="1">{% endif %}
+            {% if not show_schedule %}<input type="hidden" name="include_after_hours" value="{% if include_after_hours %}1{% else %}0{% endif %}">{% endif %}
+            <input type="hidden" name="include_weekends" id="cuIncludeWeekendsHidden" value="{% if include_weekends %}1{% else %}0{% endif %}">
+
+            
+            <div class="cu-filter-field"><label for="cuSemester">Academic Semester</label><input id="cuSemester" value="{{ current_semester }}" readonly aria-label="Academic semester, automatically selected from the timetable date" title="Updates automatically for the selected date: July?December ODD; January?June EVEN"></div>
+            <div class="cu-filter-field">
+                <label for="cuCampus">Campus</label>
+                <select id="cuCampus" name="campus">
+                    <option value="">Select campus</option>
+                    {% for campus in campuses %}
+                    <option value="{{ campus.key }}" {% if selected_campus == campus.key %}selected{% endif %}>{{ campus.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if selected_campus %}<div class="cu-filter-field">
+                <label for="cuBuilding">Building</label>
+                <select id="cuBuilding" name="building">
+                    <option value="">Select building</option>
+                    {% for building in buildings %}
+                    <option value="{{ building.key }}" {% if selected_building == building.key %}selected{% endif %}>{{ building.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% endif %}
+            <input type="hidden" name="floor" id="cuFloor" value="{{ selected_floor }}">
+            {% if selected_room_key %}<input type="hidden" name="room" id="cuRoom" value="{{ selected_room_key }}">{% endif %}
+
+            <div class="cu-filter-field"><label for="cuDate">Timetable date</label><input id="cuDate" type="date" name="date" value="{{ selected_date }}" title="Choose any date to view its week; leave empty for the current week"></div>
+
+            <div class="cu-filter-actions">
+                <button class="cu-button cu-button-primary" type="submit"><i class="bx bx-filter-alt"></i> Apply Filters</button>
+                <button class="cu-button cu-button-secondary cu-filter-clear" type="button" id="cuClearFilters"><i class="bx bx-reset"></i> Clear</button>
+            </div>
+        </form>
+    </section>
+
+    {% include 'workspace/classroom_selection.html' %}
+    {% endif %}
+    {% if show_schedule %}
+    <!-- Stats Section -->
+
+{% if selected_booking %}<div class="cu-booking-focus" role="note"><i class="bx bx-calendar-check"></i><div><strong>Selected booking: {{ selected_booking.building_name }} / {{ selected_booking.room_code }}</strong><br>{{ selected_booking.booking_date|date:'d M Y' }} &middot; {{ selected_booking.from_time|time:'H:i' }} &ndash; {{ selected_booking.to_time|time:'H:i' }} &middot; {{ selected_booking.get_status_display }}<br><small>The outlined period is your selected booking. The full Monday-Friday timetable for that week is shown below.</small></div></div>{% endif %}
+    <!-- Panel for Weekly Timetable -->
+    <section class="cu-panel" aria-label="Weekly timetable"{% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %} data-cm-region data-cm-mode="timetable" data-campus="{{ selected_campus }}" data-building="{{ selected_building }}" data-building-label="{{ maintenance_building_label }}" data-floor="{{ selected_floor }}" data-room="{{ selected_room_key }}" data-room-label="{{ maintenance_room.room_name }}" data-date="{{ selected_date }}" data-today="{{ today_iso }}"{% endif %}>
+        <div class="cu-panel-head">
+            <div>
+                <h2>Weekly Timetable</h2>
+            </div>
+            <div class="cu-panel-actions">
+                {% if not maintenance_picker %}
+                <a class="cu-button cu-button-primary" href="{{ back_to_classrooms_url }}" data-cm-exit{% if timetable_popup %} data-timetable-back{% endif %}>Back to Classrooms</a>
+                <a class="cu-button cu-button-secondary" href="{{ export_url }}"><i class="bx bx-download"></i> Download Excel</a>
+                {% if booking_role == 'ADMIN' and selected_room_key %}
+                {% include 'workspace/maintenance_start_button.html' %}
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %}{% include 'workspace/maintenance_selection_bar.html' %}{% endif %}
+        {% if room_maintenance and not maintenance_picker %}
+        <details class="cm-room-details" open>
+            <summary><i class="bx bx-wrench" aria-hidden="true"></i> Classroom maintenance windows · {{ maintenance_status }}</summary>
+            <p>{{ maintenance_room.campus }} · {{ maintenance_room.building }} · Floor {{ maintenance_room.floor_code|default:'Not recorded' }} · Classroom {{ maintenance_room.room_code }}</p>
+            {% for entry in room_maintenance %}
+            <article>
+                <strong>{{ entry.scope }} · {{ entry.date|date:'l, d M Y'|default:entry.date }} · {{ entry.start }}–{{ entry.end }}</strong>
+                <p>{{ entry.reasons|join:', ' }}{% if entry.expected_completion %} · Expected {{ entry.expected_completion|date:'d M Y, H:i' }}{% endif %}</p>
+                {% if entry.description %}<p>{{ entry.description }}</p>{% endif %}
+                {% if entry.recurring %}<small>Recurring schedule</small>{% endif %}
+            </article>
+            {% endfor %}
+        </details>
+        {% endif %}
+
+        {% if timetable_popup and data_error %}<p class="cu-calendar-missing" role="alert">{{ data_error }}</p>{% endif %}
+        <nav class="cu-week-nav" aria-label="Weekly timetable navigation"><a href="{{ previous_week_url }}">&larr; Previous Week</a><a href="{{ current_week_url }}">Current Week</a><a href="{{ next_week_url }}">Next Week &rarr;</a></nav>
+        {% if not holiday_calendar_available %}<p class="cu-calendar-missing" role="note">The official holiday calendar has not been loaded for this period. No holiday dates have been assumed.</p>{% endif %}
+        <!-- Above the timetable: Ask user whether they want to include weekends -->
+        <div class="cu-weekend-bar" id="cuWeekendBar">
+            <div class="cu-weekend-toggle-wrap">
+                <span class="cu-weekend-prompt"><i class="bx bx-calendar-event"></i> Include weekends on timetable?</span>
+                <label class="cu-switch" for="cuToggleWeekends">
+                    <input type="checkbox" id="cuToggleWeekends" {% if include_weekends %}checked{% endif %}>
+                    <span class="cu-slider"></span>
+                </label>
+                <span class="cu-weekend-status-text" id="cuWeekendStatusLabel">
+                    {% if include_weekends %}
+                    <i class="bx bx-check-circle text-success"></i> Weekends Included (Mon–Sun)
+                    {% else %}
+                    <i class="bx bx-calendar text-muted"></i> Mon to Fri (Default)
+                    {% endif %}
+                </span>
+            </div>
+            <div class="cu-hours-control"><label for="cuSchedulePeriod">Schedule Period</label><select name="include_after_hours" id="cuSchedulePeriod" form="cuFilterForm"><option value="0" {% if not include_after_hours %}selected{% endif %}>Working hours (08:00 - 16:00)</option><option value="1" {% if include_after_hours %}selected{% endif %}>Extended hours (08:00 - 22:00)</option></select></div>
+        </div>
+
+        {% if unmatched_count %}<div class="cu-grid-empty" style="padding:10px 20px;font-size:12px;color:#708985;" role="note">{{ unmatched_count }} timetable record{{ unmatched_count|pluralize }} in this filter do not match an active room-master record.</div>{% endif %}
+        
+        {% if not show_schedule %}
+        <div class="cu-empty-state" style="margin:20px;padding:35px 20px;text-align:center;color:#69827d;border:1px dashed #cbded9;border-radius:12px;">
+            <i class="bx bx-filter-alt" style="font-size:32px;color:#00796d;display:block;margin-bottom:8px;"></i>
+            <strong>Select a building or room to view the timetable grid.</strong><br>
+            <span style="font-size:12px;color:#7a948f;">Summary statistics above reflect all active rooms in the selected semester.</span>
+        </div>
+        {% elif not room_count and not classes %}
+        <div class="cu-empty-state" style="margin:20px;padding:35px 20px;text-align:center;color:#69827d;border:1px dashed #cbded9;border-radius:12px;">
+            <i class="bx bx-calendar-x" style="font-size:32px;color:#d58b23;display:block;margin-bottom:8px;"></i>
+            <strong>No active rooms match these filters.</strong><br>
+            <span style="font-size:12px;color:#7a948f;">Try choosing another campus or building.</span>
+        </div>
+        {% else %}
+        
+        <div class="cu-grid-wrap">
+            <table class="cu-grid">
+                <thead>
+                    <tr>
+                        <th scope="col">
+                            <i class="bx bx-time-five" style="font-size:14px;opacity:.7;"></i><br>
+                            <span style="font-size:9px;letter-spacing:.06em;">TIME</span>
+                        </th>
+                        {% for header in day_headers %}
+                        <th scope="col" class="{% if header.is_holiday %}cu-official-holiday{% endif %}">
+                            <div class="cu-day-pill" data-calendar-date="{{ header.iso_date }}">{{ header.day }}</div>
+                            {% if header.iso_date in maintenance_selection_days %}
+                            <label class="cm-day-control" hidden><input type="checkbox" data-cm-day="{{ header.iso_date }}" aria-label="Select all eligible slots on {{ header.day }} {{ header.date }}"> Select all</label>
+                            {% endif %}
+                            <div><span class="cu-day-date">{{ header.date }}</span></div>{% for holiday in header.holidays %}<span class="cu-public-holiday-heading"><i class="bx bx-calendar-event" aria-hidden="true"></i><strong>PUBLIC HOLIDAY</strong><b>{{ holiday.name|upper }}</b><small>{{ holiday.date|date:'d F Y' }}</small></span>{% endfor %}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in grid_rows %}
+                    <tr>
+                        <th scope="row">
+                            <div class="cu-time-label">
+                                <span class="cu-time-hr">{{ row.start_time }}</span>
+                                <span class="cu-time-sep">to</span>
+                                <span class="cu-time-hr">{{ row.end_time }}</span>
+                            </div>
+                        </th>
+                        {% for cell in row.cells %}
+                        <td data-day="{{ cell.day }}"{% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %} data-cm-date="{{ cell.booking_date }}"{% endif %} class="{% if cell.highlighted %}cu-selected-booking-period{% endif %} {% if cell.is_holiday %}cu-official-holiday{% endif %}{% if cell.has_maintenance %} cm-maintenance-cell{% endif %}" style="position:relative;">
+                            {% if cell.holiday_message %}<div class="cu-holiday-message" role="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4m8-4v4M3 10h18M3 3l18 18M21 15V6a2 2 0 0 0-2-2H9M5 4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2"/></svg><span>Public Holiday &ndash; No classroom bookings available</span></div>{% endif %}
+                            <div class="cu-cell-inner">
+                            {% if cell.maintenance_available %}
+                            <label class="cm-slot-control" hidden><input type="checkbox" data-cm-slot data-id="open:{{ cell.booking_date }}:{{ row.start_time }}" data-date="{{ cell.booking_date }}" data-start="{{ row.start_time }}" data-end="{{ row.end_time }}" aria-label="Select {{ cell.day }} {{ row.start_time }} to {{ row.end_time }} for maintenance"> BOOK</label>
+                            {% endif %}
+                            {% if cell.has_maintenance %}<span class="cm-slot-label"><i class="bx bx-wrench" aria-hidden="true"></i> Under Maintenance</span>{% endif %}
+
+                            <!-- Scheduled classes from the master timetable -->
+                            {% for class in cell.events %}
+                            <button type="button" class="cu-slot-booked{% if class.elapsed %} cu-slot-passed{% endif %}"
+                                data-kind="class"
+                                data-title="{{ class.subject_name }}"
+                                data-teacher="{{ class.instructor_name|default:'Not provided' }}"
+                                data-teacher-id="{{ class.instructor_id|default:'Not provided' }}"
+                                data-teacher-email="{{ class.instructor_email|default:'Not provided' }}"
+                                data-subject-code="{{ class.subject_code|default:'Not provided' }}"
+                                data-subject-name="{{ class.subject_name|default:'Not provided' }}"
+                                data-room="{{ class.room_name }} ({{ class.room_code }})"
+                                data-campus="{{ class.campus }}"
+                                data-building="{{ class.building }}"
+                                data-day="{{ cell.day }}"
+                                data-date="{{ cell.booking_date }}"
+                                data-time="{{ class.start_time }}–{{ class.end_time }}"
+                                data-status="Scheduled Class"
+                                title="{{ class.subject_code }} - {{ class.instructor_name }}. Click for full details."
+                                aria-label="View details: {{ class.subject_code }}, {{ class.instructor_name }}">
+                                <span class="cu-slot-dot"></span>
+                                <span class="cu-slot-content"><span class="cu-slot-code">{{ class.subject_code|default:'Class' }}</span><span class="cu-slot-faculty">{{ class.instructor_name|default:'Faculty not provided' }}</span></span>
+                                <i class="bx bx-info-circle cu-slot-view-hint"></i>
+                            </button>
+                            {% endfor %}
+
+                            <!-- User classroom bookings -->
+                            {% for booking in cell.bookings %}
+                            <button type="button" class="cu-slot-booked cu-slot-user-booking cu-status-{{ booking.status }}{% if booking.elapsed %} cu-slot-passed{% endif %}"
+                                data-kind="booking"
+                                data-booking-id="{{ booking.id }}"
+                                data-room-key="{{ booking.room_key }}"
+                                data-title="{{ booking.title }}"
+                                data-teacher="{{ booking.teacher_name }}"
+                                data-teacher-id="{{ booking.teacher_id }}"
+                                data-teacher-email="{{ booking.teacher_email }}"
+                                data-subject-code="{{ booking.subject_code }}"
+                                data-subject-name="{{ booking.subject_name }}"
+                                data-room="{{ booking.room_name }} ({{ booking.room_code }})"
+                                data-purpose="{{ booking.purpose }}"
+                                data-details="{{ booking.details }}"
+                                data-day="{{ booking.weekday }}"
+                                data-date="{{ booking.booking_date }}"
+                                data-time="{{ booking.start_time }}–{{ booking.end_time }}"
+                                data-duration="{{ booking.duration_hours }} hour{{ booking.duration_hours|pluralize }}"
+                                data-campus="{{ booking.campus }}"
+                                data-building="{{ booking.building }}"
+                                data-status="{{ booking.status_label }}"
+                                data-status-raw="{{ booking.status }}"
+                                data-can-review="{% if booking.can_review %}1{% else %}0{% endif %}"
+                                data-review-comment="{{ booking.review_comment }}"
+                                data-reviewer="{{ booking.reviewed_by }}"
+                                data-reviewed-at="{{ booking.reviewed_at }}"
+                                data-admin-comment="{{ booking.admin_comment }}"
+                                title="{{ booking.get_status_display|default:booking.status_label }} - {{ booking.teacher_name }}. Click for full details."
+                                aria-label="View details: {{ booking.subject_code }}, {{ booking.teacher_name }}, {{ booking.status_label }}">
+                                <span class="cu-slot-dot"></span>
+                                <span class="cu-slot-content"><span class="cu-slot-code">{{ booking.subject_code|default:'Classroom booking' }}</span><span class="cu-slot-faculty">{{ booking.teacher_name|default:'Faculty not provided' }}</span><span class="cu-slot-state">{% if booking.status == 'pending' %}Pending ? On hold{% elif booking.status == 'changes_requested' %}Changes Requested{% else %}{{ booking.status_label }}{% endif %}</span></span>
+                                <i class="bx bx-info-circle cu-slot-view-hint"></i>
+                            </button>
+                            {% endfor %}
+
+                            <!-- GREEN COLOR: Available Classroom Slot -->
+                            {% if cell.elapsed %}
+                                {% if not cell.events and not cell.bookings and not cell.is_holiday and not cell.has_maintenance %}
+                                <span class="cu-no-availability">Passed</span>
+                                {% endif %}
+                            {% elif cell.free_rooms %}
+                                {% if can_book %}
+                                <button type="button" class="cu-slot-available"
+                                    data-free-room-indexes="{{ cell.free_room_indexes_json }}"
+                                    data-day="{{ cell.day }}"
+                                    data-date="{{ cell.booking_date }}"
+                                    data-start="{{ row.start_time }}"
+                                    data-end="{{ row.end_time }}"
+                                    aria-label="Book available classroom">
+                                    <i class="bx bx-plus-circle"></i>
+                                    <span>{% if cell.has_held_requests %}BOOK ANOTHER ROOM{% else %}BOOK{% endif %}</span>
+                                </button>
+                                {% else %}
+                                <span class="cu-no-availability">Available (view only)</span>
+                                {% endif %}
+                            {% elif not cell.events and not cell.bookings and not cell.is_holiday and not cell.has_maintenance %}
+                                {% if cell.has_pending_holds %}<span class="cu-hold-indicator">On hold &mdash; Pending HOD approval</span>{% elif cell.has_approved_bookings %}<span class="cu-booked-indicator">Booked &mdash; Approved reservation</span>{% else %}<span class="cu-no-availability">No room</span>{% endif %}
+                            {% endif %}
+
+                            </div>{# /cu-cell-inner #}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="cu-grid-legend" aria-label="Schedule legend">
+            <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-avail" aria-hidden="true"></span><span>Available &mdash; Click to Book</span></span>
+            <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-pending" aria-hidden="true"></span><span>Yellow &mdash; On Hold (Pending HOD Approval)</span></span>
+            <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-booked" aria-hidden="true"></span><span>Booked &mdash; HOD / Admin approved</span></span>
+            <span class="cu-legend-item"><span class="cu-legend-dot" style="background:#cd5265" aria-hidden="true"></span><span>Rejected</span></span>
+            <span class="cu-legend-item"><i class="bx bx-time" style="font-size:12px;color:#8aada8" aria-hidden="true"></i><span>Passed &mdash; Time elapsed</span></span>
+            <span class="cu-legend-item"><span class="cu-legend-dot" style="background:#E4DCF5" aria-hidden="true"></span><span>Public Holiday</span></span>
+            <span class="cu-legend-item"><span class="cu-legend-dot cu-room-dot-maintenance" aria-hidden="true"></span>Under Maintenance</span>
+        </div>
+        {% endif %}
+    </section>
+{% endif %}
+</main>
+{% if booking_role == 'ADMIN' and not maintenance_picker %}{% include 'workspace/maintenance_planner.html' %}{% endif %}
+<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-24">
+
+{% if not timetable_popup and not revision_popup and classroom_cards and not selected_classroom %}
+<dialog class="cu-timetable-modal" id="cuTimetableModal" aria-label="Weekly Timetable">
+    <button class="cu-timetable-close" type="button" aria-label="Close weekly timetable" autofocus>&times;</button>
+    <p class="cu-timetable-loading" role="status" hidden>Loading weekly timetable…</p>
+    <iframe title="Weekly Timetable"></iframe>
+</dialog>
+{% endif %}
+
+<!-- Dynamic In-Page Modal Dialog (Strictly Centered) -->
+<dialog class="cu-dialog" id="cuDialog" aria-labelledby="cuDialogTitle">
+    <div class="cu-dialog-shell">
+        <div id="cuDialogContent"></div>
+    </div>
+</dialog>
+
+<form id="cuCsrfForm" hidden>{% csrf_token %}</form>
+{{ booking_room_catalog_json|json_script:"cuBookingRoomCatalog" }}
+
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-9"></script>
+<script src="{% static 'js/booking_live.js' %}"></script>
+<script>
+(function () {
+    const classroomSearch = document.querySelector('[data-classroom-search]');
+    if (classroomSearch) {
+        const cards = [...document.querySelectorAll('[data-classroom-match]')];
+        const empty = document.querySelector('[data-classroom-empty]');
+        classroomSearch.addEventListener('input', () => {
+            const query = classroomSearch.value.trim().toLowerCase();
+            let visible = 0;
+            for (const card of cards) {
+                card.hidden = !card.dataset.classroomMatch.toLowerCase().includes(query);
+                if (!card.hidden) visible++;
+            }
+            empty.hidden = visible > 0;
+        });
+    }
+    // Clear filters button
+    document.getElementById('cuClearFilters')?.addEventListener('click', () => {
+        const params = new URLSearchParams();
+        if (revisionContext) {
+            params.set('revision', revisionContext.token);
+            for (const field of ['campus', 'building', 'floor', 'room']) params.set(field, '');
+        }
+        if (filterForm.elements.revision_popup) params.set('revision_popup', '1');
+        window.location.assign(window.location.pathname + (params.size ? '?' + params : ''));
+    });
+
+    const filterForm = document.getElementById('cuFilterForm');
+    const timetableModal = document.getElementById('cuTimetableModal');
+    if (timetableModal) {
+        const frame = timetableModal.querySelector('iframe');
+        const loading = timetableModal.querySelector('[role="status"]');
+        let classroomLink, timetableRoomKey;
+        timetableModal.querySelector('button').addEventListener('click', () => timetableModal.close());
+        frame.addEventListener('load', () => {
+            if (frame.contentDocument?.URL !== 'about:blank') loading.hidden = true;
+        });
+        timetableModal.addEventListener('close', () => {
+            if (timetableRoomKey) {
+                try { sessionStorage.removeItem('maintenance-selection:' + timetableRoomKey); }
+                catch { /* Storage is optional. */ }
+            }
+            frame.removeAttribute('src');
+            classroomLink?.focus({preventScroll: true});
+        });
+        document.querySelectorAll('[data-timetable-room]').forEach(link => {
+            link.addEventListener('click', event => {
+                if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                classroomLink = link;
+                const url = new URL(link.href);
+                timetableRoomKey = url.searchParams.get('room');
+                url.searchParams.set('timetable_popup', '1');
+                frame.title = `Weekly Timetable — ${link.querySelector('strong').textContent}`;
+                loading.hidden = false;
+                timetableModal.showModal();
+                frame.src = url.href;
+            });
+        });
+    }
+
+    const enclosingModal = window.frameElement?.closest('#cuTimetableModal');
+    if (enclosingModal) {
+        enclosingModal.querySelector('[role="status"]').hidden = true;
+        document.querySelector('[data-timetable-back]')?.addEventListener('click', event => {
+            event.preventDefault();
+            enclosingModal.close();
+        });
+    }
+    const containingDialog = enclosingModal || window.frameElement?.closest('.cb-revision-timetable');
+    const revisionFrame = window.frameElement?.matches('[data-revision-timetable]') ? window.frameElement : null;
+    if (revisionFrame && containingDialog) {
+        document.querySelector('[data-revision-back]')?.addEventListener('click', event => {
+            event.preventDefault();
+            containingDialog.close();
+        });
+    }
+    revisionFrame?.dispatchEvent(new CustomEvent('revision-timetable-ready'));
+    if (containingDialog) {
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !event.defaultPrevented && !window.Swal?.isVisible() && !document.querySelector('dialog[open]')) {
+                event.preventDefault();
+                containingDialog.close();
+            }
+        });
+    }
+
+    // Auto submit on select change
+    ['cuCampus', 'cuBuilding', 'cuFloor', 'cuDate', 'cuSemester', 'cuSchedulePeriod'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => {
+            const clear=id==='cuCampus'?['cuBuilding','cuFloor','cuRoom']:id==='cuBuilding'?['cuFloor','cuRoom']:id==='cuFloor'?['cuRoom']:[];
+            clear.forEach(name=>{const field=document.getElementById(name);if(field)field.value='';});
+            if(id==='cuCampus'||id==='cuBuilding'||id==='cuFloor'){const revision=document.querySelector('#cuFilterForm [name=revision]');if(revision){for(const name of ['campus','building','floor','room']){if(!filterForm.elements[name]){const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value='';filterForm.append(hidden);}}}}
+            filterForm.submit();
+        });
+    });
+
+    // Weekend toggle switch (Ask user on top of timetable)
+    const weekendToggle = document.getElementById('cuToggleWeekends');
+    if (weekendToggle) {
+        weekendToggle.addEventListener('change', function () {
+            document.getElementById('cuIncludeWeekendsHidden').value = this.checked ? '1' : '0';
+            filterForm.submit();
+        });
+    }
+
+    const dialog = document.getElementById('cuDialog');
+    const dialogContent = document.getElementById('cuDialogContent');
+    const csrfToken = document.querySelector('#cuCsrfForm [name=csrfmiddlewaretoken]').value;
+    const roomCatalog = JSON.parse(document.getElementById('cuBookingRoomCatalog').textContent);
+    const revisionContext=JSON.parse(document.getElementById('cu-revision-context').textContent);
+    const bookingDialogsReady = window.Swal ? Promise.resolve() : new Promise(resolve => {
+        document.addEventListener('DOMContentLoaded', resolve, {once: true});
+    });
+
+    // Read-only detail popups use DOM text nodes to keep record content safe.
+    document.querySelectorAll('.cu-slot-booked').forEach(button=>{
+        button.addEventListener('click', async ()=>{
+            await bookingDialogsReady;
+            const ds=button.dataset,details=document.createElement('dl');
+            const location=roomCatalog.find(room=>room.key===ds.roomKey);
+            const pastClass = ds.kind === 'class' && button.classList.contains('cu-slot-passed');
+            details.className = 'cu-class-details';
+            const rows = [
+                ['Status', ds.status], ['Subject code', ds.subjectCode],
+                ['Subject name', ds.subjectName || ds.title],
+                ['Faculty name', ds.teacher], ['Employee ID', ds.teacherId], ['Email', ds.teacherEmail],
+                ['Campus', ds.campus || location?.campus], ['Building', ds.building || location?.building],
+                ['Classroom', ds.room],
+                ['Date', ds.date], ['Day', ds.day], ['Time', ds.time], ['Duration', ds.duration],
+                ['Reviewed by', ds.reviewer], ['Reviewed at', ds.reviewedAt],
+                ['Purpose', ds.purpose], ['Additional details', ds.details],
+                ['HOD comments', ds.reviewComment], ['Admin comments', ds.adminComment],
+            ];
+            for (const [label, value] of rows) {
+                if (!value || value === 'None') continue;
+                const field = document.createElement('div');
+                const term = document.createElement('dt');
+                const description = document.createElement('dd');
+                term.textContent = label;
+                description.textContent = value;
+                field.append(term, description);
+                details.append(field);
+            }
+            Swal.fire({
+                titleText: pastClass ? 'Past Class Details' : ds.kind === 'booking' ? 'Classroom Booking Details' : 'Scheduled Class Details',
+                html: details,
+                width: 840,
+                customClass: {popup: 'cu-class-details-popup'},
+                confirmButtonText: 'Close',
+                confirmButtonColor: '#007367',
+                showCloseButton: true,
+                returnFocus: true,
+            });
+        });
+    });
+    // Highlight today's column without changing the selected timetable filters.
+    const localToday=new Date().toLocaleDateString('en-CA');
+    document.querySelectorAll('[data-calendar-date]').forEach(day=>{if(day.dataset.calendarDate===localToday){day.closest('th').classList.add('cu-day-today');day.setAttribute('aria-current','date');}});
+    document.querySelectorAll('.cu-slot-available').forEach((el) => {
+        el.addEventListener('click', async () => {
+            await bookingDialogsReady;
+            const ds=el.dataset,indexes=JSON.parse(ds.freeRoomIndexes||'[]');
+            const eligible=indexes.map(i=>roomCatalog[i]).filter(Boolean);
+            if(revisionContext){ClassroomBooking.open({rooms:eligible,initial:{...revisionContext.fields,room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start},role:'TEACHER',mode:'edit',respond:true,extended:true,selectOnly:true,bookingId:revisionContext.booking_id,revision:revisionContext.revision,revisionToken:revisionContext.token,submitUrl:"{% url 'booking_revision_select' %}",availabilityUrl:"{% url 'classroom_availability' %}",onBackToForm:revisionFrame&&containingDialog?()=>containingDialog.close():null,onSelection:async result=>{const selected=result.selection;revisionContext.selection=selected;revisionContext.fields={...revisionContext.fields,...selected};if(revisionFrame){revisionFrame.dispatchEvent(new CustomEvent('revision-slot-selected',{detail:selected}));return;}const response=await Swal.fire({icon:'success',title:'Replacement slot selected',text:selected.room_name+' / '+selected.booking_date+' / '+selected.from_time+' - '+selected.to_time+'. Return to Booking Revision to review and resubmit.',confirmButtonText:'Back to Your Form',showCancelButton:true,cancelButtonText:'Stay on timetable',buttonsStyling:false,customClass:{actions:'cu-revision-selection-actions',confirmButton:'cu-button cu-button-primary',cancelButton:'cu-button cu-button-secondary'}});if(response.isConfirmed)(enclosingModal ? window.parent : window).location.assign(result.return_url);else window.location.reload();}});return;}
+            ClassroomBooking.open({rooms:eligible,initial:{room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start,duration_hours:1},
+                role:'{{ booking_role|escapejs }}',subjectCode:'{{ request.user.teaching_subject_code|escapejs }}',subjectName:'{{ request.user.teaching_subject_name|escapejs }}',
+                submitUrl:"{% url 'book_classroom' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>location.reload()});
+        });
+    });
+    ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:()=>location.reload()});
+})();
+</script>
+<link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
+<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-9">
+<link rel="stylesheet" href="{% static 'user/css/classroom_weekly.css' %}?v=weekly-25">
+{% endblock %}

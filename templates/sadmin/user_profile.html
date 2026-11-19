@@ -1,0 +1,424 @@
+{% extends 'base.html' %}
+{% block body %}
+{% load static %}
+{% load user_tags %}
+
+<style>
+.tabsContainer .tabsFill .nav-tabs .nav-link {
+    background: white;
+}
+.custom_style{
+    color: #007367;
+    font-weight: 550;
+}
+.alert-gitam {
+    --bs-alert-color: #007367;
+    --bs-alert-bg: #e5f0ef;
+    --bs-alert-border-color: #e5f0ef;
+    font-size: 21px;
+}
+
+.sticky-category {
+    position: sticky;
+    top: 35px;
+    z-index: 1020;
+    background: #f0dfc0;
+}
+
+/* header */
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+/* sections */
+.preview-section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+/* comment box */
+.comment-box {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 10px;
+}
+/* status badges */
+.status-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.status-badge.approved {
+    background: #e6f7ee;
+    color: #007367;
+}
+
+.status-badge.rejected {
+    background: #fde8e8;
+    color: #c81e1e;
+}
+
+.status-badge.pending {
+    background: #fff4db;
+    color: #b7791f;
+}
+</style>
+<section class="content-container contentContainer" id="homeSection">
+    <div class="d-flex flex-row justify-content-between">
+        <h3 class="page-title">Profile</h3>
+        <div class="mb-1">
+            <a href="{{ previous_url }}" class="btn btn-primary btn-sm">
+              <i class="ri-corner-up-left-line"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <div class="box-container">
+        {% include 'includes/profile_card.html' %}
+    </div>
+<div class="alert alert-gitam text-center mt-3 mb-3 sticky-category">
+    <strong>{{ category.name }}</strong>
+</div>
+<div class="box-container">
+      {% for m in sub_category %}
+            <div class="accordion" id="accordionExample">
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ m.id }}" aria-expanded="false" aria-controls="collapse{{ m.id }}">
+                     <div class="d-flex justify-content-between align-items-center" style="width: 98%">
+                        <span>{{ m.name }}</span>
+                    </div>
+                    </button>
+                  </h2>
+                  <div id="collapse{{ m.id }}" class="accordion-collapse collapse show" aria-labelledby="heading{{ m.id }}" data-bs-parent="#accordionExample" style="">
+                    <div class="accordion-body">
+                         {% if m.template %}
+                            {% include m.html_page with sub_cat_data=m.sub_cat_data %}
+                        {% endif %}
+                    </div>
+                  </div>
+                </div>
+            </div>
+          <br>
+      {% endfor %}
+</div>
+<div class="row align-items-stretch">
+     {% if hod_ack.l1_submitted_status == 0 %}
+        <div class="col-md-12">
+        <div class="alert alert-info mt-4">
+            L1 review is
+            <strong>Pending</strong>.
+        </div>
+    </div>
+    {% elif hod_ack.l1_submitted_status == 1 or hod_ack.l1_submitted_status == 2 %}
+        <div class="col-md-12">
+        <h3 class="sub-title">L1 Review</h3>
+        <div class="box-container fixed-review-box">
+    <!-- STATUS HEADER -->
+    <div class="preview-header">
+        <div>
+            <small class="text-muted">Recommendation Status</small><br>
+            {% if hod_ack.l1_submitted_status == 1 %}
+                <span class="status-badge approved">
+                    ✓ Recommended
+                </span>
+            {% elif hod_ack.l1_submitted_status == 2 %}
+                <span class="status-badge rejected">
+                    ✕ Not Recommended
+                </span>
+            {% else %}
+                <span class="status-badge pending">
+                    Pending
+                </span>
+            {% endif %}
+        </div>
+        <div class="text-end">
+            <small class="text-muted">Submitted On</small><br>
+            <strong>
+                {{ hod_ack.l1_submitted_on|date:"d M Y, h:i A" }}
+            </strong>
+        </div>
+    </div>
+    <!-- COMMENTS -->
+    <div class="preview-section">
+        <div class="section-title">
+            L1 Remarks / Justification
+        </div>
+
+        <div class="comment-box">
+            {{ hod_ack.l1_comment }}
+        </div>
+    </div>
+    <!-- DOCUMENT -->
+    <div class="preview-section">
+        <div class="section-title">
+            Document
+        </div>
+        {% if hod_ack.l1_file %}
+            <a href="{{ hod_ack.l1_file.url }}"
+               target="_blank"
+               class="btn btn_gitam btn-sm">
+                👁 View Uploaded Document
+            </a>
+        {% else %}
+            <span class="text-muted">No document uploaded</span>
+        {% endif %}
+    </div>
+</div>
+    </div>
+    {% endif %}
+
+    {% if hod_ack.l1_submitted_status == 1 %}
+        <div class="col-md-12">
+            <h3 class="sub-title">L2 Review</h3>
+            <div class="box-container fixed-review-box">
+        <!-- STATUS HEADER -->
+        <div class="preview-header">
+            <div>
+                <small class="text-muted">Recommendation Status</small><br>
+                {% if hoi_ack.l2_submitted_status == 1 %}
+                    <span class="status-badge approved">
+                        ✓ Recommended
+                    </span>
+                {% elif hoi_ack.l2_submitted_status == 2 %}
+                    <span class="status-badge rejected">
+                        ✕ Not Recommended
+                    </span>
+                {% else %}
+                    <span class="status-badge pending">
+                        Pending
+                    </span>
+                {% endif %}
+            </div>
+            <div class="text-end">
+                <small class="text-muted">Submitted On</small><br>
+                <strong>
+                    {{ hoi_ack.l2_submitted_on|date:"d M Y, h:i A" }}
+                </strong>
+            </div>
+        </div>
+        <!-- COMMENTS -->
+        <div class="preview-section">
+            <div class="section-title">
+                L2 Remarks / Justification
+            </div>
+
+            <div class="comment-box">
+                {{ hoi_ack.l2_comment }}
+            </div>
+        </div>
+        <!-- DOCUMENT -->
+        <div class="preview-section">
+            <div class="section-title">
+                Document
+            </div>
+            {% if hoi_ack.l2_file %}
+                <a href="{{ hoi_ack.l2_file.url }}"
+                   target="_blank"
+                   class="btn btn_gitam btn-sm">
+                    👁 View Uploaded Document
+                </a>
+            {% else %}
+                <span class="text-muted">No document uploaded</span>
+            {% endif %}
+        </div>
+    </div>
+        </div>
+    {% elif hod_ack.l1_submitted_status == 2 %}
+        <div class="col-md-12">
+            <div class="alert alert-info mt-4">
+                L2 review is not required because L1 marked this application as
+                <strong>Not Recommended</strong>.
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% if deciplinary_cases %}
+<h2 class="page-title mb-0" style="color:red;">
+    Disciplinary Cases
+</h2>
+
+<div class="box-container">
+    <div class="table-responsive">
+        <table class="table table-bordered tbl-style">
+          <thead>
+            <tr>
+               <th>S.No</th>
+               <th>Offence</th>
+                <th>Offence Date</th>
+                <th>Attachment</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for c in deciplinary_cases %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ c.offence }}</td>
+              <td>{{ c.offence_date|date:'d-M-Y' }}</td>
+              <td>
+                 {% if c.attachment %}
+                    <a href="{{ c.attachment.url }}" target="_blank" style="color:#007367;">
+                        View
+                    </a>
+                {% else %}
+                    <span class="text-muted"></span>
+                {% endif %}
+            </td>
+            </tr>
+           {% endfor %}
+          </tbody>
+        </table>
+      </div>
+</div>
+{% endif %}
+</section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+<script>
+$(document).ready(function () {
+
+    // Change label dynamically
+    $("input[name='radioBtn']").on("change", function () {
+        if ($(this).val() === "recommended") {
+            $("#commentLabel").text("Reason for Recommendation");
+        } else {
+            $("#commentLabel").text("Reason for Rejection");
+        }
+    });
+
+    $("#hoiachnowledgeForm").validate({
+        rules: {
+            radioBtn: {
+                required: true
+            },
+            commentsBox: {
+                required: true,
+                minlength: 5
+            },
+            declaration: {
+                required: true,
+                normalizer: function (value) {
+                    return $.trim(value);
+                }
+            }
+        },
+        errorPlacement: function (error, element) {
+            if (element.attr("name") === "radioBtn" ||
+                element.attr("name") === "declaration") {
+                $(".error_ack").html(error);
+            } else {
+                error.insertAfter(element);
+            }
+        },
+        submitHandler: function (form) {
+            Swal.fire({
+                title: "Are you sure?",
+                text: "Do you want to submit this acknowledgement?",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonColor: "#3085d6",
+                cancelButtonColor: "#d33",
+                confirmButtonText: "Yes, Submit",
+                cancelButtonText: "Cancel"
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    var formData = new FormData(form);
+                    $.ajax({
+                        url: "/pro/hoi_ack_submit/{{ enc_user_id }}",
+                        type: "POST",
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function (response) {
+                            if (response.status === 200) {
+                                Swal.fire({
+                                    icon: "success",
+                                    title: "Submitted!",
+                                    text: response.message,
+                                    showConfirmButton: false,
+                                    timer: 1500
+                                }).then(() => {
+                                    location.reload();
+                                });
+
+                            } else if (response.status === 300) {
+                                Swal.fire({
+                                    icon: "warning",
+                                    title: "Validation Error",
+                                    text: response.message
+                                });
+                            } else {
+                                Swal.fire("Error", response.message, "error");
+                            }
+                        },
+                        error: function (xhr) {
+                            Swal.fire(
+                                "Error",
+                                xhr.responseJSON?.message || "Something went wrong",
+                                "error"
+                            );
+                        }
+                    });
+                }
+            });
+            return false;
+        }
+    });
+});
+$('.manager_file').on('change', function () {
+    validateFileUploadManager(this, ['pdf', 'jpg', 'jpeg', 'png'], 5);
+});
+
+function validateFileUploadManager(inputElement, allowedExtensions = [], maxSizeMB = 5) {
+    $('.error').html('');
+    const file = inputElement.files[0];
+    if (!file) {
+        return true;
+    }
+    const fileName = file.name.toLowerCase();
+    const fileExt = fileName.split('.').pop();
+    const fileSizeMB = file.size / (1024 * 1024);
+
+    if (!allowedExtensions.includes(fileExt)) {
+        $(inputElement).after(
+            `<div class="error text-danger">
+                Only ${allowedExtensions.join(', ').toUpperCase()} files are allowed
+             </div>`
+        );
+        inputElement.value = '';
+        return false;
+    }
+
+    if (fileSizeMB > maxSizeMB) {
+        $(inputElement).after(
+            `<div class="error text-danger">
+                File size must be less than ${maxSizeMB} MB
+             </div>`
+        );
+        inputElement.value = '';
+        return false;
+    }
+
+    return true;
+}
+$(document).ready(function() {
+    $("#overlay").fadeIn();　
+});
+$(function() {
+    $('#overlay').fadeOut()
+});
+</script>
+
+
+{% endblock %}

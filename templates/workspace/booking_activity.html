@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+<main class="bn-page"><div class="bn-page-heading"><div><h1>Notifications &amp; Activity</h1><p>Updates on your classroom booking requests and decisions.</p></div><a href="{% url 'classroom_requests' %}">Classroom requests</a></div>
+<div id="bn-error" role="alert" hidden></div>
+<section class="bn-feed" aria-label="Booking activity">
+{% for notice in activity_page %}{% with event=notice.history %}<article class="bn-item{% if not notice.read_at %} unread{% endif %}"><div class="bn-item-heading"><h2>{{ event.action }}</h2><span class="bn-read-state">{% if notice.read_at %}Read{% else %}Unread{% endif %}</span></div><small>Booking {{ event.booking_id }} &middot; {{ event.performed_by.get_full_name|default:event.performed_by.username|default:'Former user' }} &middot; {{ event.created_at|date:'d M Y H:i' }}</small><p>{{ event.display_details.comments|default:event.new_status_label|truncatechars:220 }}</p><a data-notice-id="{{ notice.pk }}" href="{% url 'classroom_requests' %}?booking_id={{ event.booking_id }}">View booking &rarr;</a></article>{% endwith %}{% empty %}<div class="bn-empty"><h2>You're up to date</h2><p>Booking updates will appear here when there is activity relevant to you.</p></div>{% endfor %}
+</section>
+{% if activity_page.paginator.num_pages > 1 %}<nav class="bn-pagination" aria-label="Activity pages">{% if activity_page.has_previous %}<a href="?page={{ activity_page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ activity_page.number }} of {{ activity_page.paginator.num_pages }}</span>{% if activity_page.has_next %}<a href="?page={{ activity_page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+</main>
+{% endblock %}

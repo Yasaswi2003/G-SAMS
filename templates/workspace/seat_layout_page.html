@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+/* ── (all your existing styles stay unchanged) ── */
+.select2-container .select2-selection--single { height:31px !important; }
+.select2-container--default .select2-selection--single {
+    background-color:#fff; border:1px solid #ced4da; border-radius:4px;
+}
+.select2-container--open { z-index:9999; }
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color:#007367 !important; color:white;
+}
+
+/* ── FILTER BAR ── */
+.layout-topbar {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid #e3efec;
+    border-radius: 12px; padding: 12px 18px;
+    margin-bottom: 20px; flex-wrap: wrap;
+}
+.layout-topbar .tb-label { font-size:12px; font-weight:700; color:#4d6f6a; display:flex; align-items:center; gap:6px; }
+.layout-topbar select {
+    border:1.5px solid #d9eeeb; border-radius:8px;
+    font-size:13px; color:#2d4f47; padding:6px 12px;
+    background:#f5faf9; cursor:pointer; outline:none; transition:border-color .2s;
+}
+.layout-topbar select:focus { border-color:#0b6b50; }
+
+/* ── LAYOUT GRID ── */
+.layout-grid { display:grid; grid-template-columns:1fr 260px; gap:20px; align-items:start; }
+@media (max-width:992px) { .layout-grid { grid-template-columns:1fr; } }
+
+/* ── MAIN PANEL ── */
+.main-panel {
+    background:#fff; border:1px solid #e3efec;
+    border-radius:12px; padding:20px 22px;
+    box-shadow:0 2px 12px rgba(0,115,103,0.07);
+}
+.panel-title { font-size:1.05rem; font-weight:800; color:#0b3d30; margin:0; }
+.panel-legend { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.legend-chip {
+    display:flex; align-items:center; gap:5px;
+    font-size:12px; font-weight:600;
+    padding:3px 12px; border-radius:20px; border:1.5px solid;
+}
+.lc-avail  { background:#f0fdf4; color:#166534; border-color:#86efac; }
+.lc-occ    { background:#fef2f2; color:#991b1b; border-color:#fca5a5; }
+.lc-res    { background:#fefce8; color:#92400e; border-color:#fde68a; }
+.lc-maint  { background:#f8fafc; color:#475569; border-color:#cbd5e1; }
+
+/* ── FLOOR SECTION ── */
+.floor-section { margin-top:24px; }
+.floor-label {
+    display:flex; align-items:center; gap:8px;
+    font-size:14px; font-weight:700; color:#0b6b50; margin-bottom:14px;
+}
+.floor-label .floor-room-name { font-size:12px; font-weight:500; color:#7a9e96; }
+.floor-seats { display:flex; flex-wrap:wrap; gap:10px; }
+
+/* ── SEAT CARD ── */
+.seat-card {
+    width:72px; height:72px; border-radius:10px; border:1.5px solid;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; transition:transform .15s, box-shadow .15s;
+    position:relative;
+    /* ↓ make it clickable */
+    cursor:pointer;
+}
+.seat-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.1); }
+.seat-card i { font-size:1.3rem; }
+.seat-card .seat-num { font-size:10px; font-weight:700; }
+
+.sc-available   { background:#f0fdf4; border-color:#86efac; color:#166534; }
+.sc-occupied    { background:#fef2f2; border-color:#fca5a5; color:#991b1b; }
+.sc-reserved    { background:#fefce8; border-color:#fde68a; color:#92400e; }
+.sc-maintenance { background:#f8fafc; border-color:#cbd5e1; color:#94a3b8; }
+
+/* ── TOOLTIP ── */
+.seat-card .seat-tooltip {
+    display:none; position:absolute; bottom:calc(100% + 8px);
+    left:50%; transform:translateX(-50%);
+    background:#1e293b; color:#fff; border-radius:8px;
+    padding:6px 10px; font-size:11px; font-weight:600;
+    white-space:nowrap; z-index:99; pointer-events:none;
+}
+.seat-card .seat-tooltip::after {
+    content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:#1e293b;
+}
+.seat-card:hover .seat-tooltip { display:block; }
+
+/* ── SIDEBAR ── */
+.sidebar-card {
+    background:#fff; border:1px solid #e3efec;
+    border-radius:12px; padding:18px;
+    box-shadow:0 2px 12px rgba(0,115,103,0.07);
+    margin-bottom:16px;
+}
+.sidebar-card h6 { font-size:13px; font-weight:800; color:#0b3d30; margin-bottom:14px; }
+.floor-sum-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 0; border-bottom:1px solid #f0f7f5; font-size:12px;
+}
+.floor-sum-row:last-child { border-bottom:none; }
+.floor-sum-name { font-weight:600; color:#2d4f47; }
+.floor-sum-chips { display:flex; gap:5px; flex-wrap:wrap; }
+.fs-chip { padding:1px 8px; border-radius:6px; font-size:10px; font-weight:700; }
+.fs-free { background:#dcfce7; color:#166534; }
+.fs-occ  { background:#fee2e2; color:#991b1b; }
+.block-btn {
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border-radius:9px; font-size:13px; font-weight:600; color:#2d4f47;
+    border:1.5px solid #e3efec; background:#f9fdfb; cursor:pointer;
+    margin-bottom:8px; text-decoration:none; transition:all .15s;
+}
+.block-btn:hover  { border-color:#0b6b50; color:#0b6b50; background:#f0faf7; }
+.block-btn.active { border-color:#0b6b50; background:#e6f3ee; color:#0b6b50; }
+.block-btn i { font-size:1rem; }
+.divider { height:1px; background:#f0f7f5; margin:16px 0; }
+
+/* ── MODAL FORM ── */
+.form-control, .form-select { border-radius:8px; border:1px solid #d9eeeb; font-size:13px; }
+.form-control:focus, .form-select:focus { border-color:#0b6b50; box-shadow:0 0 0 2px rgba(11,107,80,0.10); }
+label { font-size:12px; font-weight:600; color:#4d6f6a; margin-bottom:4px; }
+</style>
+
+<section class="content-container contentContainer" id="homeSection">
+
+    <!-- ── FILTER BAR ── -->
+    <div class="layout-topbar">
+        <span class="tb-label"><i class="bx bx-filter-alt"></i> VIEW</span>
+
+        <select id="filterCampus" onchange="applyFilters()">
+            <option value="">All Campuses</option>
+            {% for c in campuses %}
+                <option value="{{ c.id }}" {% if selected_campus == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select id="filterBlock" onchange="applyFilters()">
+            <option value="">All Blocks</option>
+            {% for b in blocks %}
+                <option value="{{ b.id }}" {% if selected_block == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }} — {{ b.building.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select id="filterFloor" onchange="applyFilters()">
+            <option value="">All Floors</option>
+            {% for f in floors %}
+                <option value="{{ f.id }}" {% if selected_floor == f.id|stringformat:"s" %}selected{% endif %}>{{ f.floor_label }}</option>
+            {% endfor %}
+        </select>
+
+        <select id="filterRoom" onchange="applyFilters()">
+            <option value="">All Rooms</option>
+            {% for r in rooms %}
+                <option value="{{ r.id }}" {% if selected_room == r.id|stringformat:"s" %}selected{% endif %}>{{ r.room_number }}</option>
+            {% endfor %}
+        </select>
+
+        <div style="margin-left:auto;">
+            <div class="panel-legend">
+                <span class="legend-chip lc-avail">● Available: {{ total_available }}</span>
+                <span class="legend-chip lc-occ">● Assigned: {{ total_occupied }}</span>
+                <span class="legend-chip lc-res">● Reserved: {{ total_reserved }}</span>
+                <span class="legend-chip lc-maint">● Maintenance: {{ total_maintenance }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── LAYOUT ── -->
+    <div class="layout-grid">
+
+        <!-- MAIN PANEL -->
+        <div class="main-panel">
+            {% if selected_block_obj %}
+                <p class="panel-title mb-2">
+                    {{ selected_block_obj.name }} · {{ selected_block_obj.building.name }} · {{ selected_block_obj.campus.name }}
+                </p>
+                <div class="divider"></div>
+            {% endif %}
+
+            {% for floor_data in floor_seat_data %}
+            <div class="floor-section">
+                <div class="floor-label">
+                    <i class="bx bx-layer"></i>
+                    {{ floor_data.floor.floor_label }}
+                    {% if floor_data.floor.floor_number == 0 %}
+                        <span class="floor-room-name">· Ground Level</span>
+                    {% endif %}
+                </div>
+
+                {% for room_data in floor_data.rooms %}
+                <div style="margin-bottom:18px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <i class="bx bx-door-open" style="color:#0b6b50;font-size:.95rem;"></i>
+                        <span style="font-size:12px;font-weight:700;color:#2d4f47;">Room {{ room_data.room.room_number }}</span>
+                        {% if room_data.room.room_name %}
+                        <span style="font-size:11px;color:#7a9e96;">· {{ room_data.room.room_name }}</span>
+                        {% endif %}
+                        <span style="font-size:11px;color:#7a9e96;">· {{ room_data.seats|length }} seats</span>
+                    </div>
+                    <div class="floor-seats">
+                        {% for seat in room_data.seats %}
+                            <div class="seat-card {{ seat.seat_status_id|seat_class }}"
+                                     onclick="openEditSeat(
+                                        {{ seat.id }},
+                                        '{{ seat.seat_number|escapejs }}',
+                                        {{ seat.seat_status_id }},
+                                        '{{ seat.assigned_to|default:''|escapejs }}',
+                                        '{{ room_data.room.floor.building.name|escapejs }}',
+                                        '{{ floor_data.floor.floor_label|escapejs }}',
+                                        '{{ seat.room.room_number|escapejs }}',
+                                        '{{ seat.seat_type.name|escapejs }}',
+                                        '{{ room_data.room.room_name|default:''|escapejs }}'
+                                     )">
+                                     {% if seat.seat_status_id == 1 %}
+                                        <div class="seat-tooltip">{{ seat.seat_number }} · Available - {{ seat.seat_type.name }}</div>
+                                        <i class="bx bx-user"></i>
+                                    {% elif seat.seat_status_id == 2 %}
+                                        <div class="seat-tooltip">
+                                            {{ seat.seat_number }} · Assigned - {{ seat.seat_type.name }}
+                                            {% if seat.assigned_to %} · {{ seat.assigned_to }}<br>{{ seat.emp_name }}<br>{{ seat.campus }}#{{ seat.college_code }}#{{ seat.dept_code }}{% endif %}
+                                        </div>
+                                        {% if seat.gender == "M" %}
+                                            <i class="fa fa-male text-primary"></i>
+                                        {% elif seat.gender == "F" %}
+                                            <i class="fa fa-female" style="color:#E91E63 !important"></i>
+                                        {% else %}
+                                            <i class="bx bx-user"></i>
+                                        {% endif %}
+                                   {% elif seat.seat_status_id == 3 %}
+                                        <div class="seat-tooltip">{{ seat.seat_number }} · Reserved - {{ seat.seat_type.name }}</div>
+                                        <i class="bx bx-bookmark"></i>
+                                  {% elif seat.seat_status_id == 4 %}
+                                         <div class="seat-tooltip">{{ seat.seat_number }} · Maintenance - {{ seat.seat_type.name }}</div>
+                                            <i class="bx bx-wrench"></i>
+                                  {% endif %}
+                                    <span class="seat-num">{{ seat.seat_number }}</span>
+                                </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% empty %}
+                <div style="text-align:center;padding:60px 20px;color:#7a9e96;">
+                    <i class="bx bx-chair" style="font-size:3rem;"></i>
+                    <p style="margin-top:10px;font-weight:600;">Select a block to view seats</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- SIDEBAR -->
+        <div>
+            <div class="sidebar-card">
+                <h6><i class="bx bx-layer"></i> Floor Summary</h6>
+                {% for floor_data in floor_seat_data %}
+                <div class="floor-sum-row">
+                    <span class="floor-sum-name">{{ floor_data.floor.floor_label }}</span>
+                    <div class="floor-sum-chips">
+                        <span class="fs-chip fs-free">{{ floor_data.available }} free</span>
+                        <span class="fs-chip fs-occ">{{ floor_data.occupied }} Assign</span>
+                        {% if floor_data.reserved %}<span class="fs-chip" style="background:#fef3c7;color:#92400e;">{{ floor_data.reserved }} res</span>{% endif %}
+                        {% if floor_data.maintenance %}<span class="fs-chip" style="background:#f1f5f9;color:#475569;">{{ floor_data.maintenance }} maint</span>{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                    <p style="font-size:12px;color:#7a9e96;margin:0;">No floors to show</p>
+                {% endfor %}
+            </div>
+
+            <div class="sidebar-card">
+                <h6><i class="bx bx-transfer-alt"></i> Switch Block</h6>
+                {% for b in blocks %}
+                <a class="block-btn {% if selected_block == b.id|stringformat:"s" %}active{% endif %}"
+                   href="?campus={{ selected_campus }}&block={{ b.id }}&floor={{ selected_floor }}&room={{ selected_room }}">
+                    <i class="bx bx-grid-alt"></i>
+                    {{ b.name }} — {{ b.building.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     EDIT SEAT MODAL  (same as seats page)
+═══════════════════════════════════════════ -->
+<div class="modal fade" id="editSeatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:1px solid #e3efec;">
+            <div class="modal-header" style="background:#f5faf9;border-bottom:1px solid #e0eeec;">
+                <h6 class="modal-title" style="color:#0b6b50;font-weight:700;">
+                    <i class="bx bx-edit-alt"></i> Edit Seat — <span id="modalSeatNum"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Seat Details Card -->
+                <div style="background:#e6f3ee;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:800;color:#4d6f6a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Seat Details</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;">
+                        <div style="color:#4d6f6a;">Seat No.: <strong id="detailSeatNo" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Building: <strong id="detailBuilding" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Floor: <strong id="detailFloor" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Room: <strong id="detailRoom" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Room Name: <strong id="detailRoomName" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Type: <strong id="detailType" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Name: <strong id="detailEmpName" style="color:#0b3d30;"></strong></div>
+                    </div>
+                </div>
+
+                <form id="editSeatForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="editSeatId" name="seat_id">
+
+                    <div class="form-group mb-3">
+                        <label>Seat Status</label>
+                        <select name="seat_status" id="editSeatStatus" class="form-control form-select" required>
+                            {% for ss in seat_statuses %}
+                                <option value="{{ ss.id }}">{{ ss.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3" id="empidWrap">
+                        <label>Employee ID <span style="color:#e53e3e;">*</span></label>
+                        <select id="editEmpId" name="empid" class="form-control" style="width:100%;"></select>
+                        <small style="color:#7a9e96;font-size:11px;">Required if status is Occupied</small>
+                    </div>
+
+                    <div class="form-group mb-2">
+                        <label>Remarks</label>
+                        <textarea name="remarks" id="editRemarks" class="form-control" rows="2" placeholder="Optional remarks..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #e0eeec;">
+                <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+                        style="border:1px solid #e0eeec;border-radius:8px;">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="saveEditSeat" style="border-radius:8px;">
+                    <i class="bx bx-save"></i> Assign Seat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+<script>
+/* ── Filter bar ── */
+function applyFilters() {
+    var campus = document.getElementById('filterCampus').value;
+    var block  = document.getElementById('filterBlock').value;
+    var floor  = document.getElementById('filterFloor').value;
+    var room   = document.getElementById('filterRoom').value;
+    window.location.href = '?campus=' + campus + '&block=' + block + '&floor=' + floor + '&room=' + room;
+}
+
+/* ── Open Edit Modal (identical to seats page) ── */
+function openEditSeat(id, number, statusId, empid, building, floor,room, type, roomName) {
+    $('#editSeatId').val(id);
+    $('#modalSeatNum').text(number);
+    $('#editSeatStatus').val(statusId);
+    $('#editRemarks').val('');
+
+    $('#detailSeatNo').text(number);
+    $('#detailBuilding').text(building);
+    $('#detailFloor').text(floor);
+    $('#detailRoom').text(room || '—');
+    $('#detailRoomName').text(roomName || '—');
+    $('#detailType').text(type);
+    $('#detailEmpName').text('—');
+
+    $('#editEmpId').empty();
+    toggleEmpId(statusId);
+
+    if (empid) {
+        $.post('/get_users_by_emp_id', { term: empid }, function (res) {
+            if (res.status === 200 && res.data && res.data.length > 0) {
+
+                var e = res.data[0];
+                var label =
+                    (e.empid ? e.empid : "") +
+                    (e.emp_name ? " | " + e.emp_name : "") +
+                    (e.campus ? " | " + e.campus : "") +
+                    (e.college_code ? " | " + e.college_code : "") +
+                    (e.dept_code ? " | " + e.dept_code : "") +
+                    (e.designation ? " | " + e.designation : "") +
+                    (e.dept_name ? " | " + e.dept_name : "") +
+                    (e.faculty_type ? " | " + e.faculty_type : "")
+                $('#editEmpId').append(new Option(label, e.empid, true, true)).trigger('change');
+                $('#detailEmpName').text(e.emp_name || '—');
+            } else {
+                $('#editEmpId').append(new Option(empid, empid, true, true)).trigger('change');
+            }
+            $('#editSeatModal').modal('show');
+        }).fail(function () {
+            $('#editEmpId').append(new Option(empid, empid, true, true)).trigger('change');
+            $('#editSeatModal').modal('show');
+        });
+    } else {
+        $('#editSeatModal').modal('show');
+    }
+}
+
+function toggleEmpId(statusId) {
+    if (parseInt(statusId) === 2) {
+        $('#empidWrap').show();
+    } else {
+        $('#empidWrap').hide();
+        $('#editEmpId').empty();
+    }
+}
+
+$(document).ready(function () {
+
+    /* Status change → show/hide emp field */
+    $('#editSeatStatus').on('change', function () {
+        toggleEmpId($(this).val());
+    });
+
+    /* Init Select2 on modal open */
+    $('#editSeatModal').on('shown.bs.modal', function () {
+        if (!$('#editEmpId').hasClass('select2-hidden-accessible')) {
+            $('#editEmpId').select2({
+                dropdownParent: $('#editSeatModal'),
+                placeholder: 'Search Employee ID...',
+                minimumInputLength: 3,
+                ajax: {
+                    url: '/get_users_by_emp_id',
+                    dataType: 'json',
+                    type: 'POST',
+                    quietMillis: 50,
+                    data: function (params) { return { term: params.term }; },
+                    processResults: function (data) {
+                        if (data.status === 200) {
+                            return {
+                                results: $.map(data.data, function (item) {
+                                    return {
+                                    id  : item.empid,
+                                        text:
+                                             (item.empid ? item.empid : "") +
+                                             (item.emp_name ? " | " + item.emp_name : "") +
+                                             (item.campus ? " | " + item.campus : "") +
+                                             (item.college_code ? " | " + item.college_code : "") +
+                                             (item.dept_code ? " | " + item.dept_code : "") +
+                                             (item.designation ? " | " + item.designation : "") +
+                                             (item.dept_name ? " | " + item.dept_name : "") +
+                                             (item.faculty_type ? " | " + item.faculty_type : "")
+                                    };
+                                })
+                            };
+                        }
+                        return { results: [] };
+                    }
+                }
+            });
+        }
+        $('#editEmpId').on('select2:select', function () {
+            $(this).select2('close');
+            document.activeElement.blur();
+            $('body').trigger('click');
+        });
+    });
+
+    /* Save / Update */
+    $('#saveEditSeat').on('click', function () {
+        var statusId = parseInt($('#editSeatStatus').val());
+        var empid    = $('#editEmpId').val();
+
+        if (statusId === 2 && !empid) {
+            Swal.fire({
+                icon: 'warning', title: 'Employee ID required',
+                text: 'Please select an Employee ID for Occupied status.',
+                confirmButtonColor: '#0b6b50'
+            });
+            return;
+        }
+
+        $.ajax({
+            url : '/workspace/update_seat_status',
+            type: 'POST',
+            data: {
+                seat_id    : $('#editSeatId').val(),
+                seat_status: statusId,
+                empid      : empid,
+                remarks    : $('#editRemarks').val(),
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').first().val()
+            },
+            beforeSend: function () { $('#overlay').fadeIn(); },
+            success: function (response) {
+                $('#overlay').fadeOut();
+                $('#editSeatModal').modal('hide');
+                if (response.status === 200) {
+                    Swal.fire({ icon:'success', title:'Updated!', text:response.message, timer:1500, showConfirmButton:false });
+                    setTimeout(() => location.reload(), 1500);
+                } else if (response.status === 300) {
+                    Swal.fire({ icon:'warning', title:'Warning', text:response.message, confirmButtonColor:'#0b6b50' });
+                } else {
+                    Swal.fire({ icon:'error', title:'Error', text:response.message || 'Something went wrong', confirmButtonColor:'#0b6b50' });
+                }
+            },
+            error: function (xhr) {
+                $('#overlay').fadeOut();
+                Swal.fire('Error', 'Server responded with: ' + xhr.status + ' ' + xhr.statusText, 'error');
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

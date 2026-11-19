@@ -1,0 +1,17 @@
+/.idea/
+/.vscode/
+/.verification/
+/.venv/
+/myvenv/
+/artifacts/
+/backups/
+/.gsams-local.json
+.env
+.env.*
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.sqlite3-*
+*.log
+/scratch_out*.txt
+/ClassLibrary1.dll

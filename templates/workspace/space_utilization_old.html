@@ -1,0 +1,1286 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+.su-page {
+    padding: 24px 28px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: #1a2e2b;
+    min-height: 100vh;
+}
+
+/* ── PAGE HEADER ── */
+.su-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 2px solid #e0eeec;
+}
+.su-header-left h1 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #007367;
+    margin: 0 0 3px;
+    letter-spacing: -.3px;
+}
+.su-header-left p {
+    font-size: 13px;
+    color: #7a9e96;
+    margin: 0;
+}
+.su-live-badge {
+    background: linear-gradient(135deg,#007367,#0d9488);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(0,115,103,.3);
+}
+
+/* ── KPI CARDS ── */
+.su-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+}
+@media (max-width: 1100px) { .su-kpi-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 680px)  { .su-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
+.su-kpi {
+    background: #fff;
+    border: 1px solid #e3efec;
+    border-radius: 14px;
+    padding: 18px 16px 14px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+    cursor: default;
+}
+.su-kpi:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,115,103,.12); }
+.su-kpi-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+}
+.su-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #7a9e96;
+    margin-bottom: 8px;
+}
+.su-kpi-val {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.su-kpi-sub { font-size: 11px; color: #7a9e96; }
+.su-kpi-pct {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* ── CARD ── */
+.su-card {
+    background: #fff;
+    border: 1px solid #e3efec;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,115,103,.06);
+}
+.su-card:hover { border-color: #b2d8d2; }
+.su-card-header {
+    background: #f5faf9;
+    border-bottom: 1px solid #e0eeec;
+    padding: 13px 18px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.su-card-header-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    background: rgba(0,115,103,.1);
+    color: #007367;
+    flex-shrink: 0;
+}
+.su-card-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #007367;
+    margin: 0;
+}
+.su-card-body { padding: 20px; }
+
+/* ── DONUT ── */
+.su-donut-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+.su-donut-svg { overflow: visible; }
+.su-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    justify-content: center;
+}
+.su-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #4d6f6a;
+}
+.su-legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── BAR ROWS ── */
+.su-bar-row { margin-bottom: 14px; }
+.su-bar-clickable { cursor: pointer; border-radius: 8px; transition: background .15s; }
+.su-bar-clickable:hover { background: #f0f9f7; }
+.su-bar-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 12px;
+    color: #4d6f6a;
+}
+.su-bar-meta .su-bar-name { font-weight: 600; color: #1a2e2b; }
+.su-bar-meta .su-bar-pct { font-weight: 700; color: #007367; font-family: 'JetBrains Mono', monospace; }
+.su-bar-track {
+    background: #e8f5f3;
+    border-radius: 6px;
+    height: 7px;
+    overflow: hidden;
+}
+.su-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+}
+.su-bar-detail {
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: #7a9e96;
+    margin-top: 4px;
+}
+.su-bar-detail b { color: #1a2e2b; }
+
+/* ── TYPE CARDS ── */
+.su-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+.su-type-card {
+    background: #ffffff;
+    border: 1px solid #e0eeec;
+    border-radius: 12px;
+    padding: 16px;
+    transition: transform .15s, border-color .2s;
+}
+.su-type-card:hover { transform: translateY(-2px); border-color: #007367; }
+.su-type-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.su-type-icon {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+.su-type-name { font-size: 13px; font-weight: 700; color: #1a2e2b; }
+.su-type-total { font-size: 11px; color: #7a9e96; }
+.su-type-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.su-type-stat {
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 8px;
+}
+.su-type-stat-val { font-size: 18px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+.su-type-stat-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.su-mini-track {
+    height: 5px;
+    background: #e0eeec;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+.su-mini-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .8s ease;
+}
+
+/* ── SEAT HEATMAP ── */
+.su-heatmap-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.su-hm-cell {
+    min-width: 68px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -.2px;
+    cursor: default;
+    transition: transform .15s, box-shadow .15s;
+    padding: 0 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+.su-hm-cell:hover {
+    transform: scale(1.18);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 6px 20px rgba(0,0,0,.22);
+}
+.su-hm-clickable { cursor: pointer; }
+/* available — light/subtle so occupied cells stand out */
+.su-hm-avail {
+    background: #e6f3ee;
+    color: #007367;
+    border: 1px solid #b2d8d2;
+}
+/* occupied — strong accent (applied via JS from data-color) */
+.su-hm-occ-cell {
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.15);
+}
+/* reserved */
+.su-hm-res {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+/* maintenance */
+.su-hm-maint {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+.su-heatmap-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #4d6f6a;
+    align-items: center;
+}
+.su-hm-dot {
+    width: 12px; height: 12px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* ── SUMMARY TABLE ── */
+.su-table-wrap {
+    border: 1px solid #e0eeec;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.su-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.su-table thead tr {
+    background: linear-gradient(135deg,#007367,#0d9488);
+}
+
+
+.su-table thead th {
+    padding: 11px 14px;
+    text-align: left;
+    color: rgba(61, 61, 61, 0.9);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    white-space: nowrap;
+}
+.su-table tbody tr { border-bottom: 1px solid #f0f7f5; transition: background .15s; }
+.su-table tbody tr:hover { background: #f5faf9; }
+.su-table tbody tr:last-child { border-bottom: none; }
+.su-table tbody td { padding: 10px 14px; color: #2d4f47; vertical-align: middle; }
+
+/* ── BADGES ── */
+.su-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.chip-green   { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.chip-red     { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.chip-amber   { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.chip-slate   { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.chip-teal    { background: #e6f3ee; color: #007367; border: 1px solid #b2e4d8; }
+
+/* ── SECTION LABEL ── */
+.su-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #7a9e96;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.su-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e0eeec;
+}
+
+/* ── OVERBARS ── */
+.su-occ-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 14px;
+}
+.su-occ-segment {
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+}
+</style>
+
+<section class="su-page">
+
+    <!-- PAGE HEADER -->
+    <div class="su-header">
+        <div class="su-header-left">
+            <h1><i class="bx bx-bar-chart-alt-2"></i> Space Utilization Overview</h1>
+            <p>Cabin &amp; Cubicle occupancy analysis across all buildings</p>
+        </div>
+       
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="su-kpi-row">
+        <div class="su-kpi" style="border-color:#007367aa">
+            <div class="su-kpi-bar" style="background:linear-gradient(90deg,#007367,#0d9488)"></div>
+            <div class="su-kpi-label">Total Seats</div>
+            <div class="su-kpi-val" style="color:#007367">{{ total_seats }}</div>
+            <div class="su-kpi-sub">All types combined</div>
+        </div>
+        <div class="su-kpi" style="border-color:#15803daa">
+            <div class="su-kpi-bar" style="background:linear-gradient(90deg,#166534,#16a34a)"></div>
+            <div class="su-kpi-label">Available</div>
+            <div class="su-kpi-val" style="color:#166534">{{ available_seats }}</div>
+            <div class="su-kpi-sub">Ready to allocate</div>
+            {% if total_seats > 0 %}
+            <span class="su-kpi-pct" style="background:#dcfce7;color:#166534">
+                {% widthratio available_seats total_seats 100 %}%
+            </span>
+            {% endif %}
+        </div>
+        <div class="su-kpi" style="border-color:#991b1baa">
+            <div class="su-kpi-bar" style="background:linear-gradient(90deg,#991b1b,#dc2626)"></div>
+            <div class="su-kpi-label">Occupied</div>
+            <div class="su-kpi-val" style="color:#991b1b">{{ occupied_seats }}</div>
+            <div class="su-kpi-sub">Currently in use</div>
+            {% if total_seats > 0 %}
+            <span class="su-kpi-pct" style="background:#fee2e2;color:#991b1b">
+                {% widthratio occupied_seats total_seats 100 %}%
+            </span>
+            {% endif %}
+        </div>
+        <div class="su-kpi" style="border-color:#92400eaa">
+            <div class="su-kpi-bar" style="background:linear-gradient(90deg,#92400e,#d97706)"></div>
+            <div class="su-kpi-label">Reserved</div>
+            <div class="su-kpi-val" style="color:#92400e">{{ reserved_seats }}</div>
+            <div class="su-kpi-sub">Held / pre-assigned</div>
+        </div>
+        <div class="su-kpi" style="border-color:#475569aa">
+            <div class="su-kpi-bar" style="background:linear-gradient(90deg,#475569,#64748b)"></div>
+            <div class="su-kpi-label">Maintenance</div>
+            <div class="su-kpi-val" style="color:#475569">{{ maintenance_seats }}</div>
+            <div class="su-kpi-sub">Under maintenance</div>
+        </div>
+        <div class="su-kpi" style="border-color:#0d9488aa;background:linear-gradient(135deg,#f0fdf9,#e6f3ee)">
+            <div class="su-kpi-bar" style="background:linear-gradient(90deg,#007367,#0d9488)"></div>
+            <div class="su-kpi-label">Occupancy Rate</div>
+            <div class="su-kpi-val" style="color:#007367">{{ occupancy_rate }}%</div>
+            <div class="su-kpi-sub">Overall fill rate</div>
+            <span class="su-kpi-pct" style="background:rgba(0,115,103,.12);color:#007367">
+                {% if occupancy_rate >= 75 %}High{% elif occupancy_rate >= 40 %}Medium{% else %}Low{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- ROW 2: DONUT + BUILDING BARS -->
+    <div class="row g-3 mb-4">
+
+        <!-- Overall Status Donut -->
+<!--        <div class="col-md-4">-->
+<!--            <div class="su-card h-100">-->
+<!--                <div class="su-card-header">-->
+<!--                    <div class="su-card-header-icon"><i class="bx bx-pie-chart-alt-2"></i></div>-->
+<!--                    <span class="su-card-title">Overall Seat Status</span>-->
+<!--                </div>-->
+<!--                <div class="su-card-body d-flex align-items-center justify-content-center" style="min-height:240px">-->
+<!--                    <div class="su-donut-wrap">-->
+<!--                        <svg width="148" height="148" class="su-donut-svg" style="transform:rotate(-90deg)">-->
+<!--                            <circle cx="74" cy="74" r="50" fill="none" stroke="#e8f5f3" stroke-width="14"/>-->
+<!--                            <circle cx="74" cy="74" r="50" fill="none" stroke="#dcfce7" stroke-width="14"-->
+<!--                                stroke-dasharray="{{ available_pct }} {{ remaining_pct }}"-->
+<!--                                stroke-linecap="round" style="transition:stroke-dasharray .6s"/>-->
+<!--                            <circle cx="74" cy="74" r="50" fill="none" stroke="#fee2e2" stroke-width="14"-->
+<!--                                stroke-dasharray="{{ occupied_pct }} {{ occ_remaining }}"-->
+<!--                                stroke-dashoffset="{{ occupied_offset }}"-->
+<!--                                stroke-linecap="round"/>-->
+<!--                            <circle cx="74" cy="74" r="50" fill="none" stroke="#fef3c7" stroke-width="14"-->
+<!--                                stroke-dasharray="{{ reserved_pct }} {{ res_remaining }}"-->
+<!--                                stroke-dashoffset="{{ reserved_offset }}"-->
+<!--                                stroke-linecap="round"/>-->
+<!--                        </svg>-->
+<!--                        &lt;!&ndash; center label inline &ndash;&gt;-->
+<!--                        <div style="position:absolute;text-align:center;pointer-events:none;display:none" id="ring-center"></div>-->
+
+<!--                        <div style="text-align:center;margin-top:-8px">-->
+<!--                            <div style="font-size:28px;font-weight:800;color:#007367;font-family:'JetBrains Mono',monospace;line-height:1">{{ total_seats }}</div>-->
+<!--                            <div style="font-size:11px;color:#7a9e96;font-weight:600;text-transform:uppercase;letter-spacing:.6px">Total</div>-->
+<!--                        </div>-->
+<!--                        <div class="su-legend">-->
+<!--                            <div class="su-legend-item"><div class="su-legend-dot" style="background:#166534"></div>Available &nbsp;<strong>{{ available_seats }}</strong></div>-->
+<!--                            <div class="su-legend-item"><div class="su-legend-dot" style="background:#991b1b"></div>Occupied &nbsp;<strong>{{ occupied_seats }}</strong></div>-->
+<!--                            <div class="su-legend-item"><div class="su-legend-dot" style="background:#92400e"></div>Reserved &nbsp;<strong>{{ reserved_seats }}</strong></div>-->
+<!--                            <div class="su-legend-item"><div class="su-legend-dot" style="background:#475569"></div>Maintenance &nbsp;<strong>{{ maintenance_seats }}</strong></div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+       <div class="col-md-4">
+        <div class="su-card h-100">
+            <div class="su-card-header">
+                <div class="su-card-header-icon">
+                    <i class="bx bx-building-house"></i>
+                </div>
+                <span class="su-card-title">Departments</span>
+            </div>
+
+            <div class="su-card-body" style="max-height:340px;overflow-y:auto">
+
+                {% for d in department_stats %}
+                <div class="su-bar-row su-bar-clickable"
+                    data-department="{{ d.name }}" data-campus="BLR"
+                    onclick="getDetails(this)"
+                    title="Click to view {{ d.name }} details">
+
+                    <div class="su-bar-meta">
+                        <span class="su-bar-name">{{ d.name }}</span>
+                        <span class="su-bar-pct">{{ d.total }}</span>
+                    </div>
+
+                    <div class="su-bar-track">
+                        <div class="su-bar-fill su-dept-fill"
+                            data-pct="{{ d.pct }}"
+                            style="background:linear-gradient(90deg,#007367,#0d9488)">
+                        </div>
+                    </div>
+
+                    <div class="su-bar-detail">
+                        <span>Total: <b>{{ d.total }}</b></span>
+                    </div>
+
+                </div>
+                {% empty %}
+                <div style="text-align:center;color:#7a9e96;padding:40px 20px">
+                    No department data available
+                </div>
+                {% endfor %}
+
+            </div>
+        </div>
+    </div>
+        <!-- Building Breakdown Bars -->
+        <div class="col-md-5">
+            <div class="su-card h-100">
+                <div class="su-card-header">
+                    <div class="su-card-header-icon"><i class="bx bx-buildings"></i></div>
+                    <span class="su-card-title">Building Breakdown</span>
+                </div>
+                <div class="su-card-body" style="max-height:340px;overflow-y:auto">
+                    {% for b in building_stats %}
+                    <div class="su-bar-row">
+                        <div class="su-bar-meta">
+                            <span class="su-bar-name">{{ b.name }} <span style="font-size:10px;color:#b2c9c5">({{ b.code }})</span></span>
+                            <span class="su-bar-pct">{{ b.pct }}%</span>
+                        </div>
+                        <div class="su-bar-track">
+                            <div class="su-bar-fill" style="width:{{ b.pct }}%;background:linear-gradient(90deg,#007367,#0d9488)"></div>
+                        </div>
+                        <!-- Stacked mini segments -->
+                        <div class="su-occ-bar-row" style="margin-top:4px">
+                            {% if b.occupied > 0 %}
+                            <div class="su-occ-segment" title="Occupied: {{ b.occupied }}"
+                                style="background:#991b1b;flex:{{ b.occupied }}"></div>
+                            {% endif %}
+                            {% if b.available > 0 %}
+                            <div class="su-occ-segment" title="Available: {{ b.available }}"
+                                style="background:#166534;flex:{{ b.available }}"></div>
+                            {% endif %}
+                            {% if b.reserved > 0 %}
+                            <div class="su-occ-segment" title="Reserved: {{ b.reserved }}"
+                                style="background:#d97706;flex:{{ b.reserved }}"></div>
+                            {% endif %}
+                            {% if b.maintenance > 0 %}
+                            <div class="su-occ-segment" title="Maintenance: {{ b.maintenance }}"
+                                style="background:#94a3b8;flex:{{ b.maintenance }}"></div>
+                            {% endif %}
+                        </div>
+                        <div class="su-bar-detail">
+                            <span>Total: <b>{{ b.total }}</b></span>
+                            <span style="color:#991b1b">Occ: <b>{{ b.occupied }}</b></span>
+                            <span style="color:#166534">Avail: <b>{{ b.available }}</b></span>
+                            {% if b.reserved > 0 %}<span style="color:#d97706">Res: <b>{{ b.reserved }}</b></span>{% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div style="text-align:center;color:#7a9e96;padding:40px 20px">
+                        <i class="bx bx-buildings" style="font-size:40px;display:block;margin-bottom:8px;opacity:.4"></i>
+                        No building data available
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats Mini Cards -->
+        <div class="col-md-3">
+            <div class="su-card h-100">
+                <div class="su-card-header">
+                    <div class="su-card-header-icon"><i class="bx bx-stats"></i></div>
+                    <span class="su-card-title">Utilization Summary</span>
+                </div>
+                <div class="su-card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div style="background:#e6f3ee;border-radius:10px;padding:14px 10px;text-align:center">
+                                <div style="font-size:22px;font-weight:800;color:#007367;font-family:'JetBrains Mono',monospace">{{ total_seats }}</div>
+                                <div style="font-size:10px;font-weight:700;color:#4d6f6a;text-transform:uppercase">Total</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div style="background:#fee2e2;border-radius:10px;padding:14px 10px;text-align:center">
+                                <div style="font-size:22px;font-weight:800;color:#991b1b;font-family:'JetBrains Mono',monospace">{{ occupied_seats }}</div>
+                                <div style="font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase">Occupied</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div style="background:#dcfce7;border-radius:10px;padding:14px 10px;text-align:center">
+                                <div style="font-size:22px;font-weight:800;color:#166534;font-family:'JetBrains Mono',monospace">{{ available_seats }}</div>
+                                <div style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase">Available</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div style="background:#fef3c7;border-radius:10px;padding:14px 10px;text-align:center">
+                                <div style="font-size:22px;font-weight:800;color:#92400e;font-family:'JetBrains Mono',monospace">{{ reserved_seats }}</div>
+                                <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase">Reserved</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Occupancy gauge bar -->
+                    <div style="margin-top:16px">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#4d6f6a;margin-bottom:6px">
+                            <span>Fill Rate</span>
+                            <span style="color:#007367">{{ occupancy_rate }}%</span>
+                        </div>
+                        <div style="background:#e8f5f3;border-radius:8px;height:10px;overflow:hidden">
+                            <div style="height:100%;border-radius:8px;background:linear-gradient(90deg,#007367,#0d9488);width:{{ occupancy_rate }}%;transition:width 1s ease"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:10px;color:#b2c9c5;margin-top:4px">
+                            <span>0%</span><span>50%</span><span>100%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 3: SEAT TYPE CARDS (Cubicles, Cabins, etc.) -->
+    {% if seat_type_stats %}
+    <div class="su-section-label">Seat Type Utilization — Cubicles &amp; Cabins</div>
+    <div class="su-type-grid mb-4">
+        {% for st in seat_type_stats %}
+        <div class="su-type-card">
+            <div class="su-type-top">
+                <div class="su-type-icon" style="background:{{ st.bg_color }}18;color:{{ st.bg_color }}">
+                    <i class="{{ st.icon }}"></i>
+                </div>
+                <div>
+                    <div class="su-type-name">{{ st.name }}</div>
+                    <div class="su-type-total">{{ st.total }} total seats</div>
+                </div>
+            </div>
+            <!-- Mini donut -->
+            <div style="text-align:center;margin-bottom:10px">
+                <svg width="90" height="90" style="transform:rotate(-90deg);overflow:visible">
+                    <circle cx="45" cy="45" r="34" fill="none" stroke="#e8f5f3" stroke-width="9"/>
+                    <circle cx="45" cy="45" r="34" fill="none" stroke="#fee2e2" stroke-width="9"
+                        stroke-dasharray="{{ st.occ_dash }} {{ st.occ_gap }}" stroke-linecap="round"
+                        style="transition:stroke-dasharray .8s ease"/>
+                    <circle cx="45" cy="45" r="34" fill="none" stroke="#dcfce7" stroke-width="9"
+                        stroke-dasharray="{{ st.avail_dash }} {{ st.avail_gap }}"
+                        stroke-dashoffset="{{ st.occ_dash|floatformat:0 }}"
+                        stroke-linecap="round"/>
+                </svg>
+                <div style="margin-top:-10px;font-size:15px;font-weight:800;color:{{ st.bg_color }};font-family:'JetBrains Mono',monospace">{{ st.pct }}%</div>
+                <div style="font-size:9px;color:#7a9e96;font-weight:700;text-transform:uppercase;letter-spacing:.5px">occupied</div>
+            </div>
+            <div class="su-type-stats">
+                <div class="su-type-stat" style="background:#fee2e2">
+                    <div class="su-type-stat-val" style="color:#991b1b">{{ st.occupied }}</div>
+                    <div class="su-type-stat-lbl" style="color:#991b1b">Occupied</div>
+                </div>
+                <div class="su-type-stat" style="background:#dcfce7">
+                    <div class="su-type-stat-val" style="color:#166534">{{ st.available }}</div>
+                    <div class="su-type-stat-lbl" style="color:#166534">Available</div>
+                </div>
+                {% if st.reserved > 0 %}
+                <div class="su-type-stat" style="background:#fef3c7">
+                    <div class="su-type-stat-val" style="color:#92400e">{{ st.reserved }}</div>
+                    <div class="su-type-stat-lbl" style="color:#92400e">Reserved</div>
+                </div>
+                {% endif %}
+                {% if st.maintenance > 0 %}
+                <div class="su-type-stat" style="background:#f1f5f9">
+                    <div class="su-type-stat-val" style="color:#475569">{{ st.maintenance }}</div>
+                    <div class="su-type-stat-lbl" style="color:#475569">Maint.</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="su-mini-track">
+                <div class="su-mini-fill" style="width:{{ st.pct }}%;background:{{ st.bg_color }}"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ROW 4: SEAT TYPE UTILIZATION GRID -->
+    {% if seat_grid_by_type %}
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="su-card">
+                <div class="su-card-header" style="flex-wrap:wrap;gap:8px">
+                    <div class="su-card-header-icon"><i class="bx bx-grid-alt"></i></div>
+                    <span class="su-card-title">Seat Type Utilization Grid</span>
+                    <span style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <!-- Tab pills — one per seat type -->
+                        <div id="seatTypeTabs" style="display:flex;gap:6px;flex-wrap:wrap">
+                            <button class="st-tab-btn active" data-type=""
+                                onclick="filterSeatTypeGrid('', this)"
+                                style="padding:4px 12px;border-radius:20px;border:1px solid #007367;background:#007367;color:#fff;font-size:11px;font-weight:700;cursor:pointer">
+                                All
+                            </button>
+                            {% for sg in seat_grid_by_type %}
+                            <button class="st-tab-btn" data-type="{{ sg.name }}"
+                                onclick="filterSeatTypeGrid('{{ sg.name }}', this)"
+                                style="padding:4px 12px;border-radius:20px;border:1px solid #e0eeec;background:#f5faf9;color:#4d6f6a;font-size:11px;font-weight:600;cursor:pointer">
+                                <i class="{{ sg.icon }}"></i> {{ sg.name }}
+                                <span style="margin-left:4px;opacity:.7">{{ sg.total }}</span>
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <span style="font-size:11px;color:#7a9e96">hover cell for details</span>
+                    </span>
+                </div>
+                <div class="su-card-body">
+                    {% for sg in seat_grid_by_type %}
+                    <div class="st-type-section" data-type="{{ sg.name }}">
+                        <!-- Type section header -->
+                        <div class="hm-bldg-header" onclick="toggleBldgGrid(this)"
+                            style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;user-select:none">
+                            <div class="su-type-icon-box" data-color="{{ sg.color }}"
+                                style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
+                                <i class="{{ sg.icon }}"></i>
+                            </div>
+                            <div style="font-size:12px;font-weight:700;color:#1a2e2b">
+                                {{ sg.name }}
+                            </div>
+                            <div style="display:flex;gap:10px;font-size:11px">
+                                <span style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:20px;font-weight:700">{{ sg.occupied }} occ</span>
+                                <span style="background:#dcfce7;color:#166534;padding:1px 8px;border-radius:20px;font-weight:700">{{ sg.available }} avail</span>
+                                <span style="background:#e6f3ee;color:#007367;padding:1px 8px;border-radius:20px;font-weight:700">{{ sg.pct }}%</span>
+                            </div>
+                            <div style="height:1px;flex:1;background:#e0eeec"></div>
+                            <i class="bx bx-chevron-up hm-toggle-icon" style="font-size:16px;color:#7a9e96;transition:transform .2s"></i>
+                        </div>
+
+                        <!-- Seat cells grid -->
+                        <div class="hm-bldg-grid su-heatmap-wrap" style="margin-bottom:20px">
+                            {% for seat in sg.seats %}
+                            {% if seat.status_id == 1 %}
+                                <div class="su-hm-cell su-hm-avail su-hm-clickable"
+                                    data-seat-id="{{ seat.id }}"
+                                    data-seat-number="{{ seat.number }}"
+                                    data-status-id="{{ seat.status_id }}"
+                                    data-emp-id="{{ seat.emp_id }}"
+                                    data-building="{{ seat.building }}"
+                                    data-floor="{{ seat.floor }}"
+                                    data-type="{{ sg.name }}"
+                                    title="{{ sg.name }} · {{ seat.number }} | Room {{ seat.room }} · {{ seat.building }} | Available — click to assign">
+                                    {{ seat.number }}
+                                </div>
+                            {% elif seat.status_id == 2 %}
+                                <div class="su-hm-cell su-hm-occ-cell su-hm-clickable"
+                                    data-color="{{ sg.color }}"
+                                    data-seat-id="{{ seat.id }}"
+                                    data-seat-number="{{ seat.number }}"
+                                    data-status-id="{{ seat.status_id }}"
+                                    data-emp-id="{{ seat.emp_id }}"
+                                    data-building="{{ seat.building }}"
+                                    data-floor="{{ seat.floor }}"
+                                    data-type="{{ sg.name }}"
+                                    title="{{ sg.name }} · {{ seat.number }} | Room {{ seat.room }} · {{ seat.building }}{% if seat.emp_id %} | {{ seat.emp_id }}{% endif %} | Occupied — click to edit">
+                                    {{ seat.number }}
+                                </div>
+                            {% elif seat.status_id == 3 %}
+                                <div class="su-hm-cell su-hm-res su-hm-clickable"
+                                    data-seat-id="{{ seat.id }}"
+                                    data-seat-number="{{ seat.number }}"
+                                    data-status-id="{{ seat.status_id }}"
+                                    data-emp-id="{{ seat.emp_id }}"
+                                    data-building="{{ seat.building }}"
+                                    data-floor="{{ seat.floor }}"
+                                    data-type="{{ sg.name }}"
+                                    title="{{ sg.name }} · {{ seat.number }} | Room {{ seat.room }} · {{ seat.building }} | Reserved — click to edit">
+                                    {{ seat.number }}
+                                </div>
+                            {% else %}
+                                <div class="su-hm-cell su-hm-maint su-hm-clickable"
+                                    data-seat-id="{{ seat.id }}"
+                                    data-seat-number="{{ seat.number }}"
+                                    data-status-id="{{ seat.status_id }}"
+                                    data-emp-id="{{ seat.emp_id }}"
+                                    data-building="{{ seat.building }}"
+                                    data-floor="{{ seat.floor }}"
+                                    data-type="{{ sg.name }}"
+                                    title="{{ sg.name }} · {{ seat.number }} | Room {{ seat.room }} · {{ seat.building }} | {{ seat.status_name }} — click to edit">
+                                    {{ seat.number }}
+                                </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Legend -->
+                    <div class="su-heatmap-legend">
+                        <span><span class="su-hm-dot" style="background:#e6f3ee;border:1px solid #b2d8d2"></span><span style="color:#007367;font-weight:600">Available</span></span>
+                        <span><span class="su-hm-dot" style="background:#007367"></span><span style="font-weight:600">Occupied</span> <span style="color:#7a9e96;font-size:10px">(accent = seat type)</span></span>
+                        <span><span class="su-hm-dot" style="background:#fef3c7;border:1px solid #fde68a"></span><span style="color:#92400e;font-weight:600">Reserved</span></span>
+                        <span><span class="su-hm-dot" style="background:#f1f5f9;border:1px solid #e2e8f0"></span><span style="color:#475569;font-weight:600">Maintenance</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ROW 5: DETAILED TABLE -->
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="su-card">
+                <div class="su-card-header">
+                    <div class="su-card-header-icon"><i class="bx bx-table"></i></div>
+                    <span class="su-card-title">Room-Level Detail</span>
+                </div>
+                <div class="su-card-body p-0">
+                    <div class="table-responsive ">
+                        <table class="su-table table table-bordered table-hover" id="roomDetailTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Room</th>
+                                    <th>Building</th>
+                                    <th>Floor</th>
+                                    <th>Total</th>
+                                    <th>Occupied</th>
+                                    <th>Available</th>
+                                    <th>Fill Rate</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roomTableBody">
+                                {% for room in room_stats %}
+                                <tr>
+                                    <td style="color:#7a9e96;font-size:11px;font-family:'JetBrains Mono',monospace">{{ forloop.counter }}</td>
+                                    <td><strong style="color:#007367;font-family:'JetBrains Mono',monospace">{{ room.number }}</strong></td>
+                                    <td>
+                                        <span style="font-size:11px;font-weight:600;color:#1a2e2b">{{ room.building }}</span>
+                                        {% if room.building_code %}
+                                        <span style="font-size:10px;color:#7a9e96;margin-left:4px">({{ room.building_code }})</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-size:12px;color:#4d6f6a">{{ room.floor|default:"—" }}</td>
+                                    <td style="font-weight:700;color:#1a2e2b">{{ room.total }}</td>
+                                    <td>
+                                        <span style="font-weight:700;color:#991b1b">{{ room.occupied }}</span>
+                                    </td>
+                                    <td>
+                                        <span style="font-weight:700;color:#166534">{{ room.available }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="display:flex;align-items:center;gap:8px;min-width:90px">
+                                            <div style="flex:1;height:5px;background:#e8f5f3;border-radius:3px;overflow:hidden">
+                                                <div style="height:100%;background:{% if room.pct >= 75 %}#007367{% elif room.pct >= 40 %}#0d9488{% elif room.pct > 0 %}#d97706{% else %}#dc2626{% endif %};width:{{ room.pct }}%;border-radius:3px"></div>
+                                            </div>
+                                            <span style="font-size:11px;font-weight:700;color:#1a2e2b;font-family:'JetBrains Mono',monospace;min-width:34px">{{ room.pct }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if room.pct >= 75 %}
+                                            <span class="su-chip chip-teal">High</span>
+                                        {% elif room.pct >= 40 %}
+                                            <span class="su-chip chip-green">Medium</span>
+                                        {% elif room.pct > 0 %}
+                                            <span class="su-chip chip-amber">Low</span>
+                                        {% else %}
+                                            <span class="su-chip chip-red">Vacant</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" style="text-align:center;padding:40px;color:#7a9e96">
+                                        <i class="bx bx-door-open" style="font-size:36px;display:block;margin-bottom:8px;opacity:.35"></i>
+                                        No room data available
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</section>
+<div class="modal fade" id="departementWiseDetailsModel" tabindex="-1" role="dialog" aria-labelledby="staticModalLabel" aria-hidden="true"
+    data-backdrop="static">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="preview-title">Seat Allocation History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+            <div class="col-md-12">
+            <div class="table-responsive" id="gitamInventorTableDiv">
+                <table class="table table-bordered table-sm" id="departmentTable">
+
+					<thead>
+						<tr>
+							<th>S.No</th>
+							<th>Name</th>
+							<th>Campus </th>
+							<th>Dept</th>
+							<th>Designation</th>
+							<th>seat</th>
+							<th>Seat Type</th>
+                            <th>Seat Number </th>
+							<th>Room</th>
+							<th>Allocated Date</th>
+							<th>Created By</th>
+						</tr>
+					</thead>
+					<tbody id="departmentTableBody" ></tbody>
+				</table>
+            </div>
+        </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ok</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+$(document).ready(function () {
+    $('#roomDetailTable').DataTable({
+        dom: 'Bfrtip',
+        buttons: [
+            {
+                extend: 'excelHtml5',
+                text: '<i class="fa fa-download" style="font-size:12px"></i> Excel',
+                className: 'btn btn-secondary btn-sm',
+                title: 'Space Utilization – Room Detail'
+            }
+        ],
+        pageLength: 10,
+    });
+    $('#overlay').fadeOut();
+});
+
+/* ── Apply dynamic bar widths ── */
+document.querySelectorAll('.su-dept-fill[data-pct]').forEach(function (el) {
+    el.style.width = el.dataset.pct + '%';
+});
+
+/* ── Apply dynamic colors from data-color attributes ── */
+document.querySelectorAll('.su-type-icon-box[data-color]').forEach(function (el) {
+    var c = el.dataset.color;
+    el.style.background = c + '18';
+    el.style.color = c;
+});
+document.querySelectorAll('.su-hm-occ-cell[data-color]').forEach(function (el) {
+    el.style.background = el.dataset.color;
+});
+
+/* ── Heatmap: building filter ── */
+function filterHeatmap(bldg) {
+    document.querySelectorAll('.hm-building-section').forEach(function (sec) {
+        if (!bldg || sec.dataset.building === bldg) {
+            sec.style.display = '';
+        } else {
+            sec.style.display = 'none';
+        }
+    });
+}
+
+/* ── Heatmap: collapse / expand a building grid ── */
+function toggleBldgGrid(header) {
+    var grid = header.nextElementSibling;
+    var icon = header.querySelector('.hm-toggle-icon');
+    var collapsed = grid.style.display === 'none';
+    grid.style.display = collapsed ? '' : 'none';
+    icon.style.transform = collapsed ? '' : 'rotate(180deg)';
+}
+
+/* ── Seat Type filter tabs ── */
+function filterSeatTypeGrid(type, btn) {
+    document.querySelectorAll('.st-type-section').forEach(function (sec) {
+        sec.style.display = (!type || sec.dataset.type === type) ? '' : 'none';
+    });
+    document.querySelectorAll('.st-tab-btn').forEach(function (b) {
+        b.style.background = '#f5faf9';
+        b.style.color = '#4d6f6a';
+        b.style.borderColor = '#e0eeec';
+    });
+    btn.style.background = '#007367';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#007367';
+}
+
+/* ── Delegated click on seat cells → open modal ── */
+$(document).on('click', '.su-hm-clickable', function () {
+    var el = $(this);
+    openEditSeat(
+        el.data('seat-id'),
+        el.data('seat-number'),
+        el.data('status-id'),
+        el.data('emp-id') || '',
+        el.data('building'),
+        el.data('floor'),
+        el.data('type')
+    );
+});
+
+/* ── Seat assignment modal (identical to seat_layout page) ── */
+function openEditSeat(id, number, statusId, empid, building, floor, type) {
+    $('#editSeatId').val(id);
+    $('#modalSeatNum').text(number);
+    $('#editSeatStatus').val(statusId);
+    $('#editRemarks').val('');
+    $('#detailSeatNo').text(number);
+    $('#detailBuilding').text(building);
+    $('#detailFloor').text(floor);
+    $('#detailType').text(type);
+    $('#editEmpId').empty();
+    toggleEmpId(statusId);
+    if (empid) {
+        $.post('/get_users_by_emp_id', { term: empid }, function (res) {
+            if (res.status === 200 && res.data && res.data.length > 0) {
+                var e = res.data[0];
+                var label = e.empid + ' | ' + e.emp_name + ' | ' + e.campus + ' | ' + e.college_code + ' | ' + e.dept_code + ' | ' + e.designation;
+                $('#editEmpId').append(new Option(label, e.empid, true, true)).trigger('change');
+            } else {
+                $('#editEmpId').append(new Option(empid, empid, true, true)).trigger('change');
+            }
+            $('#editSeatModal').modal('show');
+        });
+    } else {
+        $('#editSeatModal').modal('show');
+    }
+}
+
+function toggleEmpId(statusId) {
+    if (parseInt(statusId) === 2) {
+        $('#empidWrap').show();
+    } else {
+        $('#empidWrap').hide();
+        $('#editEmpId').empty();
+    }
+}
+
+$(document).ready(function () {
+    /* Status change → show/hide emp field */
+    $('#editSeatStatus').on('change', function () { toggleEmpId($(this).val()); });
+
+    /* Init Select2 on modal open */
+    $('#editSeatModal').on('shown.bs.modal', function () {
+        if (!$('#editEmpId').hasClass('select2-hidden-accessible')) {
+            $('#editEmpId').select2({
+                dropdownParent: $('#editSeatModal'),
+                placeholder: 'Search Employee ID…',
+                minimumInputLength: 3,
+                ajax: {
+                    url: '/get_users_by_emp_id_search',
+                    dataType: 'json',
+                    type: 'POST',
+                    quietMillis: 50,
+                    data: function (params) { return { term: params.term }; },
+                    processResults: function (data) {
+                        if (data.status === 200) {
+                            return {
+                                results: $.map(data.data, function (item) {
+                                    return {
+                                        id  : item.empid,
+                                        text: item.empid + ' | ' + item.emp_name
+                                              + ' | ' + (item.campus       || '')
+                                              + ' | ' + (item.college_code || '')
+                                              + ' | ' + (item.dept_code    || '')
+                                              + ' | ' + (item.designation    || '')
+                                    };
+                                })
+                            };
+                        }
+                        return { results: [] };
+                    }
+                }
+            });
+        }
+        $('#editEmpId').on('select2:select', function () {
+            $(this).select2('close');
+            document.activeElement.blur();
+            $('body').trigger('click');
+        });
+    });
+
+    /* Save / Update */
+    $('#saveEditSeat').on('click', function () {
+        var statusId = parseInt($('#editSeatStatus').val());
+        var empid    = $('#editEmpId').val();
+        if (statusId === 2 && !empid) {
+            Swal.fire({ icon:'warning', title:'Employee ID required',
+                text:'Please select an Employee ID for Occupied status.',
+                confirmButtonColor:'#007367' });
+            return;
+        }
+        $.ajax({
+            url : '/workspace/update_seat_status',
+            type: 'POST',
+            data: {
+                seat_id    : $('#editSeatId').val(),
+                seat_status: statusId,
+                empid      : empid,
+                remarks    : $('#editRemarks').val(),
+                csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').first().val()
+            },
+            beforeSend: function () { $('#overlay').fadeIn(); },
+            success: function (response) {
+                $('#overlay').fadeOut();
+                $('#editSeatModal').modal('hide');
+                if (response.status === 200) {
+                    Swal.fire({ icon:'success', title:'Updated!', text:response.message,
+                        timer:1500, showConfirmButton:false });
+                    setTimeout(function () { location.reload(); }, 1500);
+                } else if (response.status === 300) {
+                    Swal.fire({ icon:'warning', title:'Warning', text:response.message,
+                        confirmButtonColor:'#007367' });
+                } else {
+                    Swal.fire({ icon:'error', title:'Error',
+                        text:response.message || 'Something went wrong',
+                        confirmButtonColor:'#007367' });
+                }
+            },
+            error: function (xhr) {
+                $('#overlay').fadeOut();
+                Swal.fire('Error', 'Server error: ' + xhr.status + ' ' + xhr.statusText, 'error');
+            }
+        });
+    });
+});
+
+ //=============Get Depart Wise Details=============
+    function getDetails(obj){
+
+    var campus = $(obj).data("campus");
+    var department = $(obj).data("department");
+
+    $("#departementWiseDetailsModel").modal("show");
+
+    $.ajax({
+        url: "/workspace/department_wise_details",
+        type: "POST",
+        data:{
+            campus:campus,
+            department:department,
+            csrfmiddlewaretoken:$("[name=csrfmiddlewaretoken]").val()
+        },
+        success:function(response){
+
+            let html = "";
+
+            $.each(response.data,function(index,row){
+
+                html += `
+                <tr>
+                    <td>${row.sno}</td>
+                    <td>${row.empid}</td>
+                    <td>${row.campus}</td>
+                    <td>${row.department}</td>
+                    <td>${row.designation}</td>
+                    <td>${row.seat_id}</td>
+                    <td>${row.seat_type}</td>
+                    <td>${row.seat_number}</td>
+                    <td>${row.room}</td>
+                    <td>${row.allocated_date}</td>
+                    <td>${row.created_by}</td>
+                </tr>`;
+            });
+
+            $("#departmentTableBody").html(html);
+             $('#departmentTable').DataTable({
+                pageLength: 10,
+                responsive: true,
+                destroy: true
+            });
+        }
+    });
+}
+    $('#departementWiseDetailsModel').on('hidden.bs.modal', function () {
+
+    if ($.fn.DataTable.isDataTable('#departmentTable')) {
+        $('#departmentTable').DataTable().destroy();
+    }
+
+    $('#departmentTableBody').html('');
+});
+</script>
+
+<!-- ── ASSIGN SEAT MODAL ── -->
+<div class="modal fade" id="editSeatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:1px solid #e3efec;">
+            <div class="modal-header" style="background:#f5faf9;border-bottom:1px solid #e0eeec;">
+                <h6 class="modal-title" style="color:#007367;font-weight:700;">
+                    <i class="bx bx-edit-alt"></i> Edit Seat — <span id="modalSeatNum"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z"></path>
+                    </svg>
+
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="background:#e6f3ee;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:800;color:#4d6f6a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Seat Details</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;">
+                        <div style="color:#4d6f6a;">Seat No.: <strong id="detailSeatNo" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Building: <strong id="detailBuilding" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Floor: <strong id="detailFloor" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Type: <strong id="detailType" style="color:#0b3d30;"></strong></div>
+                    </div>
+                </div>
+                <form id="editSeatForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="editSeatId" name="seat_id">
+                    <div class="form-group mb-3">
+                        <label style="font-size:12px;font-weight:600;color:#4d6f6a;">Seat Status</label>
+                        <select name="seat_status" id="editSeatStatus" class="form-control form-select" required>
+                            {% for ss in seat_statuses %}
+                                <option value="{{ ss.id }}">{{ ss.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group mb-3" id="empidWrap">
+                        <label style="font-size:12px;font-weight:600;color:#4d6f6a;">Employee ID <span style="color:#e53e3e;">*</span></label>
+                        <select id="editEmpId" name="empid" class="form-control" style="width:100%;"></select>
+                        <small style="color:#7a9e96;font-size:11px;">Required when status is Occupied</small>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label style="font-size:12px;font-weight:600;color:#4d6f6a;">Remarks</label>
+                        <textarea name="remarks" id="editRemarks" class="form-control" rows="2"
+                            placeholder="Optional remarks…"
+                            style="border-radius:8px;border:1px solid #d9eeeb;font-size:13px;"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #e0eeec;">
+                <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+                    style="border:1px solid #e0eeec;border-radius:8px;">Cancel</button>
+                <button type="button" class="btn btn-sm" id="saveEditSeat"
+                    style="background:#007367;color:#fff;border-radius:8px;font-weight:700;">
+                    <i class="bx bx-save"></i> Save Assignment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+
+{% endblock %}

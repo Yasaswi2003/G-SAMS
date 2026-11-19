@@ -1,0 +1,202 @@
+<!-- MAIN CONTENT-->
+{% extends 'base.html' %}
+{% block body %}
+{% load static %}
+{% load user_tags %}
+<style>
+.history{
+	cursor:pointer;
+	color:orange;
+}
+</style>
+<section class="content-container contentContainer" id="homeSection">
+ {% if request.user|has_group:"ADMIN"  %}
+<div class="d-flex flex-row justify-content-between align-items-center pb-2">
+    <div>
+        <h3 class="page-title">Users</h3>
+    </div>
+    <div >
+        <a href="/user/add_user" class="btn btn-primary btn-sm"><i class="bx bx-plus "></i> Add User</a>
+    </div>
+</div>
+{% endif %}
+<div class="box-container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm dataTable no-footer" id="dataTableFile1" aria-describedby="dataTableFile_info" style="white-space:nowrap;">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Emp ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Designation</th>
+                            <th>Campus</th>
+                            <th>School</th>
+                            <th>Dept Code</th>
+                            <th>Last Login</th>
+                            <th>Action</th>
+
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="inventorModel" tabindex="-1" role="dialog" aria-labelledby="staticModalLabel" aria-hidden="true"
+    data-backdrop="static">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="preview-title">Login History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+            <div class="col-md-12">
+            <div class="table-responsive" id="gitamInventorTableDiv">
+                <table class="table table-bordered table-sm" id="gitamInventorTable">
+
+					<thead>
+						<tr>
+							<th>S.No</th>
+							<th>IP Address</th>
+							<th>Login Time</th>
+							<th>Logout Time</th>
+							<th>Browser</th>
+							<th>Browser Version</th>
+							<th>Device Type</th>
+							<th>OS</th>
+							<th>OS Version</th>
+						</tr>
+					</thead>
+					<tbody ></tbody>
+				</table>
+            </div>
+        </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ok</button>
+            </div>
+        </div>
+    </div>
+</div>
+</section>
+
+
+<script src="https://cdn.gitam.edu/vendor/dataTables/jquery.dataTables.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/dataTables.bootstrap5.min.js"></script>
+<!-- Datatable file exports -->
+<script src="https://cdn.gitam.edu/vendor/dataTables/Buttons-2.3.6/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/Buttons-2.3.6/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/JSZip-2.5.0/jszip.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/pdfmake-0.1.36/pdfmake.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/pdfmake-0.1.36/vfs_fonts.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/Buttons-2.3.6/js/buttons.html5.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/Buttons-2.3.6/js/buttons.print.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/Buttons-2.3.6/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/dataTables/ColumnFilterWidgets.js"></script>
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+
+
+<script>
+function get_faculty_login_history(obj){
+    $('#overlay').fadeIn();
+    var user_id = $(obj).data('id');
+    $.ajax({
+        url: '/user/get_faculty_login_history',
+        type: 'POST',
+        data: {'user_id': user_id},
+        success: function(response) {
+            if (response.status == 200) {
+                const gitamTable = $('#gitamInventorTable').DataTable();
+                gitamTable.clear().draw();
+
+                $.each(response.data, function(index, i) {
+                    gitamTable.row.add([
+                        index + 1,
+                        i.ip_address,
+                        i.login_time,
+                        i.logout_time,
+                        i.browser,
+                        i.browser_version,
+                        i.device_type,
+                        i.os,
+                        i.os_version,
+                    ]).draw();
+                });
+
+                // Delay overlay fadeOut and modal show
+                setTimeout(function() {
+                    $('#overlay').fadeOut();
+                    $('#inventorModel').modal('show');
+                }, 500); // 500ms delay (adjust as needed)
+            }
+            console.log('Success:', response);
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            $('#overlay').fadeOut();
+        }
+    });
+}
+
+
+$('#overlay').fadeIn()
+$(document).ready(function () {
+    $(".table1").DataTable({
+		"pageLength": 10,
+		"dom": 'Blfrtip',
+		responsive: true,
+		buttons: [
+		  {
+			 text: '<i class="fa fa-download" style="font-size:12px"></i> Excel',
+			 className: 'btn btn-secondary btn-sm',
+			 extend: 'excelHtml5',
+			 title: 'Users'
+		  },
+
+	   ]
+
+	});
+   $("#dataTableFile1").DataTable({
+		"pageLength": 10,
+		"dom": 'Blfrtip',
+
+		responsive: true,
+		"ajax": {
+			"type": "POST",
+			url: "/staff",
+			"dataSrc": function(json) {
+				$("#overlay").fadeOut();
+				return json.data;
+			}
+		},
+		buttons: [
+		  {
+			 text: '<i class="fa fa-download" style="font-size:12px"></i> Excel',
+			 className: 'btn btn-secondary btn-sm',
+			 extend: 'excelHtml5',
+			 title: 'Users'
+		  },
+
+	   ]
+
+	});
+});
+
+
+</script>
+{% endblock %}

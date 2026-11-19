@@ -1,0 +1,22 @@
+<section class="ref-util-grid" aria-label="Utilization charts">
+  <article class="ref-panel"><div class="ref-panel-heading"><div><h2>Classroom Utilization Heatmap</h2><p>Room occupancy across hours (Monday to Friday)</p></div><div class="ref-scale"><span></span><div>0% <b>100%</b></div></div></div>
+    <div class="ref-heat-scroll"><table class="ref-heatmap"><thead><tr><th scope="col">Day</th>{% for hour in design_summary.hours %}<th scope="col">{{ hour }}</th>{% endfor %}</tr></thead><tbody>
+    {% for row in design_summary.heatmap %}<tr><th scope="row">{{ row.day }}</th>{% for cell in row.cells %}<td class="ref-heat-{{ cell.level }}" tabindex="0" title="{{ row.day }} {{ cell.hour }}: {{ cell.value }}% room occupancy ({{ cell.occurrences }} occurrence{{ cell.occurrences|pluralize }})"><span>{{ cell.value }}%</span></td>{% endfor %}</tr>{% endfor %}
+    </tbody></table></div>
+    <p class="ref-footnote">Timetable classes and confirmed bookings; overlapping events count once. Each weekday is averaged over its occurrences in the selected date range.</p>
+  </article>
+  {% if util_filters.room %}
+  <article class="ref-panel">
+    <div class="ref-panel-heading"><div><h2>Classroom Occupancy by Hour</h2><p>Share of open weekday time occupied in each hour</p></div></div>
+    <div class="ref-building-list">
+      {% for hour in design_summary.hourly %}
+      <div class="ref-building"><span>{{ hour.label }}</span><div class="ref-track" aria-hidden="true"><span style="width:{{ hour.value }}%"></span></div><strong aria-label="{{ hour.value }}% occupied">{{ hour.value }}%</strong></div>
+      {% empty %}<p class="ref-empty">No open weekday hours in the selected date range.</p>{% endfor %}
+    </div>
+  </article>
+  {% else %}
+  <article class="ref-panel"><div class="ref-panel-heading"><div><h2>Utilization by Building</h2><p>Average classroom utilization per building</p></div></div><div class="ref-building-list">
+    {% for building in design_summary.buildings %}<div class="ref-building"><span title="{{ building.label }}">{{ building.label }}</span><div class="ref-track"><span style="width:{{ building.value }}%"></span></div><strong>{{ building.value }}%</strong></div>{% empty %}<p class="ref-empty">No rooms match the selected filters.</p>{% endfor %}
+  </div></article>
+  {% endif %}
+</section>

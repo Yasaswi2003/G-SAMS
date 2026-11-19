@@ -1,0 +1,731 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+.select2-container .select2-selection--single { height:31px !important; }
+.select2-container--default .select2-selection--single {
+    background-color:#fff; border:1px solid #ced4da; border-radius:4px;
+}
+.select2-container--open { z-index:9999; }
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color:#007367 !important; color:white;
+}
+
+/* ===== CARD ===== */
+.card { border-radius:12px; border:1px solid #e3efec; box-shadow:0 2px 12px rgba(0,115,103,0.08); }
+.card-header { background:#f5faf9; border:1px solid #e0eeec; font-weight:600; color:#0b6b50; }
+
+/* ===== FORM ===== */
+.form-control, .form-select { border-radius:8px; border:1px solid #d9eeeb; font-size:13px; }
+.form-control:focus, .form-select:focus { border-color:#0b6b50; box-shadow:0 0 0 2px rgba(11,107,80,0.10); }
+label { font-size:12px; font-weight:600; color:#4d6f6a; margin-bottom:4px; }
+
+/* ===== DASHBOARD CARDS ===== */
+.dashboard-card { padding:20px; border-radius:12px; text-align:center; font-weight:600; }
+.dashboard-card h2 { font-weight:700; margin-bottom:5px; }
+.bg-light-green   { background:#e6f3ee; color:#0b6b50; }
+.bg-success-light { background:#f0fdf4; color:#1d9b4d; }
+.bg-warning-light { background:#fff4dc; color:#c57c00; }
+.bg-danger-light  { background:#fdeaea; color:#d63b3b; }
+
+/* ===== TABLE ===== */
+#seatTable thead th {
+    background:#f5faf9; color:#0b6b50;
+    font-size:12px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.5px;
+    border-bottom:2px solid #e0eeec;
+}
+#seatTable tbody tr:hover { background:#f5faf9; }
+#seatTable tbody td { font-size:13px; color:#2d4f47; vertical-align:middle; }
+
+.seat-no-badge {
+    padding:3px 10px; border-radius:20px;
+    background:#e6f7f3; color:#0b6b50;
+    font-size:12px; font-weight:700;
+    border:1.5px solid #b2e4d8; display:inline-block;
+}
+.stype-badge {
+    padding:3px 10px; border-radius:20px;
+    font-size:12px; font-weight:600;
+    background:#ede9fe; color:#5b21b6; display:inline-block;
+}
+.status-badge { padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; display:inline-block; }
+.status-available   { background:#dcfce7; color:#166534; }
+.status-occupied    { background:#fee2e2; color:#991b1b; }
+.status-reserved    { background:#fef3c7; color:#92400e; }
+.status-maintenance { background:#f1f5f9; color:#475569; }
+
+/* seat type cards */
+.st-color-1 { background:#e6f3ee; color:#0b6b50; border:1px solid #b2ddd0; }
+.st-color-2 { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; }
+.st-color-3 { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+.st-color-4 { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+.st-color-5 { background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe; }
+.st-color-6 { background:#fdeaea; color:#991b1b; border:1px solid #fecaca; }
+.st-color-7 { background:#fff4dc; color:#c57c00; border:1px solid #f5dfa0; }
+</style>
+
+<section class="content-container contentContainer" id="homeSection">
+
+<div class="row mb-4">
+
+    <!-- LEFT: QUICK VIEW -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-chair"></i> Seat Quick View</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-4 mb-2">
+                        <div class="dashboard-card bg-light-green">
+                            <h2>{{ total_seats }}</h2><p>Total Seats</p>
+                        </div>
+                    </div>
+                    <div class="col-4 mb-2">
+                        <div class="dashboard-card bg-success-light">
+                            <h2>{{ Available }}</h2><p>Available</p>
+                        </div>
+                    </div>
+                    <div class="col-4 mb-2">
+                        <div class="dashboard-card bg-danger-light">
+                            <h2>{{ Occupied }}</h2><p>Occupied</p>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="dashboard-card bg-warning-light">
+                            <h2>{{ Reserved }}</h2><p>Reserved</p>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="dashboard-card" style="background:#f1f5f9;color:#475569;border-radius:12px;padding:20px;text-align:center;font-weight:600;">
+                            <h2>{{ Maintenance }}</h2><p>Maintenance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: FORM -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-plus-circle"></i> Add Seat(s)</h6>
+            </div>
+            <div class="card-body">
+                <form id="seatForm" method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Campus</label>
+                                <select name="campus" id="campus" class="form-control form-select" required>
+                                    <option value="" selected disabled>Select Campus</option>
+                                    {% for c in campuses %}
+                                        <option value="{{ c.id }}">{{ c.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Building</label>
+                                <select name="building" id="building" class="form-control form-select" required>
+                                    <option value="">Select Building</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Block</label>
+                                <select name="block" id="block" class="form-control form-select" required>
+                                    <option value="">Select Block</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Floor</label>
+                                <select name="floor" id="floor" class="form-control form-select" required>
+                                    <option value="">Select Floor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Room</label>
+                                <select name="room" id="room" class="form-control form-select" required>
+                                    <option value="">Select Room</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Seat Type</label>
+                                <select name="seat_type" class="form-control form-select" required>
+                                    <option value="">Select Type</option>
+                                    {% for st in seat_types %}
+                                        <option value="{{ st.id }}">{{ st.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Seat Prefix</label>
+                                <input type="text" name="seat_prefix" id="seat_prefix" class="form-control" placeholder="e.g. A-" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Start From</label>
+                                <input type="number" name="start_from" id="start_from" class="form-control" value="1" min="1" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Count</label>
+                                <input type="number" name="count" id="count" class="form-control" value="1" min="1" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Initial Status</label>
+                                <select name="seat_status" class="form-control form-select" required>
+                                    <option value="">Select Status</option>
+                                    {% for ss in seat_statuses %}
+                                        <option value="{{ ss.id }}">{{ ss.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-12" id="seatPreviewWrap" style="display:none;">
+                            <small style="color:#8ab8b0;">Preview: </small>
+                            <span id="previewText" style="font-size:12px;font-weight:700;color:#0b6b50;"></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button class="btn btn-primary w-100 mt-3" type="submit">✔ Save Seats</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<h3 class="page-title">Seats</h3>
+<div class="box-container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="table-responsive">
+                <table id="seatTable" class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Seat No.</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Room</th>
+                            <th>Floor</th>
+                            <th>Block</th>
+                            <th>Building</th>
+                            <th>Campus</th>
+                            <th>Assigned To</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in seats %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><span class="seat-no-badge">{{ s.seat_number }}</span></td>
+                            <td><span class="stype-badge">{{ s.seat_type.name }}</span></td>
+                            <td>
+                                {% if s.seat_status.id == 1 %}<span class="status-badge status-available">{{ s.seat_status.name }}</span>
+                                {% elif s.seat_status.id == 2 %}<span class="status-badge status-occupied">{{ s.seat_status.name }}</span>
+                                {% elif s.seat_status.id == 3 %}<span class="status-badge status-reserved">{{ s.seat_status.name }}</span>
+                                {% elif s.seat_status.id == 4 %}<span class="status-badge status-maintenance">{{ s.seat_status.name }}</span>
+                                {% else %}<span class="status-badge status-maintenance">{{ s.seat_status.name }}</span>{% endif %}
+                            </td>
+                            <td>{{ s.room.room_number }}</td>
+                            <td>{{ s.room.floor.floor_label }}</td>
+                            <td>{{ s.room.block.name }}</td>
+                            <td>{{ s.room.building.name }}</td>
+                            <td>{{ s.room.campus.name }}</td>
+                            <td>
+                                {% if s.assigned_to %}<span style="font-size:12px;font-weight:600;color:#0b6b50;">{{ s.assigned_to }}</span>
+                                {% else %}<span style="color:#b0c4c0;">—</span>{% endif %}
+                            </td>
+                            <td>{{ s.created_at|date:'d-m-Y h:i A' }}</td>
+                            <td>
+                                <button class="btn btn-sm"
+                                        style="background:#f0faf7;border:1px solid #b2e4d8;color:#0b6b50;border-radius:7px;padding:4px 10px;"
+                                        onclick="openEditSeat(
+                                            {{ s.id }},
+                                            '{{ s.seat_number }}',
+                                            {{ s.seat_status.id }},
+                                            '{{ s.current_empid|default:'' }}',
+                                            '{{ s.room.building.name }}',
+                                            '{{ s.room.floor.floor_label }}',
+                                            '{{ s.seat_type.name }}'
+                                        )">
+                                    <i class="bx bx-edit-alt"></i>
+                                </button>
+                                <button class="btn btn-sm"
+                                        style="background:#ede9fe;border:1px solid #ddd6fe;color:#5b21b6;border-radius:7px;padding:4px 10px;"
+                                        onclick="openHistory({{ s.id }}, '{{ s.seat_number }}')">
+                                    <i class="bx bx-history"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 1. EDIT MODAL -->
+<div class="modal fade" id="editSeatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:1px solid #e3efec;">
+            <div class="modal-header" style="background:#f5faf9;border-bottom:1px solid #e0eeec;">
+                <h6 class="modal-title" style="color:#0b6b50;font-weight:700;">
+                    <i class="bx bx-edit-alt"></i> Edit Seat — <span id="modalSeatNum"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z">
+                </path>
+              </svg></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Seat Details Card -->
+                <div style="background:#e6f3ee;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:800;color:#4d6f6a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Seat Details</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;">
+                        <div style="color:#4d6f6a;">Seat No.: <strong id="detailSeatNo" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Building: <strong id="detailBuilding" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Floor: <strong id="detailFloor" style="color:#0b3d30;"></strong></div>
+                        <div style="color:#4d6f6a;">Type: <strong id="detailType" style="color:#0b3d30;"></strong></div>
+                    </div>
+                </div>
+
+                <form id="editSeatForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="editSeatId" name="seat_id">
+
+                    <div class="form-group mb-3">
+                        <label>Seat Status</label>
+                        <select name="seat_status" id="editSeatStatus" class="form-control form-select" required>
+                            {% for i in map_seat_statuses %}
+                                <option value="{{ i.id }}">{{ i.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3" id="empidWrap">
+                        <label>Employee ID <span style="color:#e53e3e;">*</span></label>
+                        <select id="editEmpId" name="empid" class="form-control" style="width:100%;"></select>
+                        <small style="color:#7a9e96;font-size:11px;">Required if status is Occupied</small>
+                    </div>
+
+                    <div class="form-group mb-2">
+                        <label>Remarks</label>
+                        <textarea name="remarks" id="editRemarks" class="form-control" rows="2" placeholder="Optional remarks..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #e0eeec;">
+                <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
+                        style="border:1px solid #e0eeec;border-radius:8px;">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="saveEditSeat" style="border-radius:8px;">
+                    <i class="bx bx-save"></i> Assign Seat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. History Modal – place before </section> -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:14px;border:1px solid #e3efec;">
+            <div class="modal-header" style="background:#f5faf9;border-bottom:1px solid #e0eeec;">
+                <h6 class="modal-title" style="color:#0b6b50;font-weight:700;">
+                    <i class="bx bx-history"></i> Seat History — <span id="historySeatNum"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M12.0007 10.5865L16.9504 5.63672L18.3646 7.05093L13.4149 12.0007L18.3646 16.9504L16.9504 18.3646L12.0007 13.4149L7.05093 18.3646L5.63672 16.9504L10.5865 12.0007L5.63672 7.05093L7.05093 5.63672L12.0007 10.5865Z">
+                </path>
+              </svg>
+                </button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="historyLoading" style="text-align:center;padding:40px;color:#7a9e96;">
+                    <i class="bx bx-loader-alt bx-spin" style="font-size:2rem;"></i>
+                    <p style="margin-top:8px;font-size:13px;">Loading history...</p>
+                </div>
+                <div id="historyContent" style="display:none;">
+                    <table class="table mb-0 table-bordered" id="historyTable">
+                        <thead>
+                            <tr style="background:#f5faf9;">
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">#</th>
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">Emp ID</th>
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">Status</th>
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">Allocated</th>
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">Released</th>
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">Remarks</th>
+                                <th style="font-size:11px;font-weight:700;color:#0b6b50;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border-bottom:2px solid #e0eeec;">By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                    <div id="historyEmpty" style="display:none;text-align:center;padding:40px;color:#7a9e96;">
+                        <i class="bx bx-history" style="font-size:2rem;"></i>
+                        <p style="margin-top:8px;font-size:13px;font-weight:600;">No history found for this seat</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+<script>
+var statusColors = {
+    1: { label: 'Available' },
+    2: { label: 'Occupied' },
+    3: { label: 'Reserved' },
+    4: { label: 'Maintenance' }
+};
+
+function openHistory(seatId, seatNum) {
+
+    $('#historySeatNum').text(seatNum);
+    $('#historyLoading').show();
+    $('#historyContent').hide();
+    $('#historyTableBody').empty();
+    $('#historyEmpty').hide();
+    $('#historyModal').modal('show');
+
+    $.ajax({
+        url: '/workspace/get_seat_history',
+        type: 'POST',
+        data: {
+            seat_id: seatId,
+            csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').first().val()
+        },
+
+        success: function (response) {
+
+            $('#historyLoading').hide();
+            $('#historyContent').show();
+
+            if (response.history && response.history.length > 0) {
+
+                $.each(response.history, function (i, h) {
+
+                    var sc = statusColors[h.seat_status_id] || {
+                        label: h.seat_status_name
+                    };
+
+                    var emp = h.empid ? h.empid : '—';
+
+                    $('#historyTableBody').append(
+                        '<tr>' +
+                            '<td>' + (i + 1) + '</td>' +
+                            '<td>' + emp + '</td>' +
+                            '<td>' + sc.label + '</td>' +
+                            '<td>' + (h.allocated_date || '—') + '</td>' +
+                            '<td>' + (h.released_date || '—') + '</td>' +
+                            '<td>' + (h.remarks || '—') + '</td>' +
+                            '<td>' + (h.createdby || '—') + '</td>' +
+                        '</tr>'
+                    );
+                });
+
+            } else {
+                $('#historyEmpty').show();
+            }
+        },
+
+        error: function () {
+            $('#historyLoading').hide();
+            $('#historyContent').show();
+            $('#historyEmpty').show();
+        }
+    });
+}
+
+$(document).ready(function () {
+
+    /* Campus → Buildings */
+    $("#campus").change(function () {
+        var campus_id = $(this).val();
+        $('#overlay').fadeIn();
+        $("#building").html('<option value="">Select Building</option>');
+        $("#block,#floor,#room").each(function () {
+            $(this).html('<option value="">Select ' + this.id.charAt(0).toUpperCase() + this.id.slice(1) + '</option>');
+        });
+        if (campus_id) {
+            $.ajax({ url: "/workspace/get_buildings_by_campus", type: "POST", data: { campus_id: campus_id },
+                success: function (data) {
+                    $.each(data.buildings, function (k, v) { $("#building").append('<option value="' + v.id + '">' + v.name + '</option>'); });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* Building → Blocks */
+    $("#building").change(function () {
+        var building_id = $(this).val(), campus_id = $('#campus').val();
+        $('#overlay').fadeIn();
+        $("#block").html('<option value="">Select Block</option>');
+        $("#floor,#room").each(function () {
+            $(this).html('<option value="">Select ' + this.id.charAt(0).toUpperCase() + this.id.slice(1) + '</option>');
+        });
+        if (building_id) {
+            $.ajax({ url: "/workspace/get_blocks_by_building_campus", type: "POST", data: { building_id: building_id, campus_id: campus_id },
+                success: function (data) {
+                    $.each(data.block, function (k, v) { $("#block").append('<option value="' + v.id + '">' + v.name + '</option>'); });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* Block → Floors */
+    $("#block").change(function () {
+        var block_id = $(this).val(), building_id = $('#building').val();
+        $('#overlay').fadeIn();
+        $("#floor").html('<option value="">Select Floor</option>');
+        $("#room").html('<option value="">Select Room</option>');
+        if (block_id) {
+            $.ajax({ url: "/workspace/get_floors_by_block", type: "POST", data: { block_id: block_id, building_id: building_id },
+                success: function (data) {
+                    $.each(data.floors, function (k, v) { $("#floor").append('<option value="' + v.id + '">' + v.floor_label + ' (' + v.floor_number + ')</option>'); });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* Floor → Rooms */
+    $("#floor").change(function () {
+        var floor_id = $(this).val();
+        $('#overlay').fadeIn();
+        $("#room").html('<option value="">Select Room</option>');
+        if (floor_id) {
+            $.ajax({ url: "/workspace/get_rooms_by_floor", type: "POST", data: { floor_id: floor_id },
+                success: function (data) {
+                    $.each(data.rooms, function (k, v) { $("#room").append('<option value="' + v.id + '">' + v.room_number + '</option>'); });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* Live preview */
+    $('#seat_prefix, #start_from, #count').on('input', function () {
+        var prefix = $('#seat_prefix').val();
+        var start  = parseInt($('#start_from').val()) || 1;
+        var count  = parseInt($('#count').val()) || 1;
+        if (prefix && count > 0) {
+            var samples = [];
+            for (var i = 0; i < Math.min(count, 16); i++) samples.push(prefix + (start + i));
+            if (count > 16) samples.push('...');
+            $('#previewText').text(samples.join(', '));
+            $('#seatPreviewWrap').show();
+        } else { $('#seatPreviewWrap').hide(); }
+    });
+
+    /* DataTable */
+    $(".table").DataTable({ dom: 'Bfrtip', buttons: ['excel'], pageLength: 10 });
+    $('#overlay').fadeOut();
+
+    /* ── Edit Modal: Init Select2 on show ── */
+    $('#editSeatModal').on('shown.bs.modal', function () {
+        if (!$('#editEmpId').hasClass('select2-hidden-accessible')) {
+            $('#editEmpId').select2({
+                dropdownParent: $('#editSeatModal'),
+                placeholder: 'Search Employee ID...',
+                minimumInputLength: 3,
+                ajax: {
+                    url: '/get_users_by_emp_id',
+                    dataType: 'json',
+                    type: 'POST',
+                    quietMillis: 50,
+                    data: function (params) { return { term: params.term }; },
+                    processResults: function (data) {
+                        if (data.status === 200) {
+                            return {
+                                results: $.map(data.data, function (item) {
+                                    return {
+                                        id  : item.empid,
+                                        text: item.empid + ' | ' + item.emp_name
+                                              + ' | ' + (item.campus       || '')
+                                              + ' | ' + (item.college_code || '')
+                                              + ' | ' + (item.dept_code    || '')
+                                              + ' | ' + (item.designation    || '')
+
+
+                                    };
+                                })
+                            };
+                        }
+                        return { results: [] };
+                    }
+                }
+            });
+        }
+        $('#editEmpId').on('select2:select', function () {
+            $(this).select2('close');
+            document.activeElement.blur();
+            $('body').trigger('click');
+        });
+    });
+
+    /* ── Save Edit ── */
+    $('#saveEditSeat').on('click', function () {
+        var statusId = parseInt($('#editSeatStatus').val());
+        var empid    = $('#editEmpId').val();
+
+        if (statusId === 2 && !empid) {
+            Swal.fire({ icon: 'warning', title: 'Employee ID required',
+                text: 'Please select an Employee ID for Occupied status.',
+                confirmButtonColor: '#0b6b50' });
+            return;
+        }
+
+        $.ajax({
+            url : '/workspace/update_seat_status',
+            type: 'POST',
+            data: {
+                seat_id    : $('#editSeatId').val(),
+                seat_status: statusId,
+                empid      : empid,
+                remarks    : $('#editRemarks').val(),
+            },
+            beforeSend: function () { $('#overlay').fadeIn(); },
+            success: function (response) {
+                $('#overlay').fadeOut();
+                $('#editSeatModal').modal('hide');
+                if (response.status === 200) {
+                    Swal.fire({ icon: 'success', title: 'Updated!', text: response.message, timer: 1500, showConfirmButton: false });
+                    setTimeout(() => location.reload(), 1500);
+                } else if (response.status === 300) {
+                    Swal.fire({ icon: 'warning', title: 'Warning', text: response.message, confirmButtonColor: '#0b6b50' });
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'Something went wrong', confirmButtonColor: '#0b6b50' });
+                }
+            },
+            error: function (xhr) {
+                $('#overlay').fadeOut();
+                // Shows the actual server error (403 CSRF, 500, etc.)
+                Swal.fire('Error', 'Server responded with: ' + xhr.status + ' ' + xhr.statusText, 'error');
+            }
+        });
+    });
+});
+
+/* ── Open Edit Modal ── */
+function openEditSeat(id, number, statusId, empid, building, floor, type) {
+    $('#editSeatId').val(id);
+    $('#modalSeatNum').text(number);
+    $('#editSeatStatus').val(statusId);
+    $('#editRemarks').val('');
+
+    // Fill seat details card
+    $('#detailSeatNo').text(number);
+    $('#detailBuilding').text(building);
+    $('#detailFloor').text(floor);
+    $('#detailType').text(type);
+
+    // Reset + pre-fill select2
+    $('#editEmpId').empty();
+    if (empid) {
+        var option = new Option(empid, empid, true, true);
+        $('#editEmpId').append(option).trigger('change');
+    }
+    toggleEmpId(statusId);
+    $('#editSeatModal').modal('show');
+}
+
+function toggleEmpId(statusId) {
+    if (parseInt(statusId) === 2) {
+        $('#empidWrap').show();
+    } else {
+        $('#empidWrap').hide();
+        $('#editEmpId').empty();
+    }
+}
+
+$('#editSeatStatus').on('change', function () {
+    toggleEmpId($(this).val());
+});
+
+/* ── Add Seat Form Validation ── */
+$("#seatForm").validate({
+    rules: {
+        campus      : { required: true },
+        building    : { required: true },
+        block       : { required: true },
+        floor       : { required: true },
+        room        : { required: true },
+        seat_prefix : { required: true },
+        start_from  : { required: true, min: 1 },
+        count       : { required: true, min: 1 },
+        seat_type   : { required: true },
+        seat_status : { required: true },
+    },
+    errorElement: 'div',
+    errorPlacement: function (error, element) { error.insertAfter(element); },
+    submitHandler: function (form) {
+        var count = parseInt($('#count').val());
+        Swal.fire({
+            title: "Are you sure?", text: "Do you want to save " + count + " seat(s)?",
+            icon: "question", showCancelButton: true,
+            confirmButtonColor: "#0b6b50", cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, Save"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "", type: "POST", data: $(form).serialize(),
+                    beforeSend: function () { $('#overlay').fadeIn(); },
+                    success: function (response) {
+                        $('#overlay').fadeOut();
+                        if (response.status == 200) {
+                            Swal.fire({ icon: "success", title: "Success",
+                                text: response.message || "Seats saved successfully",
+                                timer: 2000, showConfirmButton: false });
+                            setTimeout(() => location.reload(), 2000);
+                        } else if (response.status == 300) {
+                            Swal.fire({ icon: "warning", title: "Warning", text: response.message || "Some seats already exist" });
+                        } else {
+                            Swal.fire({ icon: "error", title: "Error", text: "Something went wrong" });
+                        }
+                    },
+                    error: function () { $('#overlay').fadeOut(); Swal.fire("Error", "Something went wrong", "error"); }
+                });
+            }
+        });
+    }
+});
+
+$('#overlay').fadeIn();
+$(function () { $('#overlay').fadeOut(); });
+</script>
+
+</section>
+{% endblock %}

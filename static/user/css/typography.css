@@ -1,0 +1,201 @@
+/* Shared GITAM typography; existing colors and layout are preserved. */
+@font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("../../fonts/inter/Inter-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+:root {
+    --font-primary: "Inter", "Segoe UI", Arial, sans-serif;
+    --font-weight-body: 400;
+    --font-weight-label: 500;
+    --font-weight-heading: 600;
+    --font-weight-button: 600;
+    --font-size-body: 14px;
+    --font-size-page-title: clamp(22px, 1.8vw, 27px);
+    --font-size-section-title: 18px;
+    --font-size-label: 12px;
+    --font-size-button: 12px;
+    --font-size-table: 12px;
+    --font-size-caption: 11px;
+    --line-height-body: 1.6;
+    --line-height-heading: 1.3;
+    --line-height-control: 1.45;
+    --letter-spacing-heading: 0.01em;
+    --letter-spacing-label: 0.02em;
+    --letter-spacing-body: 0.015em;
+    --bs-body-font-family: var(--font-primary);
+    --bs-body-font-size: var(--font-size-body);
+    --bs-body-font-weight: var(--font-weight-body);
+    --bs-body-line-height: var(--line-height-body);
+}
+/* Important declarations are limited to text properties: legacy inline/page rules
+   and the external UI theme otherwise override the shared font system. Icon font
+   selectors and pseudo-elements are deliberately excluded. */
+body, .home-section, .home-content, .sidebar, .cu-page, .bw, .ba,
+.su-page, .se-page, dialog, .swal2-popup, .select2-container, .dataTables_wrapper {
+    font-family: var(--font-primary) !important;
+    font-synthesis: none;
+}
+body {
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-body) !important;
+    line-height: var(--line-height-body);
+    text-rendering: optimizeLegibility;
+    letter-spacing: var(--letter-spacing-body) !important;
+}
+body :where(h1,h2,h3,h4,h5,h6,p,label,button,input,select,textarea,table,th,td,dt,dd,strong,b,small,summary),
+body svg text, body :not(i)[style*="font-family"],
+.su-bar-meta .su-bar-pct, .su-type-stat-val {
+    font-family: var(--font-primary) !important;
+    font-synthesis: none;
+}
+body :where(h1,h2,h3,h4,h5,h6) {
+    font-weight: var(--font-weight-heading) !important;
+    line-height: var(--line-height-heading) !important;
+    letter-spacing: var(--letter-spacing-heading) !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 0 !important;
+}
+body h1, .cu-header h1, .bw-hero h1, .ba h1 {
+    font-size: var(--font-size-page-title) !important;
+}
+body h2, .cu-panel-head h2, .bw-card h2 {
+    font-size: var(--font-size-section-title) !important;
+}
+body h3 { font-size: 16px; }
+body h4, .se-header h4 { font-size: 18px; }
+body :where(p,td,dd) { font-weight: var(--font-weight-body); letter-spacing: var(--letter-spacing-body) !important; }
+body :where(strong,b) { font-weight: var(--font-weight-heading) !important; }
+body :where(label,.form-label) {
+    font-size: var(--font-size-label) !important;
+    font-weight: var(--font-weight-label) !important;
+    line-height: var(--line-height-control) !important;
+    letter-spacing: var(--letter-spacing-label) !important;
+}
+body :where(input,select,textarea,.form-control,.form-select),
+.select2-container .select2-selection__rendered {
+    font-size: 13px !important;
+    font-weight: var(--font-weight-body) !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+}
+body :where(button,.btn,.cu-button,.bw-link,.bw-clear-button,.ba-link,.ba-clear,.se-btn,.se-btn-clear),
+#bw-view-dialog .bw-timetable-link {
+    font-size: var(--font-size-button) !important;
+    font-weight: var(--font-weight-button) !important;
+    line-height: var(--line-height-control) !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 0 !important;
+}
+body table { font-size: var(--font-size-table) !important; }
+body th {
+    font-weight: var(--font-weight-label) !important;
+    letter-spacing: var(--letter-spacing-label) !important;
+    line-height: var(--line-height-control) !important;
+}
+body td { font-weight: var(--font-weight-body) !important; line-height: 1.5 !important; }
+.bw .bw-table th, .table thead th { font-size: 11px !important; }
+.bw .bw-table td, .bw-teacher .bw-table td { font-size: var(--font-size-table) !important; }
+.bw .bw-table td p { font-size: var(--font-size-caption) !important; }
+.bw .bw-table small { font-size: 10px !important; line-height: 1.5 !important; }
+.bw .bw-table button { font-size: 11px !important; }
+.sidebar .nav-links .link_name, .sidebar .nav-links .sub-menu a {
+    font-family: var(--font-primary) !important;
+    font-size: 13px !important;
+    font-weight: var(--font-weight-label) !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+}
+.home-content .text { font-size: 16px !important; font-weight: var(--font-weight-label) !important; }
+#subMenu .userName, #subMenu .role-item, #subMenu .logout-item {
+    font-size: 13px !important; font-weight: var(--font-weight-label) !important;
+}
+.cu-header p, .bw-hero p, .ba-subtitle, .se-header p { font-weight: var(--font-weight-body) !important; line-height: 1.6 !important; }
+.cu-stat-label, .ba-card-label { font-size: var(--font-size-caption) !important; font-weight: var(--font-weight-label) !important; letter-spacing: .025em !important; }
+.cu-stat-value, .ba-card strong, .ba-donut-center strong, .su-type-stat-val, .su-stat-value {
+    font-weight: var(--font-weight-heading) !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.005em !important;
+}
+.cu-semester-badge, .cu-source-label, .cu-stat-note, .cu-weekend-prompt, .cu-weekend-status-text {
+    font-weight: var(--font-weight-label) !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+}
+/* Preserve the compact weekly grid; allow its text to wrap instead of clipping. */
+.cu-day-pill { font-size: 12px !important; font-weight: var(--font-weight-heading) !important; letter-spacing: var(--letter-spacing-body) !important; }
+.cu-day-date { font-size: var(--font-size-caption) !important; font-weight: var(--font-weight-body) !important; }
+.cu-time-label .cu-time-hr { font-size: 11px !important; font-weight: var(--font-weight-label) !important; font-variant-numeric: tabular-nums; line-height: 1.4 !important; }
+.cu-time-label .cu-time-sep { font-size: 10px !important; font-weight: var(--font-weight-body) !important; }
+.cu-grid .cu-slot-code { font-size: 11px !important; font-weight: var(--font-weight-heading) !important; line-height: 1.4 !important; letter-spacing: var(--letter-spacing-body) !important; }
+.cu-grid .cu-slot-faculty { font-size: 11px !important; font-weight: var(--font-weight-body) !important; line-height: 1.4 !important; }
+.cu-grid .cu-slot-available span { font-size: 11px !important; font-weight: var(--font-weight-label) !important; letter-spacing: var(--letter-spacing-body) !important; }
+.cu-legend-item, .cu-no-availability, .cu-calendar-help { font-size: var(--font-size-caption) !important; font-weight: var(--font-weight-body) !important; line-height: 1.5 !important; }
+.bw-badge, .badge, .se-emp-badge, .se-status-pill { font-weight: var(--font-weight-label) !important; letter-spacing: var(--letter-spacing-body) !important; line-height: 1.45 !important; }
+.bw .bw-table .bw-badge { font-size: 11px !important; }
+.ba-chart h3, .bw-detail-content h3 { font-size: 15px !important; font-weight: var(--font-weight-heading) !important; }
+.ba-chart-subtitle, .ba-card small, .ba-note, .ba-eyebrow, .ba-updated { font-size: var(--font-size-caption) !important; font-weight: var(--font-weight-body) !important; }
+.ba-bar-label, .ba-legend-row, .ba-trend text, .ba-donut-center small { font-size: var(--font-size-caption) !important; font-weight: var(--font-weight-body) !important; }
+.ba-bar-value, .ba-legend-row strong { font-weight: var(--font-weight-label) !important; font-variant-numeric: tabular-nums; }
+.cu-dialog-title, #bw-dialog h2, #bw-view-dialog h2, .swal2-title { font-size: 21px !important; font-weight: var(--font-weight-heading) !important; line-height: 1.35 !important; letter-spacing: var(--letter-spacing-heading) !important; }
+.swal2-html-container, .swal2-input, .swal2-textarea, .cu-detail-list dd, .bw-detail-content p { font-size: 13px !important; font-weight: var(--font-weight-body) !important; line-height: 1.65 !important; }
+.swal2-input-label, .cu-detail-list dt, .bw-detail-grid dt { font-size: var(--font-size-label) !important; font-weight: var(--font-weight-label) !important; letter-spacing: var(--letter-spacing-body) !important; }
+.se-emp-name, .se-loc-value, .se-loc-title { font-weight: var(--font-weight-heading) !important; }
+.se-search-card label, .se-loc-label { font-weight: var(--font-weight-label) !important; letter-spacing: .025em !important; }
+@media(max-width:600px) { :root { --font-size-page-title: 22px; --font-size-section-title: 17px; } }
+
+/* Normalize legacy non-semantic emphasis without changing its colors or sizing. */
+.home-section [class$="-label"], .home-section [class$="-caption"] { font-weight: var(--font-weight-label) !important; }
+.home-section [class$="-value"], .home-section [class$="-title"], .home-section .title { font-weight: var(--font-weight-heading) !important; }
+.home-section [style*="font-weight:800"], .home-section [style*="font-weight: 800"],
+.home-section [style*="font-weight:700"], .home-section [style*="font-weight: 700"] { font-weight: var(--font-weight-heading) !important; }
+.ba-eyebrow { letter-spacing: .08em !important; }
+
+/* Match all timetable helper notices to the subject/faculty caption. */
+.cu-panel .cu-calendar-help,
+.cu-panel .cu-grid-empty,
+.cu-panel .cu-weekend-prompt,
+.cu-panel .cu-weekend-status-text,
+.cu-panel .cu-weekend-hint,
+.cu-panel .cu-empty-state > span {
+    font-family: var(--font-primary) !important;
+    font-size: var(--font-size-caption) !important;
+    font-weight: var(--font-weight-body) !important;
+    line-height: 1.6 !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+    word-spacing: 0.02em;
+    text-shadow: none !important;
+    -webkit-text-stroke: 0 !important;
+}
+
+/* Shared reference-style typography on the three classroom workspace pages. */
+body.classroom-workspace {
+    --font-primary: "Inter", "Segoe UI", Arial, sans-serif;
+    --font-size-body: 14px;
+    --font-size-button: 13px;
+    --font-weight-body: 400;
+    --font-weight-label: 500;
+    --font-weight-heading: 600;
+    --letter-spacing-body: 0.015em;
+}
+body.classroom-workspace :is(.cu-page,.bw,.ba,.bn-page,.cu-dialog,#bw-dialog,#bw-view-dialog,.swal2-popup)
+:where(div,span,p,a,label,button,input,select,textarea,th,td,dt,dd,strong,b,small,summary,h1,h2,h3,h4,h5,h6,text)
+:not(.bx):not(.fa):not(.fas):not(.far):not(.fab):not(.bi):not([class^="ri-"]):not([class*=" ri-"]) {
+    font-family: var(--font-primary) !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+    font-synthesis: none;
+}
+/* Navigation stays in normal page flow; it no longer floats over scrolled content. */
+body.classroom-workspace .home-section > header,
+body.classroom-workspace .home-section > header .home-content {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+}
+body.classroom-workspace .home-section > header #subMenu.sub-menu-wrap {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0;
+}

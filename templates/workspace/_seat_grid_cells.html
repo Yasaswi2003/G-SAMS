@@ -1,0 +1,72 @@
+{% for seat in seats %}
+{% if seat.status_id == 1 %}
+    <div class="su-hm-cell su-hm-avail su-hm-clickable text-center"
+         data-seat-id="{{ seat.id }}"
+         data-seat-number="{{ seat.number }}"
+         data-status-id="{{ seat.status_id }}"
+         data-emp-id="{{ seat.emp_id }}"
+         data-building="{{ seat.building }}"
+         data-floor="{{ seat.floor }}"
+         data-type="{{ seat.type_name }}"
+         data-room-name="{{ seat.room_name }}"
+         title="{{ seat.type_name }} | {{ seat.number }} | Room {{ seat.room }} | {{ seat.building }}">
+        <div class="su-hm-avatar"><i class="{{ seat.type_icon|default:'bx bx-chair' }}"></i></div>
+        <div class="fw-bold">{{ seat.number }}</div>
+        <span class="su-hm-pill">Available</span>
+        <small>Rm {{ seat.room }}{% if seat.room_name %} &middot; {{ seat.room_name }}{% endif %} &middot; {{ seat.floor }}{% if seat.room_type %} &middot; {{ seat.room_type }}{% endif %}</small>
+    </div>
+{% elif seat.status_id == 2 %}
+    <div class="su-hm-cell su-hm-occ-cell su-hm-clickable"
+         data-seat-id="{{ seat.id }}"
+         data-seat-number="{{ seat.number }}"
+         data-status-id="{{ seat.status_id }}"
+         data-emp-id="{{ seat.emp_id }}"
+         data-building="{{ seat.building }}"
+         data-floor="{{ seat.floor }}"
+         data-type="{{ seat.type_name }}"
+         data-room-name="{{ seat.room_name }}"
+         title="{{ seat.type_name }} | {{ seat.number }} | Room {{ seat.room }} | {{ seat.building }}">
+        <div class="su-hm-avatar"><i class="{{ seat.type_icon|default:'bx bx-chair' }}"></i></div>
+        <div class="fw-bold">{{ seat.number }}</div>
+        <span class="su-hm-pill">Occupied</span>
+        <small>Rm {{ seat.room }}{% if seat.room_name %} &middot; {{ seat.room_name }}{% endif %} &middot; {{ seat.floor }}{% if seat.room_type %} &middot; {{ seat.room_type }}{% endif %}</small>
+    </div>
+{% elif seat.status_id == 3 %}
+    <div class="su-hm-cell su-hm-res su-hm-clickable"
+         data-seat-id="{{ seat.id }}"
+         data-seat-number="{{ seat.number }}"
+         data-status-id="{{ seat.status_id }}"
+         data-emp-id="{{ seat.emp_id }}"
+         data-building="{{ seat.building }}"
+         data-floor="{{ seat.floor }}"
+         data-type="{{ seat.type_name }}"
+         data-room-name="{{ seat.room_name }}"
+         title="{{ seat.type_name }} &middot; {{ seat.number }} | Room {{ seat.room }} &middot; {{ seat.building }} | Reserved — click to edit">
+        <div class="su-hm-avatar"><i class="{{ seat.type_icon|default:'bx bx-chair' }}"></i></div>
+        <div class="fw-bold">{{ seat.number }}</div>
+        <span class="su-hm-pill">Reserved</span>
+        <small>Rm {{ seat.room }}{% if seat.room_name %} &middot; {{ seat.room_name }}{% endif %} &middot; {{ seat.floor }}{% if seat.room_type %} &middot; {{ seat.room_type }}{% endif %}</small>
+    </div>
+{% else %}
+    <div class="su-hm-cell su-hm-maint su-hm-clickable"
+         data-seat-id="{{ seat.id }}"
+         data-seat-number="{{ seat.number }}"
+         data-status-id="{{ seat.status_id }}"
+         data-emp-id="{{ seat.emp_id }}"
+         data-building="{{ seat.building }}"
+         data-floor="{{ seat.floor }}"
+         data-type="{{ seat.type_name }}"
+         data-room-name="{{ seat.room_name }}"
+         title="{{ seat.type_name }} &middot; {{ seat.number }} | Room {{ seat.room }} &middot; {{ seat.building }} | {{ seat.status_name }} — click to edit">
+        <div class="su-hm-avatar"><i class="{{ seat.type_icon|default:'bx bx-chair' }}"></i></div>
+        <div class="fw-bold">{{ seat.number }}</div>
+        <span class="su-hm-pill">Maintenance</span>
+        <small>Rm {{ seat.room }}{% if seat.room_name %} &middot; {{ seat.room_name }}{% endif %} &middot; {{ seat.floor }}{% if seat.room_type %} &middot; {{ seat.room_type }}{% endif %}</small>
+    </div>
+{% endif %}
+{% empty %}
+<div style="text-align:center;color:#7a9e96;padding:40px 20px;width:100%">
+    <i class="bx bx-search-alt" style="font-size:36px;display:block;margin-bottom:8px;opacity:.35"></i>
+    No seats match this filter
+</div>
+{% endfor %}

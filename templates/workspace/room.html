@@ -1,0 +1,884 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+/* ===== CARD ===== */
+.card {
+    border-radius: 12px;
+    border: 1px solid #e3efec;
+    box-shadow: 0 2px 12px rgba(0,115,103,0.08);
+}
+.card-header {
+    background: #f5faf9;
+    border: 1px solid #e0eeec;
+    font-weight: 600;
+    color: #0b6b50;
+}
+
+/* ===== FORM ===== */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #d9eeeb;
+    font-size: 13px;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #0b6b50;
+    box-shadow: 0 0 0 2px rgba(11,107,80,0.10);
+}
+label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4d6f6a;
+    margin-bottom: 4px;
+    display: block;
+}
+
+/* ===== TABLE ===== */
+#roomTable thead th {
+    background: #f5faf9;
+    color: #0b6b50;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 2px solid #e0eeec;
+}
+#roomTable tbody tr:hover { background: #f5faf9; }
+#roomTable tbody td { font-size: 13px; color: #2d4f47; vertical-align: middle; }
+
+.room-no-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #e6f7f3;
+    color: #0b6b50;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1.5px solid #b2e4d8;
+    display: inline-block;
+}
+.room-name-text { font-weight: 600; color: #0b6b50; }
+.capacity-badge {
+    background: #fff4dc;
+    color: #c57c00;
+    border: 1px solid #f5dfa0;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* room type badges */
+.rtype-1 { background:#dbeafe;color:#1d4ed8; }
+.rtype-2 { background:#dcfce7;color:#166534; }
+.rtype-3 { background:#fef3c7;color:#92400e; }
+.rtype-x { background:#f1f5f9;color:#475569; }
+.rtype-badge {
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    display: inline-block;
+}
+
+/* ── SEARCHABLE FILTER DROPDOWNS (Select2) ── */
+.room-filter-select2 + .select2-container .select2-selection--single {
+    height: 34px;
+    border: 1px solid #d9eeeb;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+}
+.room-filter-select2 + .select2-container .select2-selection--single .select2-selection__rendered {
+    padding-left: 10px;
+    color: #2d4f47;
+}
+.room-filter-select2 + .select2-container .select2-selection--single .select2-selection__arrow {
+    height: 32px;
+}
+.room-filter-select2 + .select2-container.select2-container--open .select2-selection--single {
+    border-color: #0b6b50;
+}
+.select2-dropdown {
+    border-color: #d9eeeb;
+    font-size: 13px;
+}
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #0b6b50 !important;
+}
+</style>
+
+<section class="content-container contentContainer" id="homeSection">
+
+<div class="row mb-4">
+
+    <!-- ── ADD NEW ROOM ── -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-plus-circle"></i> Add New Room</h6>
+            </div>
+            <div class="card-body">
+                <form id="roomForm" method="post">
+                    {% csrf_token %}
+
+                    <!-- Campus -->
+                    <div class="mb-2">
+                        <label>Campus</label>
+                        <select name="campus" id="campus" class="form-control form-select" required>
+                            <option value="" selected disabled>Select Campus</option>
+                            {% for c in campuses %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Building / Block -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label>Building</label>
+                            <select name="building" id="building" class="form-control form-select" required>
+                                <option value="">Select Building</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label>Block</label>
+                            <select name="block" id="block" class="form-control form-select" required>
+                                <option value="">Select Block</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Floor -->
+                    <div class="mb-2">
+                        <label>Floor</label>
+                        <select name="floor" id="floor" class="form-control form-select" required>
+                            <option value="">Select Floor</option>
+                        </select>
+                    </div>
+
+                    <!-- Room Number / Room Name -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label>Room Number</label>
+                            <input type="text" name="room_number" class="form-control"
+                                   placeholder="e.g. 101" required>
+                        </div>
+                        <div class="col-6">
+                            <label>Room Name</label>
+                            <input type="text" name="room_name" class="form-control"
+                                   placeholder="e.g. Server Room">
+                        </div>
+                    </div>
+
+                    <!-- Room Type -->
+                    <div class="mb-2">
+                        <label>Room Type</label>
+                        <select name="room_type" class="form-control form-select" required>
+                            <option value="">Select Type</option>
+                            {% for rt in room_types %}
+                                <option value="{{ rt.id }}">{{ rt.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mt-2" type="submit">
+                        ✔ Save Room
+                    </button>
+                    <input type="hidden" id="room_id" name="room_id">
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROOM TYPES ── -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-category-alt"></i> Room Types</h6>
+            </div>
+            <div class="card-body">
+                <form id="roomTypeForm">
+                    {% csrf_token %}
+                    <div class="row g-2 mb-2">
+                        <div class="col-7">
+                            <label>Name</label>
+                            <input type="text" name="name" id="rt_name" class="form-control"
+                                   placeholder="e.g. Laboratory" required>
+                        </div>
+                        <div class="col-5">
+                            <label>Description</label>
+                            <input type="text" name="description" id="rt_description" class="form-control"
+                                   placeholder="Optional">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit" id="rtSaveBtn">
+                        ✔ Save Room Type
+                    </button>
+                    <input type="hidden" id="rt_id" name="room_type_id">
+                </form>
+
+                <div class="table-responsive mt-3" style="max-height:260px;overflow-y:auto">
+                    <table class="table table-sm table-bordered table-hover mb-0" id="roomTypeTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rt in all_room_types %}
+                            <tr id="rt-row-{{ rt.id }}">
+                                <td>
+                                    <span class="fw-semibold" style="color:#0b6b50;">{{ rt.name }}</span>
+                                    {% if rt.description %}
+                                    <div style="font-size:11px;color:#7a9e96;">{{ rt.description }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if rt.is_active %}
+                                    <span class="badge" style="background:#dcfce7;color:#166534;font-weight:600;">Active</span>
+                                    {% else %}
+                                    <span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:600;">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center align-items-center gap-1">
+                                        <button type="button" class="btn btn-sm btn-primary" title="Edit"
+                                                data-id="{{ rt.id }}" onclick="editRoomType(this)">
+                                            <i class="bx bx-edit" style="font-size:14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" style="text-align:center;color:#7a9e96;padding:20px">
+                                    No room types yet
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row mb-4">
+
+    <!-- ── TABLE ── -->
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h6 class="mb-0"><i class="bx bx-door-open"></i> Rooms</h6>
+
+            </div>
+            <div class="card-body">
+                <!-- ── FILTER BAR ── -->
+                <div class="d-flex align-items-end flex-nowrap gap-3 mb-3" style="overflow-x:auto">
+                    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+                        <label style="font-size:10px;font-weight:700;color:#7a9e96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:0">Building</label>
+                        <select id="roomBuildingFilter" class="form-control form-select room-filter-select2" style="width:170px">
+                            <option value="">All Buildings</option>
+                            {% for b in filter_buildings %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+                        <label style="font-size:10px;font-weight:700;color:#7a9e96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:0">Room Name</label>
+                        <select id="roomNameFilter" class="form-control form-select room-filter-select2" style="width:150px">
+                            <option value="">All Rooms</option>
+                            {% for rn in filter_room_names %}
+                            <option value="{{ rn }}">{{ rn }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+                        <label style="font-size:10px;font-weight:700;color:#7a9e96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:0">Room Type</label>
+                        <select id="roomTypeFilter" class="form-control form-select room-filter-select2" style="width:150px">
+                            <option value="">All Types</option>
+                            {% for rt in room_types %}
+                            <option value="{{ rt.id }}">{{ rt.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+                        <label style="font-size:10px;font-weight:700;color:#7a9e96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:0">Status</label>
+                        <select id="roomStatusFilter" class="form-control form-select room-filter-select2" style="width:140px">
+                            <option value="">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    <button type="button" id="clearRoomFilterBtn" class="btn btn-sm" style="flex-shrink:0;align-self:stretch;font-size:12px;font-weight:600;color:#4d6f6a;background:#f5faf9;border:1px solid #e0eeec;border-radius:8px;padding:6px 14px;white-space:nowrap;">
+                        <i class="bx bx-x"></i> Clear Filters
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table id="roomTable" class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Room No.</th>
+                                <th>Room Name</th>
+                                <th>Type</th>
+                                <th>Floor</th>
+                                <th>Block</th>
+                                <th>Building</th>
+                                <th>Campus</th>
+                                <th>Status</th>
+<!--                                <th>Created</th>-->
+<!--                                <th>Created By</th>-->
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in rooms %}
+                            <tr data-status="{% if r.is_active %}active{% else %}inactive{% endif %}"
+                                data-building="{{ r.building_id }}"
+                                data-room-type="{{ r.room_type_id }}"
+                                data-room="{{ r.room_number }}">
+                                <td>{{ forloop.counter }}</td>
+                                <td><span class="room-no-badge">{{ r.room_number }}</span></td>
+                                <td>{{ r.room_name|default:"—" }}</td>
+                                <td title="{{ r.room_type.description }}">
+                                    {% if r.room_type %}
+                                        {% if r.room_type.id == 1 %}
+                                            <span class="rtype-badge rtype-1">{{ r.room_type.name }}</span>
+                                        {% elif r.room_type.id == 2 %}
+                                            <span class="rtype-badge rtype-2">{{ r.room_type.name }}</span>
+                                        {% elif r.room_type.id == 3 %}
+                                            <span class="rtype-badge rtype-3">{{ r.room_type.name }}</span>
+                                        {% else %}
+                                            <span class="rtype-badge rtype-x">{{ r.room_type.name }}</span>
+                                        {% endif %}
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td><span class="room-name-text">{{ r.floor.floor_number }}</span></td>
+                                <td>{{ r.block.name }}</td>
+                                <td>{{ r.building.name }}</td>
+                                <td>{{ r.campus.name }}</td>
+                                <td>
+                                    {% if r.is_active %}
+                                        <span class="badge" style="background:#dcfce7;color:#166534;font-weight:600;">Active</span>
+                                    {% else %}
+                                        <span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:600;">Inactive</span>
+                                    {% endif %}
+                                </td>
+<!--                                <td style="font-size:12px;color:#6b9e96;">{{ r.created_at|date:'d-m-Y h:i A' }}</td>-->
+<!--                                <td>-->
+<!--                                    {% if r.createdby %}-->
+<!--                                        <span style="font-size:12px;">{{ r.createdby.first_name }}</span>-->
+<!--                                    {% else %}—{% endif %}-->
+<!--                                </td>-->
+                               <td class="text-center">
+                                    <div class="d-flex justify-content-center align-items-center gap-2">
+                                        <button type="button" class="btn btn-sm btn-primary" title="Edit" data-id="{{r.id}}" onclick="editRoom(this)">
+                                            <i class="bx bx-edit" style="font-size:14px;"></i>
+                                        </button>
+
+                                        <div class="form-check form-switch mb-0" title="{% if r.is_active %}Active — click to deactivate{% else %}Inactive — click to activate{% endif %}">
+                                            <input class="form-check-input room-status-toggle" type="checkbox"
+                                                   data-id="{{ r.id }}" {% if r.is_active %}checked{% endif %}>
+                                        </div>
+
+                                        <button type="button" class="btn btn-sm btn-danger" title="Delete Room" data-id="{{r.id}}" onclick="deleteRoom(this)">
+                                            <i class="bx bx-trash" style="font-size:14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+
+    /* Campus → Buildings */
+    $("#campus").change(function () {
+        var campus_id = $(this).val();
+        $('#overlay').fadeIn();
+        $("#building").html('<option value="">Select Building</option>');
+        $("#block").html('<option value="">Select Block</option>');
+        $("#floor").html('<option value="">Select Floor</option>');
+        if (campus_id) {
+            $.ajax({
+                url: "/workspace/get_buildings_by_campus",
+                type: "POST",
+                data: { campus_id: campus_id },
+                success: function (data) {
+                    $.each(data.buildings, function (k, v) {
+                        $("#building").append('<option value="' + v.id + '">' + v.name + ' - ' + v.code + '</option>');
+                    });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* Building → Blocks */
+    $("#building").change(function () {
+        var building_id = $(this).val();
+        var campus_id   = $('#campus').val();
+        $('#overlay').fadeIn();
+        $("#block").html('<option value="">Select Block</option>');
+        $("#floor").html('<option value="">Select Floor</option>');
+        if (building_id) {
+            $.ajax({
+                url: "/workspace/get_blocks_by_building_campus",
+                type: "POST",
+                data: { building_id: building_id, campus_id: campus_id },
+                success: function (data) {
+                    $.each(data.block, function (k, v) {
+                        $("#block").append('<option value="' + v.id + '">' + v.name + ' - ' + v.code + '</option>');
+                    });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* Block → Floors */
+    $("#block").change(function () {
+        var block_id    = $(this).val();
+        var building_id = $('#building').val();
+        $('#overlay').fadeIn();
+        $("#floor").html('<option value="">Select Floor</option>');
+        if (block_id) {
+            $.ajax({
+                url: "/workspace/get_floors_by_block",
+                type: "POST",
+                data: { block_id: block_id, building_id: building_id },
+                success: function (data) {
+                    $.each(data.floors, function (k, v) {
+                        $("#floor").append('<option value="' + v.id + '">' + v.floor_label + ' (' + v.floor_number + ')' + '</option>');
+                    });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* DataTable — shows both active and inactive rooms by default */
+    var roomTable = $("#roomTable").DataTable({
+        dom: 'Bfrtip',
+        buttons: ['excel'],
+        pageLength: 10
+    });
+
+    /* Searchable filter dropdowns */
+    $('.room-filter-select2').select2({
+        width: 'style',
+        minimumResultsForSearch: 0
+    });
+
+    /* Building / Room Name / Room Type / Status filter bar */
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+        if (settings.nTable.id !== 'roomTable') return true;
+
+        var $row = $(settings.aoData[dataIndex].nTr);
+        var building = $('#roomBuildingFilter').val();
+        var roomName = $('#roomNameFilter').val();
+        var roomType = $('#roomTypeFilter').val();
+        var status = $('#roomStatusFilter').val();
+
+        if (building && $row.data('building').toString() !== building) return false;
+        if (roomName && $row.data('room').toString() !== roomName) return false;
+        if (roomType && $row.data('room-type').toString() !== roomType) return false;
+        if (status && $row.data('status') !== status) return false;
+
+        return true;
+    });
+
+    $('.room-filter-select2').on('change', function () { roomTable.draw(); });
+
+    $('#clearRoomFilterBtn').on('click', function () {
+        $('.room-filter-select2').val('').trigger('change');
+    });
+
+    $('#overlay').fadeOut();
+});
+
+/* Form Validation + Submit */
+$("#roomForm").validate({
+    rules: {
+        campus      : { required: true },
+        building    : { required: true },
+        block       : { required: true },
+        floor       : { required: true },
+        room_number : { required: true },
+        room_type   : { required: true },
+        name        : { required: true },
+        capacity    : { required: true, min: 1 },
+    },
+    errorElement: 'div',
+    errorPlacement: function (error, element) { error.insertAfter(element); },
+    submitHandler: function (form) {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Do you want to save this Room?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#0b6b50",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, Save"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "",
+                    type: "POST",
+                    data: $(form).serialize(),
+                    beforeSend: function () { $('#overlay').fadeIn(); },
+                    success: function (response) {
+                        $('#overlay').fadeOut();
+                        if (response.status == 200) {
+                            Swal.fire({
+                                icon: "success",
+                                title: "Success",
+                                text: response.message || "Room saved successfully",
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+
+                            setTimeout(() => {
+
+                                // Show default SweetAlert spinner
+                                Swal.fire({
+                                    title: "Loading...",
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false,
+                                    showConfirmButton: false,
+                                    didOpen: () => {
+                                        Swal.showLoading();
+                                    }
+                                });
+
+                                // Reload page
+                                location.reload();
+
+                            }, 2000);
+                        } else if (response.status == 300) {
+                            Swal.fire({ icon: "warning", title: "Warning",
+                                text: response.message || "Room already exists" });
+                        } else {
+                            Swal.fire({ icon: "error", title: "Error", text: "Something went wrong" });
+                        }
+                    },
+                    error: function () {
+                        $('#overlay').fadeOut();
+                        Swal.fire("Error", "Something went wrong", "error");
+                    }
+                });
+            }
+        });
+    }
+});
+
+$('#overlay').fadeIn();
+$(function () { $('#overlay').fadeOut(); });
+ //=================Update Rooms===========
+    function editRoom(obj) {
+    var room_id = $(obj).data("id");
+    $.ajax({
+        url: "/workspace/get_room_details",
+        type: "POST",
+        data: {
+            room_id: room_id,
+            csrfmiddlewaretoken: $("input[name=csrfmiddlewaretoken]").val()
+        },
+        success: function(response){
+
+            if(response.status==1){
+
+                document.getElementById("roomForm").scrollIntoView({ behavior: "smooth", block: "start" });
+
+                $("#room_id").val(response.data.id);
+
+                $("#campus").val(response.data.campus_id).trigger("change");
+
+                setTimeout(function(){
+
+                    $("#building").val(response.data.building_id).trigger("change");
+
+                    setTimeout(function(){
+
+                        $("#block").val(response.data.block_id).trigger("change");
+
+                        setTimeout(function(){
+
+                            $("#floor").val(response.data.floor_id);
+
+                        },300);
+
+                    },300);
+
+                },300);
+
+                $("input[name='room_number']").val(response.data.room_number);
+
+                $("input[name='room_name']").val(response.data.room_name);
+
+                $("select[name='room_type']").val(response.data.room_type_id);
+
+                $(".card-header h6").html('<i class="bx bx-edit"></i> Update Room');
+
+                $("#roomForm button[type='submit']")
+                    .removeClass("btn-primary")
+                    .addClass("btn-success")
+                    .html('<i class="bx bx-save"></i> Update Room');
+
+            }
+
+        }
+    });
+
+}
+
+//===============Toggle Active / Inactive===============
+$(document).on('change', '.room-status-toggle', function () {
+    var checkbox = $(this);
+    var room_id = checkbox.data("id");
+    var activating = checkbox.is(':checked');
+
+    Swal.fire({
+        title: activating ? "Activate Room?" : "Deactivate Room?",
+        text: activating
+            ? "This room will become available for use."
+            : "This room will be marked inactive.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#0b6b50",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: activating ? "Yes, Activate" : "Yes, Deactivate",
+        cancelButtonText: "Cancel",
+        reverseButtons: true
+    }).then((result) => {
+
+        if (!result.isConfirmed) {
+            checkbox.prop('checked', !activating);
+            return;
+        }
+
+        $.ajax({
+            url: "/workspace/toggle_room_status",
+            type: "POST",
+            data: {
+                room_id: room_id,
+                csrfmiddlewaretoken: $("input[name='csrfmiddlewaretoken']").val()
+            },
+            success: function (response) {
+
+                if (response.status == 1) {
+
+                    var row = checkbox.closest('tr');
+                    var newStatus = response.is_active ? 'active' : 'inactive';
+                    row.attr('data-status', newStatus).data('status', newStatus);
+                    row.find('td').eq(7).html(
+                        response.is_active
+                            ? '<span class="badge" style="background:#dcfce7;color:#166534;font-weight:600;">Active</span>'
+                            : '<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:600;">Inactive</span>'
+                    );
+
+                    Swal.fire({
+                        icon: "success",
+                        title: response.is_active ? "Activated!" : "Deactivated!",
+                        text: response.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                } else if (response.status == 300) {
+
+                    checkbox.prop('checked', !activating);
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Room Already Allocated",
+                        text: response.message
+                    });
+
+                } else {
+
+                    checkbox.prop('checked', !activating);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: response.message
+                    });
+
+                }
+
+            },
+            error: function () {
+                checkbox.prop('checked', !activating);
+                Swal.fire("Error", "Something went wrong", "error");
+            }
+        });
+
+    });
+
+});
+
+//===============Delete Room (permanent)===============
+function deleteRoom(obj) {
+    var room_id = $(obj).data("id");
+
+    Swal.fire({
+        title: "Delete Room Permanently?",
+        text: "This will permanently delete this room and cannot be undone.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Yes, Delete Permanently",
+        cancelButtonText: "Cancel",
+        reverseButtons: true
+    }).then((result) => {
+
+        if (!result.isConfirmed) {
+            return;
+        }
+
+        $.ajax({
+            url: "/workspace/delete_room",
+            type: "POST",
+            data: {
+                room_id: room_id,
+                csrfmiddlewaretoken: $("input[name='csrfmiddlewaretoken']").val()
+            },
+            success: function (response) {
+
+                if (response.status == 1) {
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Deleted!",
+                        text: response.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+
+                } else if (response.status == 300) {
+
+                    var esc = function (s) {
+                        return $("<div>").text(s == null ? "" : s).html();
+                    };
+
+                    var rows = (response.assigned_users || []).map(function (u) {
+                        return "<tr>"
+                            + "<td>" + esc(u.seat_number) + "</td>"
+                            + "<td>" + esc(u.emp_name) + "</td>"
+                            + "<td>" + esc(u.empid) + "</td>"
+                            + "</tr>";
+                    }).join("");
+
+                    var tableHtml =
+                        '<p style="font-size:13px;color:#4d6f6a;margin-bottom:10px;">' + esc(response.message) + '</p>' +
+                        '<div style="max-height:220px;overflow-y:auto;">' +
+                        '<table class="table table-sm table-bordered" style="font-size:12px;">' +
+                        '<thead><tr style="background:#f5faf9;"><th>Seat No.</th><th>User Name</th><th>Emp ID</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody>' +
+                        '</table></div>';
+
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Room Already Assigned",
+                        html: tableHtml,
+                        confirmButtonText: "OK"
+                    });
+
+                } else {
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: response.message
+                    });
+
+                }
+
+            },
+            error: function () {
+                Swal.fire("Error", "Something went wrong", "error");
+            }
+        });
+
+    });
+}
+
+//===============Room Type: Save (Create / Update)===============
+$(document).on("submit", "#roomTypeForm", function (e) {
+    e.preventDefault();
+
+    $.ajax({
+        url: "/workspace/room_type_save",
+        type: "POST",
+        data: $(this).serialize(),
+        beforeSend: function () {
+            $("#rtSaveBtn").prop("disabled", true);
+        },
+        success: function (response) {
+            $("#rtSaveBtn").prop("disabled", false);
+            if (response.status == 200) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Success",
+                    text: response.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                setTimeout(function () { location.reload(); }, 1500);
+            } else if (response.status == 300) {
+                Swal.fire({ icon: "warning", title: "Warning", text: response.message });
+            } else {
+                Swal.fire({ icon: "error", title: "Error", text: response.message || "Something went wrong" });
+            }
+        },
+        error: function () {
+            $("#rtSaveBtn").prop("disabled", false);
+            Swal.fire("Error", "Something went wrong", "error");
+        }
+    });
+});
+
+//===============Room Type: Edit===============
+function editRoomType(obj) {
+    var room_type_id = $(obj).data("id");
+    $.ajax({
+        url: "/workspace/get_room_type_details",
+        type: "POST",
+        data: {
+            room_type_id: room_type_id,
+            csrfmiddlewaretoken: $("input[name=csrfmiddlewaretoken]").val()
+        },
+        success: function (response) {
+            if (response.status == 1) {
+                $("#rt_id").val(response.data.id);
+                $("#rt_name").val(response.data.name);
+                $("#rt_description").val(response.data.description);
+                $("#rtSaveBtn").html('<i class="bx bx-save"></i> Update Room Type');
+                $("#rt_name").focus();
+            }
+        }
+    });
+}
+
+</script>
+
+</section>
+{% endblock %}

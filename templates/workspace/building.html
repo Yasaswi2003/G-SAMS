@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+    <style>
+/* ===== CARD DESIGN ===== */
+
+.card{
+    border-radius:12px;
+    border:1px solid #e3efec;
+    box-shadow:0 2px 12px rgba(0,115,103,0.08);
+}
+
+.card-header{
+    background:#f5faf9;
+    border:1px solid #e0eeec;
+    font-weight:600;
+    color:#0b6b50;
+}
+
+/* ===== FORM DESIGN ===== */
+
+.form-control,
+.form-select{
+    border-radius:8px;
+    border:1px solid #d9eeeb;
+    padding:8px 12px;
+    font-size:13px;
+}
+
+.form-control:focus,
+.form-select:focus{
+    border-color:#0b6b50;
+    box-shadow:0 0 0 2px rgba(11,107,80,0.10);
+}
+
+/* labels */
+
+label{
+    font-size:12px;
+    font-weight:600;
+    color:#4d6f6a;
+    margin-bottom:4px;
+}
+
+/* ===== DASHBOARD CARDS ===== */
+
+.dashboard-card{
+    padding:20px;
+    border-radius:12px;
+    text-align:center;
+    font-weight:600;
+}
+
+.dashboard-card h2{
+    font-weight:700;
+    margin-bottom:5px;
+}
+
+/* card colors */
+
+.bg-light-green{
+    background:#e6f3ee;
+    color:#0b6b50;
+}
+
+.bg-success-light{
+    background:#f0fdf4;
+    color:#1d9b4d;
+}
+
+.bg-warning-light{
+    background:#fff4dc;
+    color:#c57c00;
+}
+
+.bg-danger-light{
+    background:#fdeaea;
+    color:#d63b3b;
+}
+</style>
+<section class="content-container contentContainer" id="homeSection">
+
+<div class="row mb-4">
+    <!-- RIGHT : QUICK VIEW -->
+    <div class="col-md-6">
+
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bx bx-buildings"></i> Building Quick View
+                </h6>
+            </div>
+
+            <div class="card-body">
+
+                <div class="row text-center mb-3">
+
+                    <div class="col-md-6 mb-3">
+                        <div class="dashboard-card bg-light-green">
+                            <h2>{{total_buildings}}</h2>
+                            <p>Total Buildings</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <div class="dashboard-card bg-success-light">
+                            <h2>{{active_buildings}}</h2>
+                            <p>Active</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="dashboard-card bg-warning-light">
+                            <h2>{{renovation}}</h2>
+                            <p>Under Renovation</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="dashboard-card bg-danger-light">
+                            <h2>{{inactive_buildings}}</h2>
+                            <p>Inactive</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <!-- LEFT : ADD BUILDING FORM -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bx bx-plus-circle"></i> Add New Building
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="buildingForm" method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <!-- Building Name -->
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label>Building Name </label>
+                                <input type="text" name="name" class="form-control"
+                                       placeholder="e.g. Administrative Building">
+                            </div>
+                        </div>
+                        <!-- Building Code -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Building Code</label>
+                                <input type="text" name="code" class="form-control"
+                                       placeholder="e.g. AB">
+                            </div>
+                        </div>
+                        <!-- Campus -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Campus </label>
+                                <select name="campus" class="form-control form-select">
+                                    <option value="" selected disabled>Select </option>
+                                    {% for c in campuses %}
+                                        <option value="{{ c.id }}">{{ c.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Total Floors -->
+                         <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Total Floors </label>
+                                <input type="number" name="total_floors"
+                                       class="form-control" placeholder="e.g. 5">
+                            </div>
+                        </div>
+                        <!-- Status -->
+                         <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select name="is_active" class="form-control form-select">
+                                    <option value="" selected disabled>Select</option>
+                                    {% for i in building_status %}
+                                        <option value="{{ i.id }}">{{ i.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Submit Button -->
+                    <div class="row">
+                        <div class="col-12">
+                            <button class="btn btn-primary w-100 mt-3" type="submit">
+                                ✔ Save Building
+                            </button>
+                        </div>
+                    </div>
+                    </form>
+            </div>
+        </div>
+    </div>
+</div>
+<h3 class="page-title">Buildings</h3>
+<div class="box-container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="table-responsive">
+                    <table id="buildingTable" class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Campus</th>
+                                <th>Building Name</th>
+                                <th>Code</th>
+                                <th>Total Floors</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Created By</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for b in buildings %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ b.campus.name }}</td>
+                                <td><span class="title">{{ b.name }}</span></td>
+                                <td ><span class="code">{{ b.code }}</span></td>
+                                <td>{{ b.total_floors }}</td>
+                                <td>
+                                    {% if b.building_status.id == 1 %}
+                                        <span class="badge bg-success">{{ b.building_status.name }}</span>
+                                    {% elif b.building_status.id == 2 %}
+                                        <span class="badge bg-danger">{{ b.building_status.name }}</span>
+                                    {% elif b.building_status.id == 3 %}
+                                        <span class="badge bg-warning">{{ b.building_status.name }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ b.created_at|date:'d-m-Y h:i A' }}</td>
+                                <td>{{ b.createdby.first_name }}</td>
+
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+
+                    </table>
+                </div>
+        </div>
+    </div>
+
+</div>
+
+
+
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+<script>
+$("#buildingForm").validate({
+    rules: {
+        name: {
+            required: true
+        },
+        code: {
+            required: true
+        },
+        campus: {
+            required: true
+        },
+        total_floors: {
+            required: true,
+            number: true,
+            min: 1
+        },
+        is_active: {
+            required: true
+        }
+    },
+    errorElement: 'div',
+    errorPlacement: function (error, element) {
+        if (element.hasClass('select2-hidden-accessible')) {
+            error.insertAfter(element.next('.select2-container'));
+        } else {
+            error.insertAfter(element);
+        }
+    },
+    submitHandler: function(form) {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Do you want to save this building?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#0b6b50",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, Save"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "",
+                    type: "POST",
+                    data: $(form).serialize(),
+                    beforeSend: function(){
+                        $('#overlay').fadeIn();
+                    },
+                    success: function(response){
+                        $('#overlay').fadeOut();
+                        if(response.status == 200){
+                            Swal.fire({
+                                icon: "success",
+                                title: "Success",
+                                text: response.message || "Building saved successfully",
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                            setTimeout(function(){
+                                location.reload();
+                            },2000);
+                        }else if(response.status == 300){
+                            Swal.fire({
+                                icon: "warning",
+                                title: "Warning",
+                                text: response.message || "Building already exists"
+                            });
+                        }else{
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: "Something went wrong"
+                            });
+                        }
+                    },
+                    error: function(){
+                        $('#overlay').fadeOut();
+                        Swal.fire(
+                            "Error",
+                            "Something went wrong",
+                            "error"
+                        );
+                    }
+                });
+            }
+        });
+    }
+});
+$('#overlay').fadeIn()
+$(document).ready(function () {
+   $(".table").DataTable({
+       dom: 'Bfrtip',
+      buttons: [
+           'excel'
+      ],
+   "pageLength": 10
+   });
+});
+$(function() {
+	$('#overlay').fadeOut()
+});
+
+</script>
+
+</section>
+
+{% endblock %}

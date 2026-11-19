@@ -1,0 +1,401 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<style>
+/* ===== CARD ===== */
+.card {
+    border-radius: 12px;
+    border: 1px solid #e3efec;
+    box-shadow: 0 2px 12px rgba(0,115,103,0.08);
+}
+.card-header {
+    background: #f5faf9;
+    border: 1px solid #e0eeec;
+    font-weight: 600;
+    color: #0b6b50;
+}
+
+/* ===== FORM ===== */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #d9eeeb;
+    font-size: 13px;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #0b6b50;
+    box-shadow: 0 0 0 2px rgba(11,107,80,0.10);
+}
+label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4d6f6a;
+    margin-bottom: 4px;
+}
+
+.floor-no-badge {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #e6f7f3; color: #0b6b50;
+    font-size: 12px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1.5px solid #b2e4d8;
+}
+.floor-label-text { font-weight: 600; color: #0b6b50; }
+
+/* ===== FLOORS BOX ===== */
+.floors-box {
+    background: #f0faf7;
+    border: 1px solid #cce8e2;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+.floors-box-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4d6f6a;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    display: block;
+    margin-bottom: 10px;
+}
+.floor-type-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.floor-type-input label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4d6f6a;
+    margin-bottom: 3px;
+    display: block;
+}
+.floor-type-input input { text-align: center; font-weight: 700; color: #0b6b50; }
+
+.btn-generate {
+    width: 100%;
+    background: #0b6b50;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: opacity .2s;
+    margin-bottom: 10px;
+}
+.btn-generate:hover { opacity: .85; }
+
+.floor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.floor-num-input {
+    width: 70px;
+    flex-shrink: 0;
+    text-align: center;
+    background: #e6f7f3 !important;
+    color: #0b6b50 !important;
+    font-weight: 700;
+    cursor: not-allowed;
+}
+.floor-row .form-select,
+.floor-row .form-control:not(.floor-num-input) { flex: 1; }
+
+
+</style>
+
+<section class="content-container contentContainer" id="homeSection">
+<div class="row mb-4">
+
+    <!-- ── TABLE ── -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bx bx-layer"></i> Floors</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="floorTable" class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Floor No.</th>
+                                <th>Floor Label</th>
+                                <th>Block</th>
+                                <th>Building</th>
+                                <th>Campus</th>
+                                <th>Created</th>
+                                <th>Created By</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in floors %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><span class="floor-no-badge">{{ f.floor_number }}</span></td>
+                                <td><span class="title">{{ f.floor_label }}</span></td>
+                                <td>{{ f.block.name }}</td>
+                                <td>{{ f.building.name }}</td>
+                                <td>{{ f.campus.name }}</td>
+                                <td style="font-size:12px;color:#6b9e96;">{{ f.created_at|date:'d-m-Y h:i A' }}</td>
+                                <td>
+                                    {% if f.createdby %}
+                                        <span style="font-size:12px;">{{ f.createdby.first_name }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
+
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── FORM ── -->
+    <div class="col-md-4">
+        <div class="card shadow-sm" style="position:sticky;top:20px;">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-plus-circle"></i> Add New Floor</h6>
+            </div>
+            <div class="card-body">
+                <form id="floorForm" method="post">
+                    {% csrf_token %}
+
+                    <!-- Campus / Building / Block in a row -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label>Campus</label>
+                            <select name="campus" id="campus" class="form-control form-select" required>
+                                <option value="" selected disabled>Select Campus</option>
+                                {% for c in campuses %}
+                                    <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label>Building</label>
+                            <select name="building" id="building" class="form-control form-select" required>
+                                <option value="">Select Building</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label>Block</label>
+                            <select name="block" id="block" class="form-control form-select" required>
+                                <option value="">Select Block</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Floors box -->
+                    <div class="floors-box">
+                        <span class="floors-box-title">Floors to Add</span>
+
+                        <!-- Counts -->
+                        <div class="floor-type-grid mb-2">
+                            <div class="floor-type-input">
+                                <label>⬇ Underground</label>
+                                <input type="number" id="cnt_underground" class="form-control" value="0" min="0" max="10">
+                            </div>
+                            <div class="floor-type-input">
+                                <label>🏢 Working</label>
+                                <input type="number" id="cnt_working" class="form-control" value="0" min="0" max="30">
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn-generate" id="generateFloors">
+                            <i class="bx bx-list-ul"></i> Generate Floors
+                        </button>
+
+                        <!-- Scrollable rows container -->
+                        <div id="floorRowsContainer"
+                             style="max-height:220px;overflow-y:auto;padding-right:4px;">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mt-3" type="submit">
+                        ✔ Save Floors
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+<script>
+$(document).ready(function () {
+
+    /* ── Campus → Buildings ── */
+    $("#campus").change(function () {
+        var campus_id = $(this).val();
+        $('#overlay').fadeIn();
+        $("#building").html('<option value="">Select Building</option>');
+        $("#block").html('<option value="">Select Block</option>');
+        if (campus_id) {
+            $.ajax({
+                url: "/workspace/get_buildings_by_campus",
+                type: "POST",
+                data: { campus_id: campus_id },
+                success: function (data) {
+                    $.each(data.buildings, function (k, v) {
+                        $("#building").append('<option value="' + v.id + '">' + v.name + ' - ' + v.code + '</option>');
+                    });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* ── Building → Blocks ── */
+    $("#building").change(function () {
+        var building_id = $(this).val();
+        var campus_id   = $('#campus').val();
+        $('#overlay').fadeIn();
+        $("#block").html('<option value="">Select Block</option>');
+        if (building_id) {
+            $.ajax({
+                url: "/workspace/get_blocks_by_building_campus",
+                type: "POST",
+                data: { building_id: building_id, campus_id: campus_id },
+                success: function (data) {
+                    $.each(data.block, function (k, v) {
+                        $("#block").append('<option value="' + v.id + '">' + v.name + ' - ' + v.code + '</option>');
+                    });
+                    $('#overlay').fadeOut();
+                }
+            });
+        } else { $('#overlay').fadeOut(); }
+    });
+
+    /* ── Generate Floors ── */
+    $('#generateFloors').on('click', function () {
+        var underground = parseInt($('#cnt_underground').val()) || 0;
+        var working     = parseInt($('#cnt_working').val())     || 0;
+
+        if (underground + working === 0) {
+            Swal.fire({ icon: 'warning', title: 'Enter counts', text: 'Please enter at least one floor count.', confirmButtonColor: '#0b6b50' });
+            return;
+        }
+
+        $('#floorRowsContainer').empty();
+
+        var undergroundLabels = [
+            '<option value="Parking">Parking</option>',
+            '<option value="Basement">Basement</option>',
+            '<option value="Cellar">Cellar</option>',
+            '<option value="Lower Ground">Lower Ground</option>'
+        ].join('');
+
+        var workingLabels = [
+            'Ground Floor','First Floor','Second Floor','Third Floor',
+            'Fourth Floor','Fifth Floor','Sixth Floor','Seventh Floor',
+            'Eighth Floor','Ninth Floor','Tenth Floor'
+        ];
+
+        // Underground rows — dropdown so user picks Parking/Basement/Cellar freely
+        var startNum = -underground;
+        for (var i = 0; i < underground; i++) {
+            var floorNum = startNum + i;
+            $(            '#floorRowsContainer').append(
+                '<div class="floor-row">' +
+                    '<input type="number" name="floor_number" class="form-control floor-num-input" value="' + floorNum + '" readonly>' +
+                    '<select name="floor_label" class="form-select" required>' + undergroundLabels + '</select>' +
+                '</div>'
+            );
+        }
+
+        // Working floors — label auto-filled, readonly
+        for (var j = 0; j < working; j++) {
+            var label = workingLabels[j] || 'Floor ' + j;
+            $('#floorRowsContainer').append(
+                '<div class="floor-row">' +
+                    '<input type="number" name="floor_number" class="form-control floor-num-input" value="' + j + '" readonly>' +
+                    '<input type="text" name="floor_label" class="form-control" value="' + label + '" readonly style="background:#f0faf7;color:#2d4f47;font-weight:600;">' +
+                '</div>'
+            );
+        }
+    });
+
+/* ── DataTable ── */
+    $("#floorTable").DataTable({
+        dom: 'Bfrtip',
+        buttons: ['excel'],
+        pageLength: 10
+    });
+
+    $('#overlay').fadeOut();
+});
+
+/* ── Form Submit ── */
+$("#floorForm").validate({
+    rules: {
+        campus   : { required: true },
+        building : { required: true },
+        block    : { required: true },
+    },
+    errorElement: 'div',
+    errorPlacement: function (error, element) { error.insertAfter(element); },
+    submitHandler: function (form) {
+        if ($('#floorRowsContainer .floor-row').length === 0) {
+            Swal.fire({ icon: 'warning', title: 'No Floors', text: 'Please generate floors first.', confirmButtonColor: '#0b6b50' });
+            return;
+        }
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Do you want to save these floors?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#0b6b50",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, Save"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "",
+                    type: "POST",
+                    data: $(form).serialize(),
+                    beforeSend: function () { $('#overlay').fadeIn(); },
+                    success: function (response) {
+                        $('#overlay').fadeOut();
+                        if (response.status == 200) {
+                            Swal.fire({ icon: "success", title: "Success",
+                                text: response.message || "Floors saved successfully",
+                                timer: 2000, showConfirmButton: false });
+                            setTimeout(() => location.reload(), 2000);
+                        } else if (response.status == 300) {
+                            Swal.fire({ icon: "warning", title: "Warning",
+                                text: response.message || "Floor already exists" });
+                        } else {
+                            Swal.fire({ icon: "error", title: "Error", text: "Something went wrong" });
+                        }
+                    },
+                    error: function () {
+                        $('#overlay').fadeOut();
+                        Swal.fire("Error", "Something went wrong", "error");
+                    }
+                });
+            }
+        });
+    }
+});
+
+$('#overlay').fadeIn();
+$(function () { $('#overlay').fadeOut(); });
+
+</script>
+
+</section>
+{% endblock %}

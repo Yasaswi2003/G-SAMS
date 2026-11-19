@@ -1,0 +1,124 @@
+/* Booking Analytics content only: no header, sidebar or other-page selectors. */
+.ba-crossfilter{padding:26px 24px;background:#f3f8f8;color:#163840;min-height:85vh;font:13px Inter,'Segoe UI',sans-serif}
+.ba-crossfilter *{box-sizing:border-box}
+.ba-crossfilter [hidden]{display:none!important}
+.ba-crossfilter .ba-header{display:flex;align-items:center;justify-content:space-between;gap:20px;position:static;background:none;box-shadow:none;padding:0;margin:0 0 18px;min-height:0}
+.ba-crossfilter h1{font-size:29px;margin:0 0 7px;color:#123842}
+.ba-crossfilter h2{font-size:17px;margin:0 0 18px;color:#173e45}
+.ba-crossfilter .ba-header p{font-size:13px;color:#6d8588;margin:0;line-height:1.6}
+.ba-crossfilter button,.ba-crossfilter select,.ba-crossfilter input{font:inherit;border:1px solid #d4e6e1;border-radius:6px;padding:9px 12px;background:#fff;color:#2b625d}
+.ba-crossfilter button{cursor:pointer}
+.ba-crossfilter button:hover{background:#e9f6f0;border-color:#78bbaa}
+.ba-crossfilter :is(button,a,input,select,tr[tabindex]):focus-visible{outline:2px solid #008878;outline-offset:3px}
+.ba-crossfilter .ba-header-actions{display:flex;gap:9px;flex-shrink:0}
+.ba-crossfilter #ba-export,.ba-crossfilter .ba-filter-actions button{background:#007f76;color:white;border-color:#007f76}
+.ba-crossfilter .ba-filter-strip{margin-bottom:16px;background:#fff;border:1px solid #e1edeb;border-radius:8px;padding:12px 15px}
+.ba-crossfilter #ba-chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap;min-height:28px;color:#68827c;font-size:12px}
+.ba-crossfilter #ba-chips button{background:#e4f4ec;color:#00776a;padding:5px 9px;font-size:11px;border-color:#c2e3d6}
+.ba-crossfilter #ba-chips a{font-size:11px;margin-left:5px;color:#007e6b}
+.ba-crossfilter .ba-filter-strip p{font-size:10px;color:#82978e;margin:7px 0 0}
+.ba-crossfilter .ba-dates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));align-items:end;gap:12px;margin-bottom:20px;padding:16px;background:#fff;border:1px solid #e1edeb;border-radius:9px}
+.ba-crossfilter .ba-dates label{display:grid;gap:5px;min-width:0;font-size:12px;color:#2b625d}
+.ba-crossfilter .ba-dates :is(input,select){width:100%;min-width:0;min-height:39px}
+.ba-crossfilter .ba-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;gap:12px}
+.ba-crossfilter .ba-filter-actions a{padding:8px 10px;color:#007f76}
+.ba-crossfilter #ba-filter-count{font-size:11px;color:#698780;padding:10px 0}
+.ba-crossfilter .ba-error{padding:13px 16px;border:1px solid #edcfbf;color:#91552e;background:#fff5ee;margin-bottom:15px;border-radius:7px}
+.ba-crossfilter .ba-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.ba-crossfilter .ba-kpi{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:172px;padding:20px 18px;border:1px solid #d4f2e929;border-radius:10px;color:#fff;background:linear-gradient(125deg,#006674,#168e80 65%,#29c29c);box-shadow:0 5px 15px #006c6810;transition:transform .2s,box-shadow .2s}
+.ba-crossfilter .ba-kpi:hover{transform:translateY(-3px);background:linear-gradient(125deg,#005865,#138374 65%,#20b88e);box-shadow:0 10px 25px #006c6824;border-color:#c7ffdf70}
+.ba-crossfilter .ba-kpi-label{font-size:13px;font-weight:500}
+.ba-crossfilter .ba-kpi strong{font-size:32px;font-weight:600;margin:10px 0 7px;color:white}
+.ba-crossfilter .ba-kpi small{font-size:10px;line-height:1.5;color:#d9fff0}
+.ba-crossfilter .ba-kpi svg{width:100%;height:42px;margin-top:10px}
+.ba-crossfilter .ba-kpi-link{font-size:10px;color:#e0ffe9;margin-top:auto;padding-top:14px}
+.ba-crossfilter .ba-kpi-changed{animation:ba-kpi-flash .65s ease-out}
+.ba-crossfilter .ba-tabs{display:flex;gap:20px;margin:0 0 17px}
+.ba-crossfilter .ba-tabs button{border:0;border-radius:0;padding:7px 0;background:none;font-size:12px;color:#6f8a82}
+.ba-crossfilter .ba-tabs button[aria-selected=true]{color:#007b6e;border-bottom:2px solid #008879}
+.ba-crossfilter .ba-overview{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.ba-crossfilter .ba-panel{min-width:0;padding:18px;background:#fff;border:1px solid #e5eeeb;border-radius:9px;box-shadow:0 3px 13px #12443803}
+.ba-crossfilter :is(.ba-trend,.ba-status,.ba-department,.ba-weekday){grid-column:span 6}
+.ba-crossfilter .ba-status .ba-canvas{height:245px}
+.ba-crossfilter .ba-funnel{grid-column:span 5}
+.ba-crossfilter .ba-rooms{grid-column:span 7}
+.ba-crossfilter .ba-recent{grid-column:1/-1}
+.ba-crossfilter .ba-panel-header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 15px;align-items:center;margin-bottom:15px}
+.ba-crossfilter .ba-panel-header h2{margin:0}
+.ba-crossfilter .ba-panel-header label{display:flex;gap:7px;align-items:center;font-size:10px;color:#729083}
+.ba-crossfilter .ba-panel-header select{padding:5px;font-size:11px}
+.ba-crossfilter .ba-canvas{position:relative;width:100%;height:230px;min-width:0}
+.ba-crossfilter .ba-chart-description{font-size:12px;line-height:1.5;margin:0 0 10px;color:#526e66}
+.ba-crossfilter .ba-room-insights{margin:20px 0}
+#ba-room-chart-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch}
+#ba-room-chart-grid > .ba-panel{width:auto;min-width:0;margin:0}
+#ba-room-chart-grid h3{font-size:15px;margin:0 0 12px}
+.ba-crossfilter .ba-room-window-control{display:inline-flex;align-items:center;gap:8px;margin-top:8px}
+@media(max-width:720px){#ba-room-chart-grid{grid-template-columns:minmax(0,1fr)}}
+.ba-crossfilter .ba-chart-summary,.ba-crossfilter .ba-footnote{font-size:10px;color:#79948b;line-height:1.6;margin:12px 0 0}
+.ba-crossfilter .ba-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.ba-crossfilter .ba-legend button{padding:5px 7px;font-size:10px;display:flex;align-items:center;gap:5px;background:#fff;border-color:#e6eeeb}
+.ba-crossfilter .ba-legend button:before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--legend-color)}
+.ba-crossfilter .ba-legend button[aria-pressed=true]{border-color:#008878;background:#e6f6ef}
+.ba-crossfilter .ba-faded{opacity:.25}
+.ba-crossfilter .ba-funnel-step{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;position:relative;isolation:isolate;width:100%;height:49px;padding:10px 13px;margin:0 0 9px;overflow:hidden;background:#f3f8f5;border:1px solid #e2ede6;border-radius:6px;transition:opacity .2s}
+.ba-crossfilter .ba-funnel-step:hover{background:#edf7f1}
+.ba-crossfilter .ba-funnel-step[aria-pressed=true]{outline:2px solid #007d6d;outline-offset:1px}
+.ba-crossfilter .ba-funnel-title{font-size:12px;font-weight:600;z-index:1;color:#193e3c}
+.ba-crossfilter .ba-funnel-value{font-size:10px;z-index:1;color:#244d45;background:#ffffffbd;padding:4px 7px;border-radius:4px}
+.ba-crossfilter .ba-funnel-fill{position:absolute;inset:0 auto 0 0;background:var(--stage-color);opacity:.4;width:0;z-index:-1;transition:width .5s ease}
+.ba-crossfilter .ba-table-scroll{overflow:auto;max-width:100%}
+.ba-crossfilter table{width:100%;border-collapse:collapse;font-size:12px}
+.ba-crossfilter th{background:#edf4f2;text-align:left;font-size:10px;color:#5a7b70;font-weight:500;white-space:nowrap}
+.ba-crossfilter :is(th,td){padding:11px 9px;border-bottom:1px solid #edf3ef}
+.ba-crossfilter td{font-size:11px;color:#35584f}
+.ba-crossfilter #ba-top-rooms tr{cursor:pointer;transition:background .2s,opacity .2s}
+.ba-crossfilter #ba-top-rooms tr:hover{background:#eff9f4}
+.ba-crossfilter #ba-top-rooms tr.ba-selected{background:#dcf4e7;box-shadow:inset 3px 0 #008573}
+.ba-crossfilter .ba-recent-scroll{max-height:384px;margin-top:12px}
+.ba-crossfilter .ba-recent-scroll table{min-width:850px}
+.ba-crossfilter .ba-recent-scroll th{position:sticky;top:0;z-index:1;background:#edf4f2}
+.ba-crossfilter .ba-pill{display:inline-block;border-radius:20px;padding:4px 8px;white-space:nowrap;font-size:10px;background:#fff0c5;color:#8a661c}
+.ba-crossfilter .ba-stage-1{background:#e6edfb;color:#4b6593}
+.ba-crossfilter .ba-stage-2{background:#dbf4e7;color:#24704e}
+.ba-crossfilter .ba-stage-3{background:#c5ebde;color:#116850}
+.ba-crossfilter .ba-pill-closed{background:#fbe2df;color:#9a514c}
+.ba-crossfilter .ba-empty{text-align:center;padding:25px;color:#789083;font-size:12px}
+.ba-crossfilter .ba-summary-row{display:flex;justify-content:space-between;gap:15px;padding:12px;border-bottom:1px solid #edf3ef}
+.ba-crossfilter #ba-metric-dialog{border:1px solid #cee6db;border-radius:14px;padding:24px;width:min(500px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow-y:auto;color:#24574b;box-shadow:0 20px 70px #123c3b35}
+.ba-crossfilter #ba-metric-dialog[open]{position:fixed!important;inset:0!important;margin:auto!important;height:fit-content;transform:none!important}
+.ba-crossfilter #ba-metric-dialog::backdrop{background:#0c323b80;backdrop-filter:blur(4px)}
+.ba-crossfilter #ba-metric-dialog p{font-size:12px;line-height:1.7;color:#729084}
+.ba-crossfilter #ba-metric-dialog dl>div{display:flex;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #e4eee7;font-size:12px}
+.ba-crossfilter #ba-metric-dialog dt{font-weight:400;color:#789487}
+.ba-crossfilter #ba-metric-dialog dd{margin:0;text-align:right}
+.ba-crossfilter #ba-metric-dialog form{text-align:right;margin-top:20px}
+@keyframes ba-kpi-flash{from{box-shadow:0 0 0 3px #8cebc3}to{box-shadow:0 5px 15px #006c6810}}
+@media(max-width:780px){.ba-crossfilter :is(.ba-trend,.ba-status,.ba-department,.ba-weekday){grid-column:span 12}}
+@media(max-width:950px){.ba-crossfilter .ba-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ba-crossfilter .ba-funnel,.ba-crossfilter .ba-rooms{grid-column:span 12}}
+@media(max-width:650px){.ba-crossfilter{padding:18px 12px}.ba-crossfilter .ba-header{flex-wrap:wrap}.ba-crossfilter h1{font-size:24px}.ba-crossfilter .ba-header-actions{width:100%}.ba-crossfilter .ba-header-actions button{flex:1}.ba-crossfilter .ba-kpis{gap:10px}.ba-crossfilter .ba-kpi{padding:16px 12px;min-height:170px}.ba-crossfilter .ba-kpi strong{font-size:27px}.ba-crossfilter .ba-panel{padding:15px}.ba-crossfilter .ba-department,.ba-crossfilter .ba-weekday{grid-column:span 12}.ba-crossfilter .ba-tabs{gap:16px}.ba-crossfilter .ba-tabs button{font-size:11px}.ba-crossfilter .ba-dates label{flex:1;min-width:110px}.ba-crossfilter .ba-dates input{width:100%}}
+@media(prefers-reduced-motion:reduce){.ba-crossfilter .ba-kpi,.ba-crossfilter .ba-funnel-step,.ba-crossfilter .ba-funnel-fill,.ba-crossfilter #ba-top-rooms tr{animation:none;transition:none}.ba-crossfilter .ba-kpi:hover{transform:none}}
+
+/* Light outlined KPI cards, preserving live metrics and click-through details. */
+.ba-crossfilter .ba-kpi{--ba-card-accent:#008b83;min-height:172px;border:1px solid var(--ba-card-accent);border-radius:14px;background:#fff;color:#6e9097;box-shadow:none;padding:20px 16px;gap:0}
+.ba-crossfilter .ba-kpi:before{content:"";position:absolute;top:0;left:12px;right:12px;height:3px;background:var(--ba-card-accent);border-radius:0 0 3px 3px}
+.ba-crossfilter .ba-kpi:nth-child(2){--ba-card-accent:#159447}.ba-crossfilter .ba-kpi:nth-child(3){--ba-card-accent:#c06a0a}.ba-crossfilter .ba-kpi:nth-child(4){--ba-card-accent:#65758c}
+.ba-crossfilter .ba-kpi:hover{background:#fbfefd;border-color:var(--ba-card-accent);box-shadow:0 4px 12px #123c300c;transform:translateY(-2px)}
+.ba-crossfilter .ba-kpi-label{font-size:10px;font-weight:500;text-transform:uppercase;color:#6e9097;letter-spacing:.02em}
+.ba-crossfilter .ba-kpi strong{font-size:36px;font-weight:400;color:var(--ba-card-accent);line-height:1.2;margin:8px 0}
+.ba-crossfilter .ba-kpi small{color:#6e9097;font-size:11px;line-height:1.5}.ba-crossfilter .ba-kpi-link{color:var(--ba-card-accent);font-size:10px;padding-top:10px}
+.ba-crossfilter .ba-kpi svg polyline{stroke:var(--ba-card-accent);opacity:.6}
+@media(max-width:650px){.ba-crossfilter .ba-kpi{padding:18px 12px}.ba-crossfilter .ba-kpi strong{font-size:29px}}
+
+/* Compact analytics KPI cards. */
+.ba-crossfilter .ba-kpi{min-height:128px;padding:14px 15px;border-radius:11px}
+.ba-crossfilter .ba-kpi strong{font-size:29px;margin:6px 0;line-height:1.15}
+.ba-crossfilter .ba-kpi-label{font-size:9px}
+.ba-crossfilter .ba-kpi small{font-size:10px;line-height:1.4}
+.ba-crossfilter .ba-kpi-link{font-size:9px;padding-top:8px}
+.ba-crossfilter .ba-kpi svg{height:25px;margin-top:6px}
+@media(max-width:650px){.ba-crossfilter .ba-kpi{min-height:124px;padding:12px}.ba-crossfilter .ba-kpi strong{font-size:25px}}
+
+.ba-crossfilter .ba-demand,.ba-crossfilter .ba-duration{grid-column:span 6}.ba-crossfilter .ba-panel-header{gap:12px;flex-wrap:wrap}.ba-crossfilter #ba-metric-dialog{max-width:900px;width:calc(100% - 36px)}@media(max-width:650px){.ba-crossfilter .ba-demand,.ba-crossfilter .ba-duration{grid-column:span 12}}
+
+.ba-crossfilter #ba-utilization-filters select:focus,.ba-crossfilter #ba-utilization-filters select:focus-visible{outline:none;box-shadow:none;border-color:#829c98}

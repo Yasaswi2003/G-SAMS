@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+<style>
+    .select2-container .select2-selection--single{
+    height:31px !important;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__display {
+    background-color: #eddedf;
+    border: 1px solid #e9c8ca;
+    color:black;
+    }
+    .select2-container--default .select2-selection--single {
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    }
+    .select2-container--open {
+    z-index: 9999; /* Ensuring dropdown is above other elements */
+    }
+    .swal2-icon {
+    font-size: 18px!important; /* Adjust the size as needed */
+    }
+    .swal2-popup .swal2-title {
+    font-size: 20px!important;
+    }
+	
+	.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+		background-color: #007367!important;
+		color: white;
+	}
+</style>
+<section class="content-container contentContainer" id="homeSection">
+
+	<div class="d-flex flex-row justify-content-between align-items-center pb-2">
+    <div>
+        <h3 class="page-title">Add User</h3>
+    </div>
+    <div>
+        <a href="/staff" class="btn btn-primary btn-sm"> <i class="ri-corner-up-left-fill"></i> Back</a>
+    </div>
+</div>
+
+    <div class="box-container">
+
+        <form method="POST" id="addUser" class="form-container1">
+            {% csrf_token %}
+
+            <div class="row pt-2">
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Employee Id</label>
+                    <select class="form-select" id="emp_id" name="emp_id"  onchange="get_employee_details(this)" ></select> 
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-control" id="first_name" placeholder="Name" readonly>
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Email</label>
+					<input type="email" class="form-control" id="email" placeholder="Email" readonly>
+                    
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Designation</label>
+					<input type="text" class="form-control" id="designation" placeholder="Designation" readonly>
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Campus</label>
+					<input type="text" class="form-control" id="campus" placeholder="Campus" readonly>
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Institution</label>
+					<input type="text" class="form-control" id="institution" placeholder="Institution" readonly>
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Department</label>
+					<input type="text" class="form-control" id="deparment" placeholder="Department" readonly>
+                </div>
+                <div class="col-md-3 pb-3">
+                    <label class="form-label">Phone Number</label>
+					<input type="text" class="form-control" id="phone" placeholder="Phone number" readonly>
+                </div>
+                <div class="pb-3 col-md-3">
+                    <label for="formFile" class="form-label">DOJ</label>
+                    <input type="text" class="form-control" id="doj" placeholder=" DOJ" readonly>
+                </div>
+                <div class="text-center pt-2" id="final_submit">
+                    <input type="submit" value="Submit" class="btn btn-primary">
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+<script>
+
+    //==============
+$('#addUser').validate({
+    rules : {
+        emp_id : {
+            required : true
+        },
+    },
+    errorElement: 'div',
+   errorPlacement: function (error, element) {
+       if (element.hasClass('select2-hidden-accessible')) {
+           error.insertAfter(element.next('.select2-container'));
+       } else {
+           error.insertAfter(element);
+       }
+   },
+});
+
+
+
+$("#emp_id").select2({
+    placeholder: "Select Emp ID",
+    minimumInputLength: 3,
+    ajax: {
+        url: '/get_users_by_emp_id',
+        dataType: 'json',
+        type: "POST",
+        quietMillis: 50,
+        data: function (params) {
+            return {
+                term: params.term
+            };
+        },
+        processResults: function (data) {
+            if (data.status === 200) {
+                return {
+                    results: $.map(data.data, function (item) {
+                        return {
+                            text: item.empid + ' | ' + item.emp_name,
+                            id: item.id,
+                            disabled: item.exists
+                        };
+                    })
+                };
+            } else {
+                return {
+                    results: []
+                };
+            }
+        }
+    },
+    templateResult: function (data) {
+        if (data.loading) return data.text;
+
+        var markup = data.text;
+        if (data.disabled) {
+            markup += ' <br><span style="color: red;font-size:13px;">(This employee is already exists)</span>';
+        }
+        return $('<span>' + markup + '</span>');
+    },
+    templateSelection: function (data) {
+        return data.text;
+    },
+    escapeMarkup: function (markup) {
+        return markup; // Let our custom HTML be rendered as HTML.
+    }
+});
+
+// Add custom CSS to style the "exists" class
+$('<style>').prop('type', 'text/css').html(`
+.exists {
+    color: red;
+}
+`).appendTo('head');
+
+function get_employee_details(obj) {
+    $.ajax({
+        type : "POST",
+        url : "/get_employee_data",
+        data : {'emp_id':$(obj).val()},
+        success : function(result) {
+            if(result.status == 200){
+                $('#first_name').val(result.data[0].emp_name)
+                $('#email').val(result.data[0].emailid)
+                $('#designation').val(result.data[0].job_description)
+                $('#phone').val(result.data[0].mobile)
+                $('#campus').val(result.data[0].campus)
+                $('#institution').val(result.data[0].college_code)
+                $('#deparment').val(result.data[0].dept_code)
+                $('#dob').val(result.data[0].dob)
+                $('#doj').val(result.data[0].doj)
+
+            }
+        }
+    });
+}
+	
+</script>
+{% endblock %}

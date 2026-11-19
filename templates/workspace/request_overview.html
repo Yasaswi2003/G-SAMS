@@ -1,0 +1,3 @@
+<nav class="bw-status-tabs" aria-label="Filter booking requests by status">
+{% for item in request_summary %}<a href="{{ item.url }}" class="bw-status-tab bw-tab-{{ item.key }}{% if item.active %} is-active{% endif %}" {% if item.active %}aria-current="page"{% endif %}>{{ item.label }} <span>{{ item.count }}</span></a>{% endfor %}
+</nav>

@@ -1,0 +1,531 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+    <style>
+/* ===== CARD DESIGN ===== */
+
+.card{
+    border-radius:12px;
+    border:1px solid #e3efec;
+    box-shadow:0 2px 12px rgba(0,115,103,0.08);
+}
+
+.card-header{
+    background:#f5faf9;
+    border:1px solid #e0eeec;
+    font-weight:600;
+    color:#0b6b50;
+}
+
+/* ===== FORM DESIGN ===== */
+
+.form-control,
+.form-select{
+    border-radius:8px;
+    border:1px solid #d9eeeb;
+    font-size:13px;
+}
+
+.form-control:focus,
+.form-select:focus{
+    border-color:#0b6b50;
+    box-shadow:0 0 0 2px rgba(11,107,80,0.10);
+}
+
+/* labels */
+
+label{
+    font-size:12px;
+    font-weight:600;
+    color:#4d6f6a;
+    margin-bottom:4px;
+}
+
+/* ===== DASHBOARD CARDS ===== */
+
+.dashboard-card{
+    padding:20px;
+    border-radius:12px;
+    text-align:center;
+    font-weight:600;
+}
+
+.dashboard-card h2{
+    font-weight:700;
+    margin-bottom:5px;
+}
+
+/* card colors */
+
+.bg-light-green{
+    background:#e6f3ee;
+    color:#0b6b50;
+}
+
+.bg-success-light{
+    background:#f0fdf4;
+    color:#1d9b4d;
+}
+
+.bg-warning-light{
+    background:#fff4dc;
+    color:#c57c00;
+}
+
+.bg-danger-light{
+    background:#fdeaea;
+    color:#d63b3b;
+}
+</style>
+<section class="content-container contentContainer" id="homeSection">
+
+<div class="row mb-4">
+    <div class="col-md-6">
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h6 class="mb-0">
+                <i class="bx bx-grid-alt"></i> Block Quick View
+            </h6>
+        </div>
+        <div class="card-body">
+            <!-- Total Blocks - full width -->
+            <div class="row text-center mb-3">
+                <div class="col-12">
+                    <div class="dashboard-card bg-light-green">
+                        <h2>{{ total_blocks }}</h2>
+                        <p>Total Blocks</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4 Block Types -->
+            <div class="row text-center">
+                <div class="col-3">
+                    <div class="dashboard-card bg-success-light">
+                        <h2>{{ block_count }}</h2>
+                        <p>Block</p>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="dashboard-card bg-warning-light">
+                        <h2>{{ tower_count }}</h2>
+                        <p>Tower</p>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="dashboard-card bg-danger-light">
+                        <h2>{{ annex_count }}</h2>
+                        <p>Annex</p>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="dashboard-card bg-light-green">
+                        <h2>{{ wing_count }}</h2>
+                        <p>Wing</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bx bx-plus-circle"></i> Add New Block
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="blockForm" method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <!-- Block Name -->
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label>Block Name</label>
+                                <input type="text" name="name" class="form-control"
+                                       placeholder="e.g. Block-A" required>
+                            </div>
+                        </div>
+                        <!-- Block Code -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Block Code</label>
+                                <input type="text" name="code" class="form-control"
+                                       placeholder="e.g. BA" required>
+                            </div>
+                        </div>
+                        <!-- Block Type -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Block Type</label>
+                                <select name="block_type" class="form-control form-select" required>
+                                    <option value="">Select Type</option>
+                                    {% for bt in block_types %}
+                                        <option value="{{ bt.id }}">{{ bt.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Campus -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Campus</label>
+                                <select name="campus" id="campus" class="form-control form-select" required>
+                                    <option value="" selected disabled>Select Campus</option>
+                                    {% for c in campuses %}
+                                        <option value="{{ c.id }}">{{ c.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Building -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Building</label>
+                                <select name="building" id="building" class="form-control form-select" required>
+                                    <option value="">Select Building</option>
+                                </select>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="row">
+                        <div class="col-12">
+                            <button class="btn btn-primary w-100 mt-3" type="submit">
+                                ✔ Save Block
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" name="block_id" id="block_id">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<h3 class="page-title">Buildings</h3>
+<div class="box-container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="table-responsive">
+                    <table id="buildingTable" class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Block Name</th>
+                                <th>Code</th>
+                                <th>Building</th>
+                                <th>Campus</th>
+                                <th>Type</th>
+                                <th>Created</th>
+                                <th>Created By</th>
+                                 <th>Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for b in blocks %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><span class="title">{{ b.name }}</span></td>
+                                <td ><span class="code">{{ b.code }}</span></td>
+                                <td>{{ b.building.name }}</td>
+                                <td>{{ b.campus.name }}</td>
+                                <td>
+                                    {% if b.block_type %}
+                                        {% if b.block_type.id == 1 %}
+                                            <span class="badge bg-primary">{{ b.block_type.name }}</span>
+
+                                        {% elif b.block_type.id == 2 %}
+                                            <span class="badge bg-success">{{ b.block_type.name }}</span>
+
+                                        {% elif b.block_type.id == 3 %}
+                                            <span class="badge bg-warning text-dark">{{ b.block_type.name }}</span>
+
+                                        {% elif b.block_type.id == 4 %}
+                                            <span class="badge bg-dark">{{ b.block_type.name }}</span>
+
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ b.block_type.name }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ b.created_at|date:'d-m-Y h:i A' }}</td>
+                                <td>
+                                    {% if b.createdby %}
+                                        {{ b.createdby.first_name }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center align-items-center gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" title="Edit" data-id="{{b.id}}" onclick="editBlock(this)">
+                                            <i class="bx bx-edit" style="font-size:14px;"></i>
+                                        </button>
+
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Delete" data-id="{{b.id}}" onclick="deleteBlock(this)">
+                                            <i class="bx bx-trash" style="font-size:14px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+
+                    </table>
+                </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.gitam.edu/vendor/jqueryValidation/jquery.validate.min.js"></script>
+<script>
+$(document).ready(function () {
+    $("#campus").change(function () {
+        var campus_id = $(this).val();
+        $('#overlay').fadeIn()
+        if (campus_id != "") {
+            $.ajax({
+                url: "/workspace/get_buildings_by_campus",
+                type: "POST",
+                data: {
+                    campus_id: campus_id
+                },
+                success: function (data) {
+                    $("#building").html('<option value="">Select Building</option>');
+                    $.each(data.buildings, function (key, value) {
+                        $("#building").append(
+                            '<option value="' + value.id + '">' + value.name +' - '+value.code + '</option>'
+                        );
+                    });
+                    $('#overlay').fadeOut()
+                }
+            });
+        } else {
+            $("#building").html('<option value="" selected disabled >select Building</option>');
+        }
+    });
+});
+
+
+$("#blockForm").validate({
+    rules: {
+        rules: {
+            name: {
+                required: true,
+                minlength: 2,
+                maxlength: 100,
+                pattern: /^[A-Za-z0-9\- ]+$/
+            },
+            code: {
+                required: true,
+                maxlength: 20,
+                pattern: /^[A-Z0-9]+$/
+            },
+            campus: {
+                required: true
+            },
+            building: {
+                required: true
+            },
+            block_type: {
+                required: true
+            }
+        },
+    },
+    errorElement: 'div',
+    errorPlacement: function (error, element) {
+        if (element.hasClass('select2-hidden-accessible')) {
+            error.insertAfter(element.next('.select2-container'));
+        } else {
+            error.insertAfter(element);
+        }
+    },
+    submitHandler: function(form) {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Do you want to save this Block?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#0b6b50",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, Save"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "",
+                    type: "POST",
+                    data: $(form).serialize(),
+                    beforeSend: function(){
+                        $('#overlay').fadeIn();
+                    },
+                    success: function(response){
+                        $('#overlay').fadeOut();
+                        if(response.status == 200){
+                            Swal.fire({
+                                icon: "success",
+                                title: "Success",
+                                text: response.message || "Block saved successfully",
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                            setTimeout(function(){
+                                location.reload();
+                            },2000);
+                        }else if(response.status == 300){
+                            Swal.fire({
+                                icon: "warning",
+                                title: "Warning",
+                                text: response.message || "Block already exists"
+                            });
+                        }else{
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: "Something went wrong"
+                            });
+                        }
+                    },
+                    error: function(){
+                        $('#overlay').fadeOut();
+                        Swal.fire(
+                            "Error",
+                            "Something went wrong",
+                            "error"
+                        );
+                    }
+                });
+            }
+        });
+    }
+});
+$('#overlay').fadeIn()
+$(document).ready(function () {
+   $(".table").DataTable({
+       dom: 'Bfrtip',
+      buttons: [
+           'excel'
+      ],
+   "pageLength": 10
+   });
+});
+$(function() {
+	$('#overlay').fadeOut()
+});
+//=========================Edit Block======================
+function editBlock(obj){
+
+    var block_id = $(obj).data("id");
+
+    $.ajax({
+        url: "/workspace/get_block_details",
+        type: "POST",
+        data: {
+            block_id: block_id,
+            csrfmiddlewaretoken: $("input[name='csrfmiddlewaretoken']").val()
+        },
+        success: function(response){
+
+            if(response.status == 1){
+
+                $("#block_id").val(response.data.id);
+
+                $("input[name='name']").val(response.data.name);
+                $("input[name='code']").val(response.data.code);
+
+                $("#campus").val(response.data.campus_id).trigger("change");
+
+                $("select[name='block_type']")
+                    .val(response.data.block_type_id);
+
+                // Wait until buildings are loaded
+                setTimeout(function () {
+                    $("#building")
+                        .val(response.data.building_id)
+                        .trigger("change");
+                }, 300);
+
+                $(".card-header h6").html(
+                    '<i class="bx bx-edit"></i> Update Block'
+                );
+
+                $("#blockForm button[type='submit']")
+                    .removeClass("btn-primary")
+                    .addClass("btn-success")
+                    .html('<i class="bx bx-save"></i> Update Block');
+
+            }else{
+                Swal.fire("Error",response.message,"error");
+            }
+
+        }
+    });
+
+
+}
+//====================Delete Block===================
+function deleteBlock(obj) {
+
+    var block_id = $(obj).data("id");
+
+    Swal.fire({
+        title: "Delete Block?",
+        text: "Are you sure you want to delete this block?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Yes, Delete",
+        cancelButtonText: "Cancel",
+        reverseButtons: true
+    }).then((result) => {
+
+        if (result.isConfirmed) {
+
+            $.ajax({
+                url: "/workspace/delete_block",
+                type: "POST",
+                data: {
+                    block_id: block_id,
+                    csrfmiddlewaretoken: $("input[name='csrfmiddlewaretoken']").val()
+                },
+                success: function(response) {
+
+                    if (response.status == 1) {
+
+                        Swal.fire({
+                            icon: "success",
+                            title: "Deleted!",
+                            text: response.message,
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+
+                    } else {
+
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: response.message
+                        });
+
+                    }
+                }
+            });
+
+        }
+
+    });
+
+}
+//======================Delete Block===============
+</script>
+
+</section>
+
+{% endblock %}

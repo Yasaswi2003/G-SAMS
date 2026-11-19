@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+{% block body %}
+<style>
+/* ── BASE ── */
+.card {
+    border-radius: 12px;
+    border: 1px solid #e3efec;
+    box-shadow: 0 2px 12px rgba(0,115,103,0.08);
+    background: #fff;
+}
+.card-header {
+    background: #f5faf9;
+    border: 1px solid #e0eeec;
+    font-weight: 600;
+    color: #0b6b50;
+    padding: 12px 18px;
+}
+.card-body { padding: 18px; }
+
+/* ── TOP STAT CARDS ── */
+.stat-card {
+    border-radius: 12px;
+    border: 1px solid #e3efec;
+    box-shadow: 0 2px 12px rgba(0,115,103,0.08);
+    background: #fff;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: transform .18s, box-shadow .18s;
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,115,103,0.13); }
+.stat-icon {
+    width: 50px; height: 50px; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; flex-shrink: 0;
+}
+.stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1; color: #0b3d30; }
+.stat-label { font-size: 11px; font-weight: 600; color: #7a9e96; margin-top: 2px; }
+
+.ic-teal   { background:#e6f3ee; color:#0b6b50; }
+.ic-blue   { background:#dbeafe; color:#1d4ed8; }
+.ic-purple { background:#ede9fe; color:#5b21b6; }
+.ic-amber  { background:#fef3c7; color:#92400e; }
+.ic-green  { background:#dcfce7; color:#166534; }
+.ic-red    { background:#fee2e2; color:#991b1b; }
+
+/* ── SEAT STATUS RING ── */
+.status-ring-wrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+.status-ring { position:relative; width:120px; height:120px; flex-shrink:0; }
+.status-ring svg { transform: rotate(-90deg); }
+.ring-label {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;
+}
+.ring-label .ring-val  { font-size:1.4rem; font-weight:800; color:#0b6b50; line-height:1; }
+.ring-label .ring-text { font-size:10px; font-weight:600; color:#7a9e96; }
+.ring-legend { display:flex; flex-direction:column; gap:8px; }
+.ring-legend-item { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:#2d4f47; }
+.ring-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+/* ── SEAT TYPE TABLE ── */
+.type-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f7f5;
+    font-size: 13px;
+}
+.type-row:last-child { border-bottom: none; }
+.type-name { font-weight:600; color:#2d4f47; }
+.type-bar-wrap { flex:1; margin:0 12px; height:6px; background:#f0f7f5; border-radius:10px; overflow:hidden; }
+.type-bar { height:100%; background: linear-gradient(90deg,#0b6b50,#0d9488); border-radius:10px; transition:width .4s; }
+.type-count { font-weight:700; color:#0b6b50; min-width:28px; text-align:right; }
+
+/* ── ALLOCATION TABLE ── */
+#recentTable thead th {
+    background:#f5faf9; color:#0b6b50;
+    font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.5px;
+    border-bottom:2px solid #e0eeec; padding:10px 12px;
+}
+#recentTable tbody td { font-size:12px; color:#2d4f47; vertical-align:middle; padding:9px 12px; border:1px solid #e0eeec; }
+#recentTable tbody tr:hover { background:#f8fdfc; }
+
+.badge-pill { padding:2px 10px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block; }
+.bp-green  { background:#dcfce7; color:#166534; }
+.bp-amber  { background:#fef3c7; color:#92400e; }
+.bp-red    { background:#fee2e2; color:#991b1b; }
+.bp-slate  { background:#f1f5f9; color:#475569; }
+.bp-teal   { background:#e6f7f3; color:#0b6b50; border:1px solid #b2e4d8; }
+.bp-purple { background:#ede9fe; color:#5b21b6; }
+
+/* ── CAMPUS TABLE ── */
+.campus-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 0; border-bottom:1px solid #f0f7f5; gap:8px;
+}
+.campus-row:last-child { border-bottom:none; }
+.campus-name { font-weight:700; color:#0b6b50; font-size:13px; }
+.campus-meta { font-size:11px; color:#7a9e96; }
+.campus-chips { display:flex; gap:6px; flex-wrap:wrap; }
+.c-chip { padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; }
+</style>
+
+<section class="content-container contentContainer" id="homeSection">
+
+<!-- ── ROW 2: SEAT STATUS + SEAT TYPES ── -->
+<div class="row g-3 mb-4">
+
+    <!-- Seat Status Ring -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-pie-chart-alt-2"></i> Seat Status</h6>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center gap-3 flex-wrap">
+                <div class="d-flex flex-row gap-2 flex-wrap">
+                    <div class="stat-card" style="padding:10px 14px;">
+                        <div class="stat-icon ic-green" style="width:36px;height:36px;font-size:1.05rem;"><i class="bx bx-door-open"></i></div>
+                        <div>
+                            <div class="stat-value" style="font-size:1.15rem;">{{ total_rooms }}</div>
+                            <div class="stat-label">Rooms</div>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="padding:10px 14px;">
+                        <div class="stat-icon ic-red" style="width:36px;height:36px;font-size:1.05rem;"><i class="bx bx-chair"></i></div>
+                        <div>
+                            <div class="stat-value" style="font-size:1.15rem;">{{ total_seats }}</div>
+                            <div class="stat-label">Seats</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="status-ring-wrap">
+                    <div class="status-ring">
+                        <svg width="120" height="120" viewBox="0 0 120 120">
+                            {% with total=total_seats %}
+                            {% if total > 0 %}
+                                {% with avail_pct=available_seats|floatformat:0 %}
+                                <!-- Available -->
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="#e0eeec" stroke-width="14"/>
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="#dcfce7" stroke-width="14"
+                                    stroke-dasharray="{{ available_pct }} {{ remaining_pct }}" stroke-linecap="round"/>
+                                {% endwith %}
+                            {% endif %}
+                            {% endwith %}
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="#e0eeec" stroke-width="14"/>
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="#dcfce7" stroke-width="14"
+                                stroke-dasharray="{{ available_pct }} {{ remaining_pct }}"
+                                stroke-linecap="round" style="transition:stroke-dasharray .5s"/>
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="#fee2e2" stroke-width="14"
+                                stroke-dasharray="{{ occupied_pct }} {{ occ_remaining }}"
+                                stroke-dashoffset="{{ occupied_offset }}"
+                                stroke-linecap="round" style="transition:stroke-dasharray .5s"/>
+                            <circle cx="60" cy="60" r="50" fill="none" stroke="#fef3c7" stroke-width="14"
+                                stroke-dasharray="{{ reserved_pct }} {{ res_remaining }}"
+                                stroke-dashoffset="{{ reserved_offset }}"
+                                stroke-linecap="round"/>
+                        </svg>
+                        <div class="ring-label">
+                            <div class="ring-val">{{ total_seats }}</div>
+                            <div class="ring-text">Total</div>
+                        </div>
+                    </div>
+                    <div class="ring-legend">
+                        <div class="ring-legend-item">
+                            <div class="ring-dot" style="background:#166534;"></div>
+                            Available &nbsp;<strong>{{ available_seats }}</strong>
+                        </div>
+                        <div class="ring-legend-item">
+                            <div class="ring-dot" style="background:#991b1b;"></div>
+                            Occupied &nbsp;<strong>{{ occupied_seats }}</strong>
+                        </div>
+                        <div class="ring-legend-item">
+                            <div class="ring-dot" style="background:#92400e;"></div>
+                            Reserved &nbsp;<strong>{{ reserved_seats }}</strong>
+                        </div>
+                        <div class="ring-legend-item">
+                            <div class="ring-dot" style="background:#475569;"></div>
+                            Maintenance &nbsp;<strong>{{ maintenance_seats }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seat Types Bar -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-category"></i> Seats by Type</h6>
+            </div>
+            <div class="card-body">
+                {% for st in seat_type_counts %}
+                <div class="type-row">
+                    <div class="type-name">{{ st.name }}</div>
+                    <div class="type-bar-wrap">
+                        <div class="type-bar" style="width:{% if total_seats > 0 %}{% widthratio st.count total_seats 100 %}%{% else %}0%{% endif %};"></div>
+                    </div>
+                    <div class="type-count">{{ st.count }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Allocation Summary -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-id-card"></i> Allocation Summary</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center g-2">
+                    <div class="col-6">
+                        <div style="background:#e6f3ee;border-radius:10px;padding:16px 8px;">
+                            <div style="font-size:1.5rem;font-weight:800;color:#0b6b50;">{{ total_seats }}</div>
+                            <div style="font-size:11px;font-weight:600;color:#4d6f6a;">Total</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#dcfce7;border-radius:10px;padding:16px 8px;">
+                            <div style="font-size:1.5rem;font-weight:800;color:#166534;">{{ allocated_count }}</div>
+                            <div style="font-size:11px;font-weight:600;color:#166534;">Occupied</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#fef3c7;border-radius:10px;padding:16px 8px;">
+                            <div style="font-size:1.5rem;font-weight:800;color:#92400e;">{{ reserved_allocations }}</div>
+                            <div style="font-size:11px;font-weight:600;color:#92400e;">Reserved</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#f1f5f9;border-radius:10px;padding:16px 8px;">
+                            <div style="font-size:1.5rem;font-weight:800;color:#475569;">{{ released_allocations }}</div>
+                            <div style="font-size:11px;font-weight:600;color:#475569;">Maintenance</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'workspace/_utilization_widgets.html' %}
+
+<!-- ── ROW 3: CAMPUS OVERVIEW + RECENT ALLOCATIONS ── -->
+<div class="row g-3">
+
+    <!-- Campus Overview -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bx bx-map"></i> Campus Overview</h6>
+            </div>
+            <div class="card-body">
+                {% for c in campus_overview %}
+                <div class="campus-row">
+                    <div>
+                        <div class="campus-name">{{ c.name }}</div>
+                        <div class="campus-meta">{{ c.buildings }} Buildings · {{ c.seats }} Seats</div>
+                    </div>
+                    <div class="campus-chips">
+                        <span class="c-chip" style="background:#dcfce7;color:#166534;">{{ c.available }} Avail</span>
+                        <span class="c-chip" style="background:#fee2e2;color:#991b1b;">{{ c.occupied }} Occ</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Allocations -->
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bx bx-list-ul"></i> Recent Allocations</h6>
+                <a href="/workspace/seating" style="font-size:12px;color:#0b6b50;font-weight:600;text-decoration:none;">View All →</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table id="recentTable" class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Emp ID</th>
+                                <th>Seat</th>
+                                <th>Room</th>
+                                <th>Building</th>
+                                <th>Campus</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in recent_allocations %}
+                            <tr>
+                                <td><span class="badge-pill bp-teal">{{ a.empid }}</span></td>
+                                <td><span class="badge-pill bp-purple">{{ a.seat.seat_number }}</span></td>
+                                <td>{{ a.seat.room.room_number }}</td>
+                                <td>{{ a.seat.room.building.name }}</td>
+                                <td>{{ a.seat.room.campus.name }}</td>
+                                <td>{{ a.allocated_date|date:'d-m-Y' }}</td>
+                                <td>
+                                    {% if a.seat_status.id == 1 %}<span class="badge-pill bp-green">{{ a.seat_status.name }}</span>
+                                    {% elif a.seat_status.id == 2 %}<span class="badge-pill bp-red">{{ a.seat_status.name }}</span>
+                                    {% elif a.seat_status.id == 3 %}<span class="badge-pill bp-amber">{{ a.seat_status.name }}</span>
+                                    {% else %}<span class="badge-pill bp-slate">{{ a.seat_status.name }}</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</section>
+{% endblock %}

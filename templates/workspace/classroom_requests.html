@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+<link rel="stylesheet" href="{% static 'user/css/classroom_requests.css' %}">
+<main class="classroom-design bw{% if booking_role == 'TEACHER' %} bw-teacher{% endif %}">
+<div class="bw-hero"><div><h1>Classroom Booking Management</h1>
+<p>{% if booking_role == 'TEACHER' %}Track your booking requests and decisions. Book a classroom from the timetable.{% elif booking_role == 'HOD' %}Review requests from your department and campus. Your approval completes the booking decision.{% elif booking_role == 'HOI' %}Read-only monitoring for your assigned campus.{% elif booking_role == 'ADMIN' %}Manage requests, allocate rooms and confirm bookings across all campuses.{% else %}An active Teacher, HOD, HOI or Admin role is required.{% endif %}</p>
+</div></div>
+<div id="bw-message" class="bw-notice" role="status" hidden></div>
+<section class="bw-card" id="bw-requests-panel"><h2>{% if booking_role == 'TEACHER' %}My Booking Requests{% elif booking_role == 'HOD' %}Department Approval Requests{% elif booking_role == 'HOI' %}Campus Booking Monitoring{% else %}All Booking Requests{% endif %}</h2>
+<form method="get" class="bw-grid bw-filters">
+{% if filters.status_group %}<input type="hidden" name="status_group" value="{{ filters.status_group }}">{% endif %}
+<label>Search<input name="q" value="{{ filters.q }}" placeholder="Faculty name, employee ID, classroom or building"></label>
+<label>Campus<input name="campus" value="{{ filters.campus }}" placeholder="All campuses"></label>
+<label>Booking date<input type="date" name="date" value="{{ filters.date }}"></label>
+<div class="bw-filter-actions"><button type="submit">Apply Filters</button><a class="bw-clear-button" href="{% url 'classroom_requests' %}">Clear</a></div>
+<details class="bw-advanced-filters" {% if filters.campus or filters.building or filters.room or filters.department or filters.teacher %}open{% endif %}><summary>More filters</summary><div class="bw-grid">
+<label>Building<input name="building" value="{{ filters.building }}"></label>
+<label>Room<input name="room" value="{{ filters.room }}"></label>
+<label>Department<input name="department" value="{{ filters.department }}"></label>
+<label>Teacher<input name="teacher" value="{{ filters.teacher }}"></label>
+</div></details>
+</form>
+{% include 'workspace/request_overview.html' %}
+<div class="bw-table"><table><thead><tr><th>Faculty</th><th>Classroom</th><th>Schedule</th><th>Purpose</th><th>Booking Status</th><th>Actions</th></tr></thead><tbody>
+{% for b in bookings %}
+<tr data-booking-row="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><td data-label="Faculty"><strong>{{ b.teacher_name }}</strong><small>{{ b.teacher_id }} &middot; {{ b.requester_department }} &middot; {{ b.requester_campus }}</small><small>Submitted {{ b.created_at|date:'d M Y H:i' }}</small></td>
+<td data-label="Classroom" class="bw-classroom"><span title="{{ b.campus_code }} / {{ b.building_name }} / {{ b.room_code }}">{{ b.campus_code }} &middot; {{ b.building_name }} &middot; {{ b.room_code }}</span></td>
+<td data-label="Schedule" class="bw-schedule"><span>{{ b.booking_date|date:'d M Y' }}</span><small>{{ b.from_time|time:'h:i A' }} &ndash; {{ b.to_time|time:'h:i A' }}</small></td>
+<td data-label="Purpose"><span class="bw-purpose" title="{{ b.purpose }}">{{ b.purpose }}</span></td>
+<td data-label="Booking Status"><span class="bw-badge bw-{{ b.status }}">{{ b.management_status_label }}</span></td>
+
+<td data-label="Actions" class="bw-action-cell"><div class="bw-actions"><button type="button" data-view="{{ b.pk }}" aria-haspopup="dialog">View</button>
+{% if booking_role == 'TEACHER' and b.booked_by_id == request.user.id and b.faculty_can_edit or booking_role == 'HOD' and b.booked_by_id != request.user.id and b.status == 'pending' or booking_role == 'ADMIN' and b.status == 'pending' %}<button type="button" class="bw-more-toggle" data-booking-menu="bw-menu-{{ b.pk }}" aria-haspopup="menu" aria-controls="bw-menu-{{ b.pk }}" aria-expanded="false" aria-label="More actions for request {{ b.pk }}">More <span aria-hidden="true">&#8942;</span></button>{% endif %}
+<template id="bw-detail-{{ b.pk }}"><div class="bw-detail-content">
+<h3>Booking Information</h3>
+<div class="bw-detail-grid bw-booking-info">
+<dl><dt>Faculty name</dt><dd>{{ b.teacher_name }}</dd></dl>
+<dl><dt>Registration number</dt><dd>{{ b.teacher_id }}</dd></dl>
+<dl class="bw-grouped-fields">
+    <div><dt>Campus</dt><dd>{{ b.campus_code }}</dd></div>
+    <div><dt>Building</dt><dd>{{ b.building_name }}</dd></div>
+</dl>
+<dl><dt>Department</dt><dd>{{ b.requester_department }}</dd></dl>
+<dl><dt>Classroom</dt><dd>{{ b.room_code }}</dd></dl>
+<dl><dt>Booking date</dt><dd>{{ b.booking_date|date:'d M Y' }}</dd></dl>
+<dl class="bw-time-fields bw-grouped-fields">
+    <div><dt>Start time</dt><dd>{{ b.from_time|time:'h:i A' }}</dd></div>
+    <div><dt>End time</dt><dd>{{ b.to_time|time:'h:i A' }} <span class="bw-time-duration">({{ b.duration_hours }} {{ b.duration_hours|pluralize:'hr,hrs' }})</span></dd></div>
+</dl>
+<dl class="bw-purpose-card">
+    <dt>Booking Purpose</dt>
+    <dd><button type="button" class="bw-purpose-preview" popovertarget="bw-purpose-{{ b.pk }}" popovertargetaction="show" aria-label="Read full booking purpose">{{ b.purpose }}</button></dd>
+</dl>
+<dl><dt>Current status</dt><dd><span class="bw-badge bw-{{ b.status }}">{{ b.management_status_label }}</span></dd></dl>
+<dl><dt>Submitted</dt><dd>{{ b.created_at|date:'d M Y h:i A' }}</dd></dl>
+<dl><dt>Subject</dt><dd>{{ b.subject_name|default:'Not specified' }}{% if b.subject_code %} ({{ b.subject_code }}){% endif %}</dd></dl>
+<dl><dt>Source</dt><dd>{% if b.booking_source == 'admin_direct' %}Admin Direct Booking{% else %}Teacher Request{% endif %}</dd></dl>
+</div>
+<div class="bw-purpose-popover" id="bw-purpose-{{ b.pk }}" popover tabindex="0" role="region" aria-label="Full booking purpose">
+    <strong>Booking Purpose</strong><p>{{ b.purpose }}</p>
+    {% if b.details %}<strong data-purpose-extra>Additional Information</strong><p>{{ b.details }}</p>{% endif %}
+</div>
+<section class="bw-audit" aria-label="Approval Information">
+<button type="button" class="bw-timeline-toggle" aria-expanded="false" aria-controls="bw-approval-{{ b.pk }}">Approval Information <span aria-hidden="true">&#8964;</span></button>
+<div class="bw-timeline-collapse" id="bw-approval-{{ b.pk }}" inert><div class="bw-timeline-events"><dl class="bw-detail-grid">
+<div><dt>HOD review status</dt><dd>{{ b.hod_decision_label }}<small>Assigned HOD: {{ b.assigned_hod_names }}</small></dd></div><div><dt>Admin review status</dt><dd>{{ b.admin_decision_label }}</dd></div>
+<div><dt>HOD reviewer</dt><dd>{% if b.reviewed_by %}{{ b.reviewed_by.get_full_name|default:b.reviewed_by.username }}{% else %}Not reviewed{% endif %}{% if b.reviewed_at %}<small>{{ b.reviewed_at|date:'d M Y h:i A' }}</small>{% endif %}</dd></div>
+<div><dt>Admin reviewer</dt><dd>{% if b.admin_decided_by %}{{ b.admin_decided_by.get_full_name|default:b.admin_decided_by.username }}{% else %}Not reviewed{% endif %}{% if b.admin_decided_at %}<small>{{ b.admin_decided_at|date:'d M Y h:i A' }}</small>{% endif %}</dd></div>
+<div><dt>Approved / confirmed by</dt><dd>{% if b.confirmed_by %}{{ b.confirmed_by.get_full_name|default:b.confirmed_by.username }}{% else %}Not confirmed{% endif %}{% if b.confirmed_at %}<small>{{ b.confirmed_at|date:'d M Y h:i A' }}</small>{% endif %}</dd></div>
+<div><dt>HOD comments</dt><dd>{{ b.review_comment|default:'No comment' }}</dd></div><div><dt>Admin comments</dt><dd>{{ b.admin_comment|default:'No comment' }}</dd></div>
+</dl>
+</div></div></section>
+<section class="bw-audit" aria-label="Approval Timeline"><button type="button" class="bw-timeline-toggle" aria-expanded="false" aria-controls="bw-timeline-{{ b.pk }}">Approval Timeline <span aria-hidden="true">&#8964;</span></button><div class="bw-timeline-collapse" id="bw-timeline-{{ b.pk }}" inert><div class="bw-timeline-events">{% for h in b.history.all %}<article class="bw-history-entry bw-event-{{ h.new_status }}"><strong>{{ h.action }} &middot; {{ h.user_role }}</strong><small>{% if h.performed_by %}{{ h.performed_by.get_full_name|default:h.performed_by.username }}{% else %}Former user{% endif %} &middot; {{ h.created_at|date:'d M Y H:i' }}</small><p>{{ h.previous_status_label }} &rarr; {{ h.new_status_label }}</p>{% if h.display_details.comments %}<p class="bw-history-comment">{{ h.display_details.comments }}</p>{% endif %}</article>{% empty %}<p>No recorded activity.</p>{% endfor %}</div></div></section>
+<section class="bw-audit" aria-label="Comments and Feedback">
+<button type="button" class="bw-timeline-toggle" aria-expanded="false" aria-controls="bw-feedback-{{ b.pk }}">Comments and Feedback <span aria-hidden="true">&#8964;</span></button>
+<div class="bw-timeline-collapse" id="bw-feedback-{{ b.pk }}" inert><div class="bw-timeline-events">
+{% for group in b.feedback_groups %}<section class="bw-feedback-group"><h4>{{ group.person }}</h4>{% for item in group.items %}<article><strong>{{ item.action }} &middot; {{ item.role }}</strong><small>{{ item.date|date:'d M Y H:i' }}</small><p>{{ item.comments }}</p>{% if item.snapshots %}<details><summary>View changes</summary>{% for snapshot in item.snapshots %}<div class="bw-history-snapshot"><h4>{{ snapshot.title }}</h4><dl>{% for row in snapshot.rows %}<div><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>{% endfor %}</dl></div>{% endfor %}</details>{% endif %}</article>{% endfor %}</section>{% empty %}<p>No comments or feedback yet.</p>{% endfor %}
+</div></div>
+{% for change in b.change_requests.all %}<section class="bw-proposal"><h3>{{ change.get_kind_display }} request &middot; {{ change.get_status_display }}</h3><p>{{ change.reason }}<br>Requested {{ change.created_at|date:'d M Y H:i' }}</p>{% if change.kind == 'amendment' %}<dl class="bw-detail-grid"><div><dt>Proposed classroom</dt><dd>{{ change.proposed_values.campus }} / {{ change.proposed_values.building_name }} / {{ change.proposed_values.room_name }}</dd></div><div><dt>Proposed date / time</dt><dd>{{ change.proposed_values.booking_date }} &middot; {{ change.proposed_values.from_time }} &ndash; {{ change.proposed_values.to_time }}</dd></div><div><dt>Proposed purpose</dt><dd>{{ change.proposed_values.purpose }}</dd></div></dl>{% endif %}{% if change.reviewed_at %}<p>Admin decision: {{ change.get_status_display }} &middot; {{ change.reviewed_at|date:'d M Y H:i' }}<br>{{ change.review_comment }}</p>{% else %}<p>The original confirmed booking stays active while Admin reviews this request.</p>{% endif %}</section>{% endfor %}
+</section>
+{% if booking_role == 'TEACHER' and b.booked_by_id == request.user.id and b.booking_source == 'teacher_request' and b.status == 'confirmed' %}
+<section class="bw-detail-followup"><h3>Post-confirmation requests</h3>{% if not b.pending_change %}<p>The approved reservation remains active until Admin reviews your request.</p><button type="button" data-action="request_amendment" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}">Request amendment</button><button type="button" data-action="request_cancellation" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}">Request cancellation</button>{% else %}<p>{{ b.pending_change.get_kind_display }} awaiting Admin review.</p>{% endif %}</section>
+{% endif %}
+{% if booking_role == 'ADMIN' and b.pending_change and b.status == 'confirmed' %}<section class="bw-detail-followup"><h3>Review proposed change</h3><button type="button" data-action="approve_change" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}" data-change-id="{{ b.pending_change.pk }}" data-change-kind="{{ b.pending_change.get_kind_display }}">Accept {{ b.pending_change.get_kind_display }}</button><button type="button" class="bw-danger" data-action="reject_change" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}" data-change-id="{{ b.pending_change.pk }}" data-change-kind="{{ b.pending_change.get_kind_display }}">Reject {{ b.pending_change.get_kind_display }}</button></section>{% endif %}
+</div></template>
+{% if booking_role == 'TEACHER' and b.booked_by_id == request.user.id and b.faculty_can_edit or booking_role == 'HOD' and b.booked_by_id != request.user.id and b.status == 'pending' or booking_role == 'ADMIN' and b.status == 'pending' %}<dialog class="bw-row-menu" id="bw-menu-{{ b.pk }}" role="menu" aria-label="Actions for request {{ b.pk }}">
+{% if booking_role == 'TEACHER' and b.booked_by_id == request.user.id and b.booking_source == 'teacher_request' and b.faculty_can_edit and b.status != 'hod_approved' %}
+{% if b.status == 'changes_requested' %}<button type="button" role="menuitem" data-action="edit" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-edit" aria-hidden="true"></i>Respond &amp; Resubmit</button>{% else %}<button type="button" role="menuitem" data-action="edit" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-edit" aria-hidden="true"></i>Edit Request</button>{% endif %}
+<button type="button" class="bw-menu-danger" role="menuitem" data-action="withdraw" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-x-circle" aria-hidden="true"></i>Withdraw Request</button>
+{% elif booking_role == 'HOD' and b.booked_by_id != request.user.id and b.status == 'pending' %}
+<button type="button" class="bw-menu-primary" role="menuitem" data-action="approve" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-check-circle" aria-hidden="true"></i>Confirm Booking</button>
+<button type="button" class="bw-menu-changes" role="menuitem" data-action="request_changes" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-message-detail" aria-hidden="true"></i>Request Changes</button>
+<button type="button" class="bw-menu-danger" role="menuitem" data-action="reject" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-x-circle" aria-hidden="true"></i>Reject Request</button>
+{% elif booking_role == 'ADMIN' and b.status == 'pending' %}
+<button type="button" class="bw-menu-primary" role="menuitem" data-action="confirm" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-check-circle" aria-hidden="true"></i>Confirm Booking</button>
+<button type="button" class="bw-menu-changes" role="menuitem" data-action="request_changes" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-message-detail" aria-hidden="true"></i>Request Changes</button>
+<button type="button" class="bw-menu-danger" role="menuitem" data-action="reject" data-id="{{ b.pk }}" data-revision="{{ b.modified_at.isoformat }}"><i class="bx bx-x-circle" aria-hidden="true"></i>Reject Request</button>
+{% else %}<button type="button" role="menuitem" data-view="{{ b.pk }}"><i class="bx bx-show" aria-hidden="true"></i>View Details</button>{% endif %}
+</dialog>{% endif %}
+</div></td></tr>
+{% empty %}<tr><td colspan="6">No matching requests within your assigned access.</td></tr>{% endfor %}
+</tbody></table></div>
+<nav class="bw-pagination" aria-label="Booking request pages"><span id="bw-page-summary"></span><div><button type="button" id="bw-page-prev">Previous</button><span id="bw-page-number"></span><button type="button" id="bw-page-next">Next</button></div></nav>
+</section>
+<dialog id="bw-view-dialog" aria-labelledby="bw-view-title">
+    <header class="bw-view-header">
+        <h2 id="bw-view-title" tabindex="-1" autofocus>Booking details</h2>
+        <button type="button" id="bw-view-close">Close</button>
+    </header>
+    <div id="bw-view-content"></div>
+</dialog>
+<form id="bw-csrf" hidden>{% csrf_token %}</form>
+{{ rooms|json_script:'bw-rooms' }}
+{{ revision_token|json_script:'bw-revision-token' }}
+</main>
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-9"></script><script src="{% static 'js/booking_live.js' %}"></script>
+<script>
+(() => {
+const rooms = JSON.parse(document.getElementById('bw-rooms').textContent);
+const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const notice = document.getElementById('bw-message');
+function message(text, error=false) {notice.hidden=false;notice.textContent=text;notice.classList.toggle('bw-error',error);}
+async function send(url, data) {
+ const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':csrf},body:data});
+ let result;try{result=await response.json();}catch(e){throw new Error('The request failed. Refresh the page and try again.');}
+ if(!response.ok)throw new Error(result.error || 'Request failed.');return result;
+}
+const pageSummary=document.getElementById('bw-page-summary');
+if(pageSummary){
+ const rows=[...document.querySelectorAll('#bw-requests-panel tbody > tr')].filter(row=>!row.querySelector('[colspan]'));
+ const previous=document.getElementById('bw-page-prev'),next=document.getElementById('bw-page-next');
+ const pageSize=10,pages=Math.max(1,Math.ceil(rows.length/pageSize));let page=1;
+ function showPage(){rows.forEach((row,index)=>row.hidden=index<(page-1)*pageSize||index>=page*pageSize);pageSummary.textContent=rows.length?'Showing '+((page-1)*pageSize+1)+'-'+Math.min(page*pageSize,rows.length)+' of '+rows.length+' requests':'No booking requests';document.getElementById('bw-page-number').textContent='Page '+page+' of '+pages;previous.disabled=page===1;next.disabled=page===pages;}
+ previous.addEventListener('click',()=>{if(page>1){page--;showPage();}});next.addEventListener('click',()=>{if(page<pages){page++;showPage();}});showPage();
+}
+const stored=sessionStorage.getItem('booking-message');if(stored){message(stored);sessionStorage.removeItem('booking-message');}
+document.addEventListener('click',async event=>{
+ const button=event.target.closest('[data-action]');if(!button)return;
+ const activeDetails=document.getElementById('bw-view-dialog');if(activeDetails.open)activeDetails.close();
+ const selectedAction=button.dataset.action,bookingId=button.dataset.id;
+ if(selectedAction==='edit'||selectedAction==='request_amendment'){
+  try{const response=await fetch("{% url 'booking_edit_data' %}?booking_id="+encodeURIComponent(bookingId));const record=await response.json();if(!response.ok)throw new Error(record.error);await ClassroomBooking.open({rooms:record.rooms,initial:record.initial,original:record.original,role:'TEACHER',mode:selectedAction,bookingId,subjectCode:record.subject_code,subjectName:record.subject_name,revision:record.revision,revisionToken:record.revision_token,selection:record.selection,respond:record.status==='changes_requested',revisionStartUrl:"{% url 'booking_revision_start' %}",submitUrl:"{% url 'review_classroom_booking' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>{if(record.status==='changes_requested'){const url=new URL(location.href);url.searchParams.delete('revision');url.searchParams.set('status_group','pending');url.searchParams.delete('status');location.assign(url);}else location.reload();}});}
+  catch(error){await Swal.fire({icon:'error',title:'Request unavailable',text:error.message,confirmButtonColor:'#007367'});}return;
+ }
+ const reconsider=button.dataset.reconsider==='true';
+ const choices={
+  approve:{title:reconsider?'Reconsider classroom request?':'Approve classroom request?',text:'This approval completes the booking decision. Availability will be checked again.',button:'Yes, Approve',required:reconsider,label:'Reconsideration Comments',placeholder:'Explain why this request is being reconsidered...'},
+  reject:{title:'Reject Classroom Booking',text:'Enter the reason for rejecting this classroom booking request.',button:'Submit Rejection',required:true,label:'Rejection Reason / Comments',placeholder:'Enter the reason for rejecting this classroom booking request...'},
+  confirm:{title:'Confirm this booking?',text:'This approval completes the booking decision. The classroom and time will be checked again.',button:'Yes, Confirm Booking'},
+  request_changes:{title:'Request Changes',text:'Please explain what changes are required from the faculty.',button:'Submit Request',required:true,label:'Required Changes',placeholder:'Enter the changes required from the faculty...'},
+  withdraw:{title:'Withdraw Booking Request?',text:'Are you sure you want to withdraw this classroom booking?',button:'Confirm Withdrawal',required:true,label:'Withdrawal Reason',placeholder:'Enter the reason for withdrawing this booking...'},
+  request_cancellation:{title:'Withdraw Confirmed Booking?',text:'The confirmed reservation remains active until Admin accepts your cancellation request.',button:'Submit Request',required:true,label:'Cancellation Reason',placeholder:'Explain why this confirmed booking should be cancelled...'},
+  approve_change:{title:'Accept '+button.dataset.changeKind+'?',text:'Review the proposed details using View. Availability is rechecked before an amendment is applied.',button:'Yes, Accept'},
+  reject_change:{title:'Reject '+button.dataset.changeKind+'?',text:'The original confirmed booking will remain unchanged.',button:'Reject Request',required:true,label:'Rejection Reason',placeholder:'Explain the reason for rejecting this request...'}
+ };
+ const choice=choices[selectedAction];if(!choice)return;
+ const result=await Swal.fire({title:choice.title,text:choice.text,icon:['reject','withdraw','request_cancellation','reject_change'].includes(selectedAction)?'warning':'question',...(choice.required?{input:'textarea',inputLabel:choice.label,inputPlaceholder:choice.placeholder}:{}),showCancelButton:true,confirmButtonText:choice.button,cancelButtonText:'Cancel',confirmButtonColor:['reject','withdraw','request_cancellation','reject_change'].includes(selectedAction)?'#b83242':'#007367',showLoaderOnConfirm:true,allowOutsideClick:()=>!Swal.isLoading(),allowEscapeKey:()=>!Swal.isLoading(),preConfirm:async value=>{const comment=choice.required?String(value||'').trim():'';if(choice.required&&!comment){Swal.showValidationMessage('Please enter the required reason or comments.');return false;}const payload=new FormData();payload.set('booking_id',bookingId);payload.set('action',selectedAction);const revision=button.dataset.revision||button.closest('tr')?.dataset.revision;if(revision)payload.set('expected_revision',revision);if(comment)payload.set('comment',comment);if(button.dataset.changeId)payload.set('change_request_id',button.dataset.changeId);try{return await send("{% url 'review_classroom_booking' %}",payload);}catch(error){Swal.showValidationMessage(error.message);return false;}}});
+ if(result.isConfirmed){ClassroomBooking.announce();await Swal.fire({icon:'success',title:'Request updated',text:result.value.message,confirmButtonColor:'#007367'});location.reload();}
+});
+const viewDialog=document.getElementById('bw-view-dialog');
+function bindPurposePreview(){
+ const card=viewDialog.querySelector('.bw-purpose-card');
+ const preview=card.querySelector('.bw-purpose-preview');
+ const popover=viewDialog.querySelector('.bw-purpose-popover');
+ const hasExtra=popover.querySelector('[data-purpose-extra]')!==null;
+ const hasHiddenInformation=()=>hasExtra||preview.scrollWidth>preview.clientWidth;
+ function position(){
+  const anchor=card.getBoundingClientRect(), margin=12;
+  const width=document.documentElement.clientWidth, height=document.documentElement.clientHeight;
+  const box=popover.getBoundingClientRect();
+  const preferTop=anchor.bottom+box.height>height-margin && anchor.top>height-anchor.bottom;
+  const top=preferTop?anchor.top-box.height:anchor.bottom;
+  popover.style.left=`${Math.max(margin,Math.min(anchor.left,width-box.width-margin))}px`;
+  popover.style.top=`${Math.max(margin,Math.min(top,height-box.height-margin))}px`;
+ }
+ function show(){
+  if(!hasHiddenInformation())return;
+  if(!popover.matches(':popover-open'))popover.showPopover();
+  position();
+ }
+ function leave(event){
+  const next=event.relatedTarget;
+  if((next instanceof Node&&(card.contains(next)||popover.contains(next)))||popover.contains(document.activeElement))return;
+  if(popover.matches(':popover-open'))popover.hidePopover();
+ }
+ card.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse')show();});
+ card.addEventListener('pointerleave',leave);
+ preview.addEventListener('focus',show);
+ preview.addEventListener('click',event=>{if(!hasHiddenInformation())event.preventDefault();});
+ preview.addEventListener('blur',leave);
+ popover.addEventListener('pointerleave',leave);
+ popover.addEventListener('focusout',event=>{
+  if(!(event.relatedTarget instanceof Node)||!popover.contains(event.relatedTarget)){
+   if(event.relatedTarget!==preview&&popover.matches(':popover-open'))popover.hidePopover();
+  }
+ });
+ popover.addEventListener('beforetoggle',event=>{if(event.newState==='open')requestAnimationFrame(position);});
+}
+viewDialog.addEventListener('scroll',()=>{
+ const popover=viewDialog.querySelector('.bw-purpose-popover:popover-open');
+ popover?.hidePopover();
+});
+let viewReturnFocus=null,viewScroll={x:0,y:0};
+viewDialog.addEventListener('close',()=>{viewReturnFocus?.focus({preventScroll:true});window.scrollTo({left:viewScroll.x,top:viewScroll.y,behavior:'instant'});});
+document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
+ viewScroll={x:window.scrollX,y:window.scrollY};viewReturnFocus=button.closest('[data-booking-row]')?.querySelector('.bw-actions > [data-view]')||button;
+ const detail=document.getElementById('bw-detail-'+button.dataset.view);
+ document.getElementById('bw-view-title').textContent='Booking Details';
+ document.getElementById('bw-view-content').replaceChildren(detail.content.cloneNode(true));
+ bindPurposePreview();
+ viewDialog.showModal();
+ document.getElementById('bw-view-title').focus({preventScroll:true});
+ viewDialog.scrollTop=0;
+ if(button.dataset.showHistory==='true')document.querySelector('#bw-view-content .bw-audit').scrollIntoView({block:'start'});
+}));
+document.getElementById('bw-view-close').addEventListener('click',()=>viewDialog.close());
+[viewDialog].forEach(modal=>modal.addEventListener('click',event=>{
+ const rect=modal.getBoundingClientRect();
+ if(event.target===modal&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))modal.close();
+}));
+const resumeRevision=JSON.parse(document.getElementById('bw-revision-token').textContent);
+if(resumeRevision){(async()=>{try{const response=await fetch("{% url 'booking_revision_state' %}?revision="+encodeURIComponent(resumeRevision),{cache:'no-store'});const record=await response.json();if(!response.ok)throw new Error(record.error);await ClassroomBooking.open({rooms:record.rooms,initial:record.initial,original:record.original,role:'TEACHER',mode:'edit',respond:true,extended:true,bookingId:record.booking_id,subjectCode:record.subject_code,subjectName:record.subject_name,revision:record.revision,revisionToken:resumeRevision,selection:record.selection,revisionStartUrl:"{% url 'booking_revision_start' %}",submitUrl:"{% url 'review_classroom_booking' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>{const url=new URL(location.href);url.searchParams.delete('revision');url.searchParams.set('status_group','pending');url.searchParams.delete('status');location.assign(url);}});}catch(error){await Swal.fire({icon:'warning',title:'Revision unavailable',text:error.message,confirmButtonColor:'#007367'});}})();}
+const focusBooking=new URLSearchParams(location.search).get('booking_id');
+if(focusBooking&&/^\d+$/.test(focusBooking)){const target=[...document.querySelectorAll('[data-view]')].find(button=>button.dataset.view===focusBooking);if(target)target.click();}
+ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:()=>location.reload()});
+})();
+</script>
+<link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
+<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-9">
+<link rel="stylesheet" href="{% static 'user/css/booking_management.css' %}?v=management-9">
+<script src="{% static 'js/booking_management.js' %}?v=management-4"></script>
+{% endblock %}

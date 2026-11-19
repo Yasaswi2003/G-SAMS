@@ -1,0 +1,12 @@
+<div class="cm-selection-bar" data-cm-selection-bar hidden>
+    {% if building_scope %}<label><input type="checkbox" data-cm-whole-building> Entire building</label>{% endif %}
+    {% if date_range %}
+    <label>From <input type="date" data-cm-from min="{{ today_iso }}"></label>
+    <label>To <input type="date" data-cm-to min="{{ today_iso }}"></label>
+    {% endif %}
+    <span data-cm-count aria-live="polite"></span>
+    <div class="cm-selection-actions">
+        <button type="button" data-cm-cancel>Cancel</button>
+        <button type="button" class="cm-primary" data-cm-proceed disabled>Proceed Further</button>
+    </div>
+</div>

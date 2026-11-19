@@ -1,0 +1,171 @@
+/* Compact request management; shared navigation and other pages are untouched. */
+.classroom-design.bw #bw-view-dialog .bw-timeline-toggle{display:flex;justify-content:space-between;align-items:center;width:100%;padding:15px 0;border:0;border-bottom:1px solid #e1ebe5;background:none;color:#2c6552;font-family:inherit;font-size:15px;font-weight:600;text-align:left;cursor:pointer}
+.classroom-design.bw #bw-view-dialog .bw-timeline-toggle span{font-size:24px;line-height:1;transition:transform .25s}
+.classroom-design.bw #bw-view-dialog .bw-timeline-toggle[aria-expanded=true] span{transform:rotate(180deg)}
+.classroom-design.bw #bw-view-dialog .bw-timeline-toggle:focus-visible{outline:2px solid #007367;outline-offset:3px}
+.bw-timeline-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .28s ease,opacity .2s}
+.bw-timeline-collapse.is-expanded{grid-template-rows:1fr;opacity:1}
+.bw-timeline-events{overflow:hidden;min-height:0}
+.bw-timeline-collapse.is-expanded .bw-timeline-events{padding-top:17px}
+@media(prefers-reduced-motion:reduce){.classroom-design.bw #bw-view-dialog .bw-timeline-toggle span,.bw-timeline-collapse{transition:none}}
+.bw-booking-info > dl {
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    background: #f4f9f6;
+    border-radius: 7px;
+}
+.bw-booking-info > .bw-grouped-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.bw-grouped-fields > div + div {
+    border-inline-start: 1px solid #d5e8e0;
+    padding-inline-start: 10px;
+}
+.bw-grouped-fields > div:not(:last-child) {
+    padding-inline-end: 10px;
+}
+.bw-time-duration { white-space: nowrap; }
+#bw-view-dialog .bw-purpose-preview,
+#bw-view-dialog .bw-purpose-preview:hover {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    box-shadow: none;
+    cursor: pointer;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.bw-purpose-popover {
+    position: fixed;
+    inset: auto;
+    box-sizing: border-box;
+    width: min(440px, calc(100vw - 24px));
+    max-height: min(50dvh, 360px);
+    margin: 0;
+    padding: 12px 14px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1px solid #d5e8e0;
+    border-radius: 7px;
+    background: #fff;
+    color: #193f39;
+    box-shadow: 0 8px 24px #153c3a40;
+}
+.bw-purpose-popover p { margin: 4px 0 8px; }
+.bw-purpose-popover p:last-child { margin-bottom: 0; }
+.classroom-design.bw,.classroom-design.bw .bw-card{min-width:0;max-width:100%}
+.classroom-design.bw .bw-table{width:100%;max-width:100%;min-width:0;overflow:visible}
+.classroom-design.bw .bw-table td{min-width:0;overflow-wrap:anywhere}
+.classroom-design.bw .bw-table td>strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.classroom-design.bw .bw-schedule>span{display:block;white-space:nowrap}
+.classroom-design.bw .bw-schedule>small{white-space:normal;line-height:1.6}
+.classroom-design.bw .bw-purpose{min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.classroom-design.bw .bw-action-cell>.bw-actions{justify-content:flex-start;gap:6px}
+.classroom-design.bw .bw-more-toggle{background:#fff!important;border:1px solid #c8dad0!important;color:#456b5e!important;gap:9px}
+.classroom-design.bw .bw-more-toggle[aria-expanded=true]{background:#edf8f1!important;border-color:#70ad91!important}
+.bw-row-menu:not([open]){display:none!important}
+dialog.bw-row-menu[open]{position:fixed!important;inset:auto!important;right:auto!important;bottom:auto!important;transform:none!important;margin:0!important;box-sizing:border-box;display:flex;flex-direction:column;gap:2px;width:230px;max-width:calc(100vw - 20px);min-width:0;padding:6px;border:1px solid #dce8e1;border-radius:10px;background:#fff;color:#35554a;box-shadow:0 10px 36px #173f3024;overflow-y:auto;z-index:100050;font-family:Inter,'Segoe UI',Arial,sans-serif}
+dialog.bw-row-menu[open] button{display:flex;align-items:center;gap:10px;justify-content:flex-start;width:100%;min-height:39px;padding:9px 11px;background:#fff;border:0;border-radius:6px;color:#426359;text-align:left;font:12px Inter,'Segoe UI',Arial,sans-serif;line-height:1.5;cursor:pointer;white-space:normal}
+dialog.bw-row-menu[open] button i{font-size:17px;flex:0 0 17px}
+dialog.bw-row-menu[open] button:hover{background:#f0f7f3}
+dialog.bw-row-menu[open] button:focus-visible{outline:2px solid #238973;outline-offset:-2px;background:#edf8f1}
+dialog.bw-row-menu[open] button.bw-menu-primary{color:#00775c}
+dialog.bw-row-menu[open] button.bw-menu-changes{color:#376b9a}
+dialog.bw-row-menu[open] button.bw-menu-danger{color:#b13c4b}
+dialog.bw-row-menu[open] button.bw-menu-danger:hover{background:#fff1f1}
+.bw-detail-followup{border-top:1px solid #dfece4;margin-top:18px;padding-top:6px}
+.bw-detail-followup button{margin:4px;padding:8px 12px;border:1px solid #a9d2bd;background:#eaf6ee;color:#257052;border-radius:6px;font-size:12px;cursor:pointer}
+.bw-detail-followup button.bw-danger{color:#a03a4b;background:#fff0f1;border-color:#ebc6cb}
+.bw-history-comment{background:#f2f8f4;border-radius:6px;padding:10px;color:#426455!important}
+.bw-history-entry summary{color:#007c62;font-size:11px;cursor:pointer}
+ .classroom-design.bw #bw-view-dialog[open]{position:fixed!important;inset:0!important;top:0!important;left:0!important;right:0!important;bottom:0!important;transform:none!important;margin:auto!important;width:min(840px,calc(100vw - 32px));height:fit-content;max-height:calc(100dvh - 48px);border-radius:14px;box-shadow:0 22px 80px #153c3a40;overflow-y:auto}
+#bw-view-dialog .bw-view-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 12px;
+    border-bottom: 1px solid #e0ece5;
+    background: #fff;
+}
+#bw-view-dialog .bw-view-header h2 { margin: 0; }
+#bw-view-close { flex-shrink: 0; }
+@media(max-width:600px){.classroom-design.bw #bw-view-dialog[open]{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:18px}.classroom-design.bw #bw-view-dialog .bw-detail-grid{grid-template-columns:1fr}}
+@media(min-width:901px){.classroom-design.bw .bw-table th,.classroom-design.bw .bw-table td{padding-left:8px;padding-right:8px}.classroom-design.bw .bw-table td.bw-classroom{white-space:nowrap}}
+@media(max-width:900px){
+ .classroom-design.bw .bw-table{border:0;overflow:visible;background:transparent}
+ .classroom-design.bw .bw-table table,.classroom-design.bw .bw-table tbody{display:block;width:100%;min-width:0;max-width:100%}
+ .classroom-design.bw .bw-table thead{display:none}
+ .classroom-design.bw .bw-table tbody>tr:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;padding:14px;margin-bottom:12px;border:1px solid #dce9df;border-radius:10px;background:#fff}
+ .classroom-design.bw .bw-table tbody>tr[hidden]{display:none!important}
+ .classroom-design.bw .bw-table tbody>tr>td{display:block;width:auto;min-width:0;padding:9px 0;border:0;text-align:left}
+ .classroom-design.bw .bw-table tbody>tr>td:before{content:attr(data-label);display:block;font-size:10px;line-height:1.5;font-weight:500;color:#7d9186;margin-bottom:4px}
+ .classroom-design.bw .bw-table tbody>tr>td:first-child{grid-column:1/-1;border-bottom:1px solid #edf3ee;padding-top:0;padding-bottom:12px}
+ .classroom-design.bw .bw-table tbody>tr>td:first-child:before{display:none}
+ .classroom-design.bw .bw-table tbody>tr>td:first-child>strong{font-size:14px;line-height:1.5}
+ .classroom-design.bw .bw-table tbody>tr>td:nth-child(4){grid-column:1/-1}
+ .classroom-design.bw .bw-table tbody>tr>td.bw-action-cell{grid-column:1/-1;border-top:1px solid #edf3ee;margin-top:5px;padding-bottom:0}
+ .classroom-design.bw .bw-table tbody>tr>td.bw-action-cell:before{display:none}
+ .classroom-design.bw .bw-table td[colspan]{grid-column:1/-1}
+ .classroom-design.bw .bw-action-cell>.bw-actions{justify-content:flex-end}
+ .classroom-design.bw .bw-purpose{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+ .classroom-design.bw .bw-table .bw-badge{white-space:normal}
+ .classroom-design.bw .bw-classroom span{white-space:nowrap}
+}
+.classroom-design.bw .bw-hero{margin-bottom:18px}
+.classroom-design.bw .bw-hero h1{font-size:27px!important}
+.classroom-design.bw .bw-hero p{font-size:12px!important}
+.bw .bw-status-tabs{display:flex;flex-wrap:nowrap;gap:5px;align-items:center;overflow-x:auto;scrollbar-width:thin;padding:6px;margin:0 0 16px;border:1px solid #deebe5;border-radius:8px;background:#f7faf8}
+.bw .bw-status-tab{display:flex;align-items:center;justify-content:center;flex:1 0 auto;gap:7px;min-height:38px;padding:8px 11px;border:1px solid transparent;border-radius:6px;color:#647970;text-decoration:none;font-size:11px;white-space:nowrap}
+.bw .bw-status-tab:hover{background:#edf6f0;color:#007566}
+.bw .bw-status-tab.is-active{background:#fff;border-color:#a6d0be;color:#006c5a;box-shadow:0 2px 5px #19563d08;font-weight:600}
+.bw .bw-status-tab span{font-size:10px;line-height:1.3;min-width:21px;text-align:center;border-radius:20px;padding:3px 6px;color:#fff;background:#007367;font-variant-numeric:tabular-nums}
+.bw .bw-tab-pending span{background:#ffedb0;color:#806115}
+.bw .bw-tab-changes_requested span{background:#e0edff;color:#35649a}
+.bw .bw-tab-approved span{background:#d8efdf;color:#27704a}
+.bw .bw-tab-rejected span{background:#ffe1e2;color:#a33d48}
+.bw .bw-tab-withdrawn span{background:#e7ecea;color:#708079}
+.classroom-design.bw .bw-card{padding:18px;border-radius:10px}
+.classroom-design.bw .bw-card h2{font-size:16px;margin-bottom:16px}
+.classroom-design.bw .bw-filters{margin-bottom:16px;gap:12px}
+.classroom-design.bw .bw-table{border:1px solid #e3ece6;border-radius:7px;overflow:visible}
+.classroom-design.bw .bw-table table{width:100%;min-width:0;max-width:100%;table-layout:fixed}
+.classroom-design.bw .bw-table th{font-size:10px;padding:12px 11px;background:#f3f7f4;color:#668071;text-transform:uppercase}
+.classroom-design.bw .bw-table td{padding:13px 11px;font-size:11px;border-bottom:1px solid #e8eee9;vertical-align:middle;line-height:1.55}
+.classroom-design.bw .bw-table th:nth-child(1){width:17%}
+.classroom-design.bw .bw-table th:nth-child(2){width:15%}
+.classroom-design.bw .bw-table th:nth-child(3){width:16%}
+.classroom-design.bw .bw-table th:nth-child(4){width:11%}
+.classroom-design.bw .bw-table th:nth-child(5){width:16%}
+.classroom-design.bw .bw-table th:nth-child(6){width:25%}
+.classroom-design.bw .bw-classroom{white-space:nowrap;font-size:11px}
+.classroom-design.bw .bw-classroom span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.classroom-design.bw .bw-table td small{font-size:10px!important;color:#83948a}
+.classroom-design.bw .bw-actions{display:flex;flex-wrap:nowrap;align-items:center;gap:6px}
+.classroom-design.bw .bw-actions button{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:6px 9px;font-size:10px!important;line-height:1.35;border:1px solid transparent;border-radius:5px;white-space:nowrap;font-weight:500}
+.classroom-design.bw .bw-actions button[data-view]{background:#fff;border-color:#c8dad0;color:#587266}
+.classroom-design.bw .bw-actions button[data-action=approve],.classroom-design.bw .bw-actions button[data-action=confirm]{background:#007967;border-color:#007967;color:white}
+.classroom-design.bw .bw-actions button.bw-request-changes{background:#f1f6ff;border-color:#b9cee5;color:#3d709e}
+.classroom-design.bw .bw-actions button.bw-danger{background:#b93549;border-color:#b93549;color:white}
+.classroom-design.bw .bw-actions button:hover{filter:brightness(.96)}
+.classroom-design.bw .bw-badge{padding:5px 8px;border-radius:6px;font-size:10px;line-height:1.5;white-space:normal;max-width:100%;font-weight:500}
+.classroom-design.bw .bw-badge.bw-pending{background:#fff0bf!important;color:#876516!important}
+.classroom-design.bw .bw-badge.bw-changes_requested{background:#e3efff!important;color:#366ba4!important}
+.classroom-design.bw .bw-badge.bw-hod_approved,.classroom-design.bw .bw-badge.bw-confirmed{background:#dcf2e5!important;color:#29734c!important}
+.classroom-design.bw .bw-badge.bw-hod_rejected,.classroom-design.bw .bw-badge.bw-admin_rejected{background:#ffe2e3!important;color:#a23d48!important}
+.classroom-design.bw .bw-badge.bw-withdrawn,.classroom-design.bw .bw-badge.bw-cancelled{background:#e9edeb!important;color:#748079!important}
+.classroom-design.bw .bw-pagination{padding-top:16px;font-size:11px}
+@media(max-width:700px){.bw .bw-status-tab{flex:0 0 auto;padding:8px 10px}.classroom-design.bw .bw-card{padding:12px}.classroom-design.bw .bw-hero h1{font-size:23px!important}.classroom-design.bw .bw-table table{min-width:0}.classroom-design.bw .bw-status-tabs{margin-bottom:12px}}

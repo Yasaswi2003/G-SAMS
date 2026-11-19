@@ -1,0 +1,105 @@
+/* Actual room/time conflicts only; native dialog keeps the booking form intact. */
+.cb-revision-form .cb-grid{gap:10px 14px}
+.cb-revision-form{max-height:calc(100dvh - 200px);overflow-y:auto;overscroll-behavior:contain;padding-right:5px}
+.cb-revision-form [hidden]{display:none!important}
+.cb-revision-form .cb-subject-summary{font-size:11px;color:#728c81;text-align:left;margin:8px 0 0}
+.cb-revision-form label{font-size:12px!important;gap:4px!important}
+.cb-revision-form input,.cb-revision-form select,.cb-revision-form textarea{padding:8px 10px!important;font-size:13px!important}
+.cb-revision-form textarea{min-height:62px;max-height:120px}
+.cb-revision-form .cb-time-range{padding:8px;margin:9px 0;font-size:12px}
+.cb-timetable-navigation{display:block;padding:10px 12px;margin-bottom:12px;border:1px solid #b5d8cb;border-radius:7px;background:#f0faf5;color:#007765;font-size:12px;text-align:left;line-height:1.6;text-decoration:none}
+.cb-timetable-navigation:hover{background:#e4f6ec;color:#005f50}
+.cb-timetable-navigation:focus-visible{outline:2px solid #007765;outline-offset:3px}
+html.cb-conflict-open{overflow:hidden}
+dialog.cb-conflict-sheet[open]{position:fixed!important;inset:auto 0 0!important;top:auto!important;left:0!important;right:0!important;bottom:0!important;margin:0 auto!important;transform:none!important;box-sizing:border-box;width:min(680px,100vw);max-width:100vw;max-height:90dvh;overflow-y:auto;padding:32px 30px max(28px,env(safe-area-inset-bottom));border:0;border-radius:28px 28px 0 0;background:#fff;color:#111;text-align:center;box-shadow:0 -16px 80px #11111114;font-family:Inter,'Segoe UI',Arial,sans-serif;animation:cb-sheet-in .22s ease-out;z-index:2147483647}
+dialog.cb-conflict-sheet::backdrop{background:#4c485038;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.cb-conflict-sheet .cb-conflict-icon{width:76px;height:76px;display:grid;place-items:center;border-radius:22px;background:#fff0e9;color:#e28e69;margin:2px auto 26px}
+.cb-conflict-sheet .cb-conflict-icon svg{width:48px;height:48px}
+dialog.cb-conflict-sheet h2{font-size:23px!important;line-height:1.35!important;letter-spacing:-.4px!important;font-weight:600!important;color:#111;margin:0 0 14px}
+dialog.cb-conflict-sheet p{font-size:15px!important;line-height:1.75!important;font-weight:400!important;color:#838388;max-width:560px;margin:0 auto 28px}
+dialog.cb-conflict-sheet button{display:block;width:100%;min-height:58px;border:0;border-radius:14px;padding:14px 20px;background:#111;color:#fff;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit}
+dialog.cb-conflict-sheet button:hover{background:#282828}
+dialog.cb-conflict-sheet button:focus-visible{outline:3px solid #da987d;outline-offset:4px}
+.cu-page .cu-slot-user-booking.cu-status-pending,.bw .bw-pending,.cu-page .cu-hold-indicator{background:#fff3c4!important;color:#805e0d!important;border-color:#d8a830!important}
+.cu-page .cu-slot-user-booking.cu-status-hod_approved,.cu-page .cu-slot-user-booking.cu-status-confirmed,.bw .bw-hod_approved,.bw .bw-confirmed,.cu-page .cu-booked-indicator{background:#def4e7!important;color:#176440!important;border-color:#62ae85!important}
+.cu-page .cu-status-hod_approved .cu-slot-dot,.cu-page .cu-status-confirmed .cu-slot-dot{background:#2e9760!important}
+.cu-page .cu-status-pending .cu-slot-dot{background:#d9a31c!important}
+.cu-page .cu-slot-user-booking.cu-status-hod_rejected,.cu-page .cu-slot-user-booking.cu-status-admin_rejected,.bw .bw-hod_rejected,.bw .bw-admin_rejected{background:#ffe5e5!important;color:#9f303b!important;border-color:#d58a93!important}
+.cu-page .cu-slot-user-booking.cu-status-withdrawn,.cu-page .cu-slot-user-booking.cu-status-cancelled,.bw .bw-withdrawn,.bw .bw-cancelled{background:#edf0f1!important;color:#69747a!important;border-color:#b8c3c5!important}
+.cu-page .cu-hold-indicator,.cu-page .cu-booked-indicator{display:block;border:1px solid;border-radius:7px;padding:8px 10px;font-size:10px;line-height:1.5;text-align:center}
+@keyframes cb-sheet-in{from{opacity:0;translate:0 25px}to{opacity:1;translate:0 0}}
+@media(max-width:600px){dialog.cb-conflict-sheet[open]{padding:26px 20px max(28px,env(safe-area-inset-bottom));border-radius:25px 25px 0 0}dialog.cb-conflict-sheet h2{font-size:20px!important}dialog.cb-conflict-sheet p{font-size:14px!important}.cb-conflict-sheet .cb-conflict-icon{width:68px;height:68px;margin-bottom:22px}}
+@media(prefers-reduced-motion:reduce){dialog.cb-conflict-sheet[open]{animation:none}}
+
+.cb-revision-form .cb-timetable-navigation{display:flex;align-items:center;gap:10px!important;cursor:pointer}
+.cb-revision-form .cb-timetable-checkbox{width:18px!important;height:18px;min-height:0;padding:0!important;margin:0;flex:0 0 18px;accent-color:#007765;cursor:pointer}
+.cb-timetable-navigation:focus-within{outline:2px solid #007765;outline-offset:3px}
+
+.cb-revision-form textarea::placeholder{color:#657783!important;opacity:1}
+
+.cb-revision-popup.swal2-popup {
+    box-sizing: border-box;
+    max-height: 94dvh;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    overflow: hidden;
+}
+.cb-revision-popup > .swal2-title { grid-area: 1 / 1 / 2 / -1; }
+.cb-revision-popup > .swal2-html-container {
+    grid-area: 2 / 1 / 3 / -1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+.cb-revision-popup > .swal2-validation-message { grid-area: 3 / 1 / 4 / -1; }
+.cb-revision-popup > .swal2-actions { grid-area: 4 / 1 / 5 / -1; margin-top: 12px; }
+.cb-revision-popup .cb-revision-form { max-height: none; overflow: visible; }
+.cb-revision-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 12px;
+    text-align: left;
+}
+.cb-revision-summary > div { padding: 8px 12px; border-radius: 7px; background: #f4f9f6; }
+.cb-revision-summary dt { margin-bottom: 3px; color: #72877d; font-size: 11px; text-transform: uppercase; }
+.cb-revision-summary dd { margin: 0; color: #193f39; font-size: 12px; overflow-wrap: anywhere; }
+.cb-revision-timetable[open] {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 94vw;
+    height: 94dvh;
+    max-width: none;
+    max-height: none;
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #d5e9e3;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 24px 80px #153c3a40;
+}
+.cb-revision-timetable::backdrop { background: #09242088; }
+.cb-revision-timetable > button {
+    justify-self: end;
+    padding: 7px 12px;
+    margin: 6px 8px;
+    border: 1px solid #007367;
+    border-radius: 7px;
+    background: #007367;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.cb-revision-timetable-content { grid-row: 2; position: relative; min-height: 0; background: #f4f9f6; }
+.cb-revision-timetable-content > p:not([hidden]) { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: #005a51; }
+.cb-revision-timetable-content > iframe { display: block; width: 100%; height: 100%; border: 0; }
+.cb-revision-timetable-content > iframe.is-loading { visibility: hidden; }
+.cb-revision-comparison { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
+.cb-revision-comparison th,
+.cb-revision-comparison td { padding: 8px; border-bottom: 1px solid #d5e9e3; overflow-wrap: anywhere; }
+.cb-revision-comparison thead { background: #f4f9f6; color: #005a51; }
+.cb-revision-comparison tbody td { white-space: pre-wrap; }
+.cb-revision-comparison tbody td:last-child { background: #e6f5ef; color: #005a51; font-weight: 600; }

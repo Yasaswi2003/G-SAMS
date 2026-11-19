@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load user_tags %}
+
+{% block body %}
+<link rel="stylesheet" href="https://cdn.gitam.edu/vendor/select2/select2.min.css">
+
+<style>
+/* ── Page wrapper ── */
+.se-page { padding: 24px 28px; }
+.se-container { width: 100%; }
+
+/* ── Page header ── */
+.se-header { margin-bottom: 20px; }
+.se-header h4 { font-size: 19px; font-weight: 800; color: #0b3d30; margin: 0 0 3px; }
+.se-header p  { font-size: 12.5px; color: #7a9e96; margin: 0; }
+
+/* ── Search card ── */
+.se-search-card {
+    background: #fff; border: 1px solid #e0eeec;
+    border-radius: 14px; padding: 20px 24px;
+    box-shadow: 0 2px 12px rgba(0,115,103,.06);
+    margin-bottom: 24px;
+}
+.se-search-card label {
+    font-size: 11px; font-weight: 700; color: #4d6f6a;
+    text-transform: uppercase; letter-spacing: .6px;
+    margin-bottom: 8px; display: block;
+}
+.se-search-row { display: flex; gap: 10px; align-items: center; }
+.se-search-row .se-select-wrap { flex: 1; min-width: 0; }
+.se-btn {
+    background: #007367; color: #fff; border: none;
+    border-radius: 9px; padding: 0 22px; height: 40px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    flex-shrink: 0; transition: background .15s;
+}
+.se-btn:hover { background: #005a51; }
+.se-btn-clear {
+    background: #f5faf9; color: #4d6f6a; border: 1px solid #e0eeec;
+    border-radius: 9px; padding: 0 16px; height: 40px;
+    font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0;
+}
+.se-btn-clear:hover { background: #e6f3ee; color: #007367; text-decoration: none; }
+
+/* ── Employee card ── */
+.se-emp-card {
+    background: linear-gradient(120deg, #006358 0%, #0d9488 100%);
+    border-radius: 14px; padding: 20px 24px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 18px;
+    box-shadow: 0 3px 16px rgba(0,115,103,.22);
+}
+.se-emp-avatar {
+    width: 60px; height: 60px; border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,.35);
+    object-fit: cover; flex-shrink: 0;
+}
+.se-emp-info { color: #fff; flex: 1; min-width: 0; }
+.se-emp-name { font-size: 17px; font-weight: 800; margin-bottom: 2px; }
+.se-emp-id   { font-size: 12px; opacity: .75; margin-bottom: 8px; }
+.se-emp-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.se-emp-badge {
+    background: rgba(255,255,255,.16); border-radius: 20px;
+    padding: 3px 11px; font-size: 11px; font-weight: 600; color: #fff;
+}
+.se-status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,.92); color: #007367;
+    border-radius: 20px; padding: 3px 11px; font-size: 11px; font-weight: 700;
+}
+
+/* ── Seat location card ── */
+.se-loc-card {
+    background: #fff; border: 1px solid #e0eeec;
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,115,103,.05);
+    margin-bottom: 16px;
+}
+.se-loc-header {
+    background: #f5faf9; border-bottom: 1px solid #e0eeec;
+    padding: 11px 20px; display: flex; align-items: center; gap: 8px;
+}
+.se-loc-header .se-loc-title { font-size: 13px; font-weight: 700; color: #007367; }
+.se-loc-header .se-loc-count { margin-left: auto; font-size: 11px; color: #7a9e96; font-weight: 600; }
+
+/* 4-column grid for seat details */
+.se-loc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: none;
+}
+.se-loc-item {
+    padding: 16px 20px;
+    border-right: 1px solid #f0f7f6;
+    border-bottom: 1px solid #f0f7f6;
+}
+.se-loc-item:nth-child(4n) { border-right: none; }
+.se-loc-label {
+    font-size: 10px; font-weight: 800; color: #7a9e96;
+    text-transform: uppercase; letter-spacing: .65px; margin-bottom: 5px;
+    display: flex; align-items: center; gap: 4px;
+}
+.se-loc-value { font-size: 14px; font-weight: 700; color: #0b3d30; }
+
+/* ── Allocated-on strip ── */
+.se-alloc-strip {
+    background: #f0f9f6; border: 1px solid #c8e6e2; border-radius: 10px;
+    padding: 10px 18px; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: #4d6f6a; font-weight: 600; margin-bottom: 24px;
+}
+.se-alloc-strip i { font-size: 15px; color: #007367; }
+
+/* ── States ── */
+.se-not-allocated, .se-no-access {
+    border-radius: 14px; padding: 44px 24px; text-align: center;
+    margin-bottom: 20px;
+}
+.se-not-allocated { background:#fff; border: 2px dashed #e0eeec; }
+.se-no-access     { background:#fff8e6; border: 1px solid #fde68a; }
+.se-state-icon { font-size: 44px; margin-bottom: 12px; }
+.se-not-allocated .se-state-icon { color: #c8e6e2; }
+.se-no-access .se-state-icon { color: #fbbf24; }
+.se-not-allocated h5 { font-size: 16px; font-weight: 800; color: #0b3d30; margin-bottom: 6px; }
+.se-no-access h5     { font-size: 16px; font-weight: 700; color: #92400e; margin-bottom: 6px; }
+.se-not-allocated p  { font-size: 12.5px; color: #7a9e96; margin: 0; }
+.se-no-access p      { font-size: 12.5px; color: #a16207; margin: 0; }
+
+/* ── Status pill in table ── */
+.se-pill {
+    display: inline-block; border-radius: 20px;
+    padding: 2px 10px; font-size: 11px; font-weight: 700;
+}
+.se-pill-occ   { background:#dcfce7; color:#166534; }
+.se-pill-res   { background:#fef3c7; color:#92400e; }
+.se-pill-avail { background:#e6f3ee; color:#007367; }
+.se-pill-other { background:#f1f5f9; color:#475569; }
+
+/* Select2 */
+.select2-container .select2-selection--single {
+    height: 40px; border-radius: 9px; border: 1px solid #d9eeeb;
+}
+.select2-container .select2-selection--single .select2-selection__rendered {
+    line-height: 40px; padding-left: 12px; font-size: 13px; color: #0b3d30;
+}
+.select2-container .select2-selection--single .select2-selection__arrow { height: 40px; }
+</style>
+
+<div class="se-page">
+<div class="se-container">
+
+    <!-- Header -->
+    <div class="se-header">
+        <h4><i class="bx bx-search-alt" style="color:#007367;margin-right:6px;"></i>Search Employee</h4>
+        <p>Find where an employee is currently allocated — seat, room, floor, building and campus.</p>
+    </div>
+
+    <!-- Search -->
+    <div class="se-search-card">
+        <form method="GET" action="/workspace/search_employee" id="seForm">
+            <label>Employee ID / Name</label>
+            <div class="se-search-row">
+                <div class="se-select-wrap">
+                    <select id="seEmpId" name="emp_id" style="width:100%;">
+                        {% if emp_id %}<option value="{{ emp_id }}" selected>{{ emp_id }}</option>{% endif %}
+                    </select>
+                </div>
+                <button type="submit" class="se-btn"><i class="bx bx-search"></i> Search</button>
+                {% if emp_id %}
+                <a href="/workspace/search_employee" class="se-btn-clear"><i class="bx bx-x"></i> Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if emp_id %}
+
+        {% if result %}
+        <!-- ── Employee card ── -->
+        <div class="se-emp-card">
+            <img src="https://gstaff.gitam.edu/img1.aspx?empid={{ emp_id }}"
+                 onerror="this.src='/static/logo/profile.jpg'"
+                 class="se-emp-avatar" alt="">
+            <div class="se-emp-info">
+                <div class="se-emp-name">{% if emp_info %}{{ emp_info.emp_name }}{% else %}{{ emp_id }}{% endif %}</div>
+                <div class="se-emp-id">{{ emp_id }}</div>
+                <div class="se-emp-meta">
+                    {% if emp_info.campus %}<span class="se-emp-badge"><i class="bx bx-map-pin"></i> {{ emp_info.campus }}</span>{% endif %}
+                    {% if emp_info.college_code %}<span class="se-emp-badge">{{ emp_info.college_code }}</span>{% endif %}
+                    {% if emp_info.dept_code %}<span class="se-emp-badge">{{ emp_info.dept_code }}</span>{% endif %}
+                    {% if emp_info.designation %}<span class="se-emp-badge">{{ emp_info.designation }}</span>{% endif %}
+                    {% if emp_info.source %}<span class="se-emp-badge">{{ emp_info.source }}</span>{% endif %}
+                    <span class="se-status-pill"><i class="bx bx-check-circle"></i> Allocated</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Seat location ── -->
+        <div class="se-loc-card">
+            <div class="se-loc-header">
+                <i class="bx bx-map" style="font-size:16px;color:#007367;"></i>
+                <span class="se-loc-title">Seat Location</span>
+            </div>
+            <div class="se-loc-grid">
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-chair"></i> Seat</div>
+                    <div class="se-loc-value">{{ result.seat_number }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-category"></i> Seat Type</div>
+                    <div class="se-loc-value">{{ result.seat_type }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-door-open"></i> Room</div>
+                    <div class="se-loc-value">{{ result.room }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-layer"></i> Floor</div>
+                    <div class="se-loc-value">{{ result.floor }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-grid-alt"></i> Block</div>
+                    <div class="se-loc-value">{{ result.block }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-buildings"></i> Building</div>
+                    <div class="se-loc-value">{{ result.building }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-map-alt"></i> Campus</div>
+                    <div class="se-loc-value">{{ result.campus }}</div>
+                </div>
+                <div class="se-loc-item">
+                    <div class="se-loc-label"><i class="bx bx-calendar-check"></i> Allocated On</div>
+                    <div class="se-loc-value" style="font-size:13px;">{{ result.allocated_on }}</div>
+                </div>
+            </div>
+        </div>
+
+        {% elif no_access %}
+        <div class="se-no-access">
+            <div class="se-state-icon"><i class="bx bx-lock-alt"></i></div>
+            <h5>Outside Your Access</h5>
+            <p>This employee is allocated to a seat not within your assigned campus/building access.</p>
+        </div>
+
+        {% elif not_allocated %}
+        {% if emp_info %}
+        <div class="se-emp-card" style="margin-bottom:16px;">
+            <img src="https://gstaff.gitam.edu/img1.aspx?empid={{ emp_id }}"
+                 onerror="this.src='/static/logo/profile.jpg'"
+                 class="se-emp-avatar" alt="">
+            <div class="se-emp-info">
+                <div class="se-emp-name">{{ emp_info.emp_name }}</div>
+                <div class="se-emp-id">{{ emp_id }}</div>
+                <div class="se-emp-meta">
+                    {% if emp_info.campus %}<span class="se-emp-badge">{{ emp_info.campus }}</span>{% endif %}
+                    {% if emp_info.college_code %}<span class="se-emp-badge">{{ emp_info.college_code }}</span>{% endif %}
+                    {% if emp_info.dept_code %}<span class="se-emp-badge">{{ emp_info.dept_code }}</span>{% endif %}
+                    {% if emp_info.designation %}<span class="se-emp-badge">{{ emp_info.designation }}</span>{% endif %}
+                    {% if emp_info.source %}<span class="se-emp-badge">{{ emp_info.source }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <div class="se-not-allocated">
+            <div class="se-state-icon"><i class="bx bx-map-pin"></i></div>
+            <h5>Not Allocated</h5>
+            <p>No active seat assignment found for <strong>{{ emp_id }}</strong>.</p>
+        </div>
+        {% endif %}
+
+        {% if history %}
+        <!-- ── Allocation History ── -->
+        <div class="se-loc-card">
+            <div class="se-loc-header">
+                <i class="bx bx-history" style="font-size:16px;color:#007367;"></i>
+                <span class="se-loc-title">Allocation History</span>
+                <span class="se-loc-count">{{ history|length }} record{{ history|length|pluralize }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Seat</th>
+                            <th>Type</th>
+                            <th>Room</th>
+                            <th>Floor</th>
+                            <th>Block</th>
+                            <th>Building</th>
+                            <th>Campus</th>
+                            <th>Status</th>
+                            <th>Allocated On</th>
+                            <th>Released On</th>
+                            <th>By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in history %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><strong>{{ h.seat }}</strong></td>
+                            <td>{{ h.seat_type }}</td>
+                            <td>{{ h.room }}</td>
+                            <td>{{ h.floor }}</td>
+                            <td>{{ h.block }}</td>
+                            <td>{{ h.building }}</td>
+                            <td>{{ h.campus }}</td>
+                            <td>
+                                {% if h.status_id == 2 %}<span class="se-pill se-pill-occ">{{ h.status }}</span>
+                                {% elif h.status_id == 3 %}<span class="se-pill se-pill-res">{{ h.status }}</span>
+                                {% elif h.status_id == 1 %}<span class="se-pill se-pill-avail">{{ h.status }}</span>
+                                {% else %}<span class="se-pill se-pill-other">{{ h.status }}</span>{% endif %}
+                            </td>
+                            <td>{{ h.allocated_on }}</td>
+                            <td>{% if h.released_on == '—' %}<span style="color:#c8d9d5;">—</span>{% else %}{{ h.released_on }}{% endif %}</td>
+                            <td>{{ h.by }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    {% endif %}
+
+</div><!-- /se-container -->
+</div><!-- /se-page -->
+
+<script src="https://cdn.gitam.edu/vendor/select2/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+
+    $('#seEmpId').select2({
+        placeholder: 'Type Employee ID or Name…',
+        minimumInputLength: 3,
+        allowClear: true,
+        ajax: {
+            url: '/get_users_by_emp_id',
+            dataType: 'json',
+            type: 'POST',
+            quietMillis: 50,
+            data: function (p) { return { term: p.term }; },
+            processResults: function (data) {
+                if (data.status === 200) {
+                    return {
+                        results: $.map(data.data, function (item) {
+                            return {
+                                id  : item.empid,
+
+                                text:
+                                (item.empid ? item.empid : "") +
+                                (item.emp_name ? " | " + item.emp_name : "") +
+                                (item.campus ? " | " + item.campus : "") +
+                                (item.college_code ? " | " + item.college_code : "") +
+                                (item.dept_code ? " | " + item.dept_code : "") +
+                                (item.designation ? " | " + item.designation : "") +
+                                (item.dept_name ? " | " + item.dept_name : "") +
+                                (item.faculty_type ? " | " + item.faculty_type : "")
+
+                            };
+                        })
+                    };
+                }
+                return { results: [] };
+            }
+        }
+    });
+
+    {% if emp_id %}
+    $.post('/get_users_by_emp_id', { term: '{{ emp_id }}' }, function (res) {
+        if (res.status === 200 && res.data && res.data.length > 0) {
+            var e = res.data[0];
+            var label = e.empid + ' | ' + e.emp_name + ' | ' + e.campus + ' | ' + e.college_code + ' | ' + e.designation;
+            $('#seEmpId').empty().append(new Option(label, e.empid, true, true)).trigger('change');
+        }
+    });
+    {% endif %}
+
+    {% if history %}
+    $('#historyTable').DataTable({
+        dom: 'Bfrtip',
+        buttons: [{ extend: 'excel', text: '<i class="bx bx-download"></i> Excel', className: 'btn btn-sm btn-success' }],
+        pageLength: 10,
+        order: [[9, 'desc']],
+    });
+    {% endif %}
+
+    $('#overlay').fadeOut();
+});
+</script>
+{% endblock %}
