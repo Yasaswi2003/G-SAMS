@@ -7,7 +7,7 @@ Set the following Vercel environment variables for the deployment environment.
 | Variable | Value |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection URL for bookings, users, and other application data |
-| `GSAMS_GITAM_DATABASE_URL` | PostgreSQL connection URL for the GITAM room, timetable, employee, and guest staff master tables |
+| `GSAMS_GITAM_DATABASE_URL` | Optional separate PostgreSQL connection URL for the GITAM master tables. Defaults to `DATABASE_URL`. |
 | `GSAMS_SECRET_KEY` | A stable Django secret key |
 | `GSAMS_ENCRYPT_KEY` | A stable Fernet key. Use the original key when migrating data encrypted with it. |
 | `GSAMS_ALLOWED_HOSTS` | Optional comma-separated custom hostnames without a scheme |

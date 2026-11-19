@@ -120,13 +120,17 @@ if os.getenv('VERCEL') == '1':
     CSRF_TRUSTED_ORIGINS = [f'https://{host}' for host in ALLOWED_HOSTS]
     SESSION_COOKIE_SECURE = True
 
-    for alias, variable in [('default', 'DATABASE_URL'), ('GITAM', 'GSAMS_GITAM_DATABASE_URL')]:
-        url = os.getenv(variable)
-        if not url:
-            raise ImproperlyConfigured(f'Set {variable} on Vercel.')
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        raise ImproperlyConfigured('Set DATABASE_URL on Vercel.')
+    database_urls = {
+        'default': database_url,
+        'GITAM': os.getenv('GSAMS_GITAM_DATABASE_URL') or database_url,
+    }
+    for alias, url in database_urls.items():
         database = dj_database_url.parse(url, ssl_require=True)
         if database['ENGINE'] != 'django.db.backends.postgresql':
-            raise ImproperlyConfigured(f'{variable} must point to PostgreSQL.')
+            raise ImproperlyConfigured(f'The {alias} database must use PostgreSQL on Vercel.')
         DATABASES[alias] = database
 
 
