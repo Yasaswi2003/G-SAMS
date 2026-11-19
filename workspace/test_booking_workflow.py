@@ -2,6 +2,7 @@ import json
 import re
 from datetime import date, timedelta, time
 from unittest.mock import patch
+from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -14,12 +15,8 @@ class BookingWorkflowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.users = {}
-        # The existing project adds Group.priority at runtime but has no auth migration for it.
-        # Insert only standard columns so tests also work on a freshly migrated database.
         for name in ('TEACHER', 'HOD', 'HOI', 'ADMIN'):
-            with connection.cursor() as cursor:
-                cursor.execute('INSERT INTO auth_group (name) VALUES (%s)', [name])
-                group_id = cursor.lastrowid
+            group_id = Group.objects.create(name=name).pk
             user = User.objects.create_user(username=name.lower(), first_name=name.title(), dept_code='CSE', campus='VSP', email=name.lower()+'@example.com')
             UserGroups.objects.create(user=user, group_id=group_id, role=name, is_active=True)
             cls.users[name] = user

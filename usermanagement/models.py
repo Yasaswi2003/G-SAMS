@@ -4,10 +4,6 @@ from django.contrib.auth.models import Group
 import os
 
 
-Group.add_to_class('priority', models.IntegerField(null=True))
-
-
-
 class User(AbstractUser):
     must_change_password = models.BooleanField(default=False)
     teaching_subject_name = models.CharField(max_length=150, blank=True)
