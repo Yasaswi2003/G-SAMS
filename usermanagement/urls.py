@@ -7,6 +7,7 @@ urlpatterns = [
     path('switch_role/<str:group_id>',views.switch_role,name="switch_role"),
     path('dashboard', dashboard.dashboard, name='dashboard'),
     path('not_found',views.not_found,name='not_found'),
+    path('sign-in/',EmployeeLoginView.as_view(redirect_authenticated_user=True),name='employee_login'),
     path('ulogin/<str:emp_id>',EmployeeLoginView.as_view(),name='ulogin'),
     path('change-initial-password', InitialPasswordChangeView.as_view(), name='initial_password_change'),
     path('userlogout', views.userlogout, name='userlogout'),

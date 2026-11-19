@@ -105,6 +105,7 @@ if os.getenv('VERCEL') == '1':
     from django.core.exceptions import ImproperlyConfigured
 
     DEBUG = False
+    LOGIN_URL = 'employee_login'
     SECRET_KEY = os.getenv('GSAMS_SECRET_KEY')
     encryption_key = os.getenv('GSAMS_ENCRYPT_KEY')
     if not SECRET_KEY or not encryption_key:
