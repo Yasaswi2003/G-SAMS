@@ -363,36 +363,32 @@ def _filters(request, rooms, schedules, semesters, reference_date=None):
         if not selected_campus or room["campus_key"] == selected_campus
     ]
     building_options_by_key = {}
-    for room in available_rooms:
+    for room in rooms:
         building_options_by_key.setdefault(room["building_key"], {
             "key": room["building_key"],
-            "label": (
-                _building_label(room["building_code"], room["building"])
-                if selected_campus else
-                f"{room['campus']} - {_building_label(room['building_code'], room['building'])}"
-            ),
+            "label": _building_label(room["building_code"], room["building"]),
             "campus_key": room["campus_key"],
         })
     for row in schedules:
         if (
             row["building_key"]
             and row["building_key"] not in building_options_by_key
-            and (not selected_campus or row["campus_key"] == selected_campus)
         ):
             building_label = row.get("building") or row.get("building_key") or "Unknown building"
-            campus_name = row.get("campus", "")
             building_options_by_key[row["building_key"]] = {
                 "key": row["building_key"],
-                "label": building_label if selected_campus else (f"{campus_name} - {building_label}" if campus_name else building_label),
+                "label": building_label,
                 "campus_key": row.get("campus_key", ""),
             }
-    building_options = sorted(
+    all_buildings = sorted(
         building_options_by_key.values(),
         key=lambda building: (building["label"], building["campus_key"]),
     )
+    building_options = [building for building in all_buildings
+                        if not selected_campus or building["campus_key"] == selected_campus]
 
     selected_building = str(request.GET.get("building") or "").strip()
-    if selected_building not in building_options_by_key:
+    if not any(building["key"] == selected_building for building in building_options):
         selected_building = ""
     if selected_building:
         available_rooms = [
@@ -461,6 +457,7 @@ def _filters(request, rooms, schedules, semesters, reference_date=None):
         "campuses": campus_options,
         "selected_campus": selected_campus,
         "buildings": building_options,
+        "all_buildings": all_buildings,
         "selected_building": selected_building,
         "room_choices": room_choices,
         "selected_room_key": selected_room_key,

@@ -126,6 +126,9 @@
     letter-spacing: .06em;
     text-transform: uppercase;
 }
+.cu-filter-field:has(.cu-filter-error) { position: relative; }
+.cu-filter-error { position: absolute; top: 100%; left: 0; color: #a12535; font-size: 11px; }
+.cu-filter-field select[aria-invalid="true"] { border-color: #a12535; }
 .cu-filter-field select, .cu-filter-field input {
     width: 100%;
     height: 42px;
@@ -966,25 +969,27 @@
             <div class="cu-filter-field"><label for="cuSemester">Academic Semester</label><input id="cuSemester" value="{{ current_semester }}" readonly aria-label="Academic semester, automatically selected from the timetable date" title="Updates automatically for the selected date: July?December ODD; January?June EVEN"></div>
             <div class="cu-filter-field">
                 <label for="cuCampus">Campus</label>
-                <select id="cuCampus" name="campus" required>
+                <select id="cuCampus" name="campus" aria-describedby="cuCampusError" required>
                     <option value="">Select campus</option>
                     {% for campus in campuses %}
                     <option value="{{ campus.key }}" {% if selected_campus == campus.key %}selected{% endif %}>{{ campus.label }}</option>
                     {% endfor %}
                 </select>
+                <small id="cuCampusError" class="cu-filter-error" hidden>Required field</small>
             </div>
 
-            {% if selected_campus %}<div class="cu-filter-field">
+            <div class="cu-filter-field">
                 <label for="cuBuilding">Building</label>
-                <select id="cuBuilding" name="building" required>
+                <select id="cuBuilding" name="building" aria-describedby="cuBuildingError" required>
                     <option value="">Select building</option>
                     {% for building in buildings %}
-                    <option value="{{ building.key }}" {% if selected_building == building.key %}selected{% endif %}>{{ building.label }}</option>
+                    <option value="{{ building.key }}" {% if selected_building == building.key %}selected{% endif %}>{% if not selected_campus and building.campus_key %}{{ building.campus_key }} - {% endif %}{{ building.label }}</option>
                     {% endfor %}
                 </select>
+                <small id="cuBuildingError" class="cu-filter-error" hidden>Required field</small>
             </div>
 
-            {% endif %}
+            {{ all_buildings|json_script:"cuBuildingOptions" }}
             <input type="hidden" name="floor" id="cuFloor" value="{{ selected_floor }}">
             {% if selected_room_key %}<input type="hidden" name="room" id="cuRoom" value="{{ selected_room_key }}">{% endif %}
 
@@ -1314,16 +1319,57 @@
         });
     }
 
-    // Auto submit on select change
-    ['cuCampus', 'cuBuilding', 'cuFloor', 'cuDate', 'cuSemester', 'cuSchedulePeriod'].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => {
-            const clear=id==='cuCampus'?['cuBuilding','cuFloor','cuRoom']:id==='cuBuilding'?['cuFloor','cuRoom']:id==='cuFloor'?['cuRoom']:[];
-            clear.forEach(name=>{const field=document.getElementById(name);if(field)field.value='';});
-            if(id==='cuCampus'||id==='cuBuilding'||id==='cuFloor'){const revision=document.querySelector('#cuFilterForm [name=revision]');if(revision){for(const name of ['campus','building','floor','room']){if(!filterForm.elements[name]){const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value='';filterForm.append(hidden);}}}}
-            filterForm.submit();
+    const campusSelect = document.getElementById('cuCampus');
+    const buildingSelect = document.getElementById('cuBuilding');
+    if (campusSelect && buildingSelect) {
+        const buildings = JSON.parse(document.getElementById('cuBuildingOptions').textContent);
+        let validationStarted = false;
+        const validateRequiredFields = () => {
+            for (const field of [campusSelect, buildingSelect]) {
+                const missing = validationStarted && !field.value;
+                document.getElementById(field.id + 'Error').hidden = !missing;
+                if (missing) field.setAttribute('aria-invalid', 'true');
+                else field.removeAttribute('aria-invalid');
+            }
+        };
+        filterForm.addEventListener('invalid', event => {
+            if (event.target !== campusSelect && event.target !== buildingSelect) return;
+            event.preventDefault();
+            validationStarted = true;
+            validateRequiredFields();
+            if (event.target === (campusSelect.value ? buildingSelect : campusSelect)) event.target.focus();
+        }, true);
+        const clearRoom = () => {
+            for (const name of ['floor', 'room']) {
+                let field = filterForm.elements[name];
+                if (!field && filterForm.elements.revision) {
+                    field = document.createElement('input');
+                    field.type = 'hidden';
+                    field.name = name;
+                    filterForm.append(field);
+                }
+                if (field) field.value = '';
+            }
+        };
+        campusSelect.addEventListener('change', () => {
+            const campus = campusSelect.value;
+            const previousBuilding = buildingSelect.value;
+            const options = buildings.filter(building => !campus || building.campus_key === campus);
+            buildingSelect.replaceChildren(new Option('Select building', ''),
+                ...options.map(building => new Option(!campus && building.campus_key
+                    ? `${building.campus_key} - ${building.label}` : building.label, building.key)));
+            if (options.some(building => building.key === previousBuilding)) {
+                buildingSelect.value = previousBuilding;
+            }
+            clearRoom();
+            validateRequiredFields();
         });
-    });
+        buildingSelect.addEventListener('change', () => {
+            clearRoom();
+            validateRequiredFields();
+        });
+    }
+    document.getElementById('cuSchedulePeriod')?.addEventListener('change', () => filterForm.submit());
 
     // Weekend toggle switch (Ask user on top of timetable)
     const weekendToggle = document.getElementById('cuToggleWeekends');

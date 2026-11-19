@@ -363,12 +363,20 @@
             {% endif  %}
             {% if request.user|has_groups:"ADMIN" %}
             <li class="sidebar-divider" aria-hidden="true"></li>
-            <li class="admin-booking-group"><div class="admin-booking-heading"><a href="{% url 'booking_analytics' %}"><i class="bx bx-bar-chart-alt-2"></i><span class="link_name">Booking Analytics</span></a><button type="button" id="adminBookingToggle" aria-expanded="false" aria-controls="adminBookingChildren" aria-label="Expand Booking Analytics pages"><i class="bx bx-chevron-down" aria-hidden="true"></i></button></div>
-                <ul class="admin-booking-children" id="adminBookingChildren" aria-label="Booking Analytics pages" hidden>
-                    <li><a href="{% url 'class_utilization' %}" {% if request.resolver_match.url_name == 'class_utilization' %}aria-current="page"{% endif %}><i class="bx bx-calendar"></i><span class="link_name">Class Utilization</span></a></li>
-                    <li><a href="{% url 'classroom_requests' %}" {% if request.resolver_match.url_name == 'classroom_requests' %}aria-current="page"{% endif %}><i class="bx bx-task"></i><span class="link_name">Classroom Requests</span></a></li>
-                </ul>
+            {% with page_name=request.resolver_match.url_name %}
+            <li class="admin-booking-group">
+                <details class="admin-booking-disclosure"{% if page_name == 'class_utilization' or page_name == 'classroom_requests' %} open{% endif %}>
+                    <summary class="admin-booking-heading" aria-label="Toggle Booking Analytics pages">
+                        <a href="{% url 'booking_analytics' %}" aria-label="Booking Analytics"><i class="bx bx-bar-chart-alt-2"></i><span class="link_name">Booking<br>Analytics</span></a>
+                        <i class="bx bx-chevron-down admin-booking-chevron" aria-hidden="true"></i>
+                    </summary>
+                    <ul class="admin-booking-children" aria-label="Booking Analytics pages">
+                        <li><a href="{% url 'class_utilization' %}" {% if page_name == 'class_utilization' %}aria-current="page"{% endif %}><i class="bx bx-calendar"></i><span class="link_name">Class Utilization</span></a></li>
+                        <li><a href="{% url 'classroom_requests' %}" {% if page_name == 'classroom_requests' %}aria-current="page"{% endif %}><i class="bx bx-task"></i><span class="link_name">Classroom Requests</span></a></li>
+                    </ul>
+                </details>
             </li>
+            {% endwith %}
             {% else %}
             {% if request.user.is_authenticated %}
                 <li class="sidebar-divider" aria-hidden="true"></li>
@@ -399,7 +407,12 @@
       </div>
 <style>
 .sidebar .admin-booking-heading>a,.sidebar .admin-booking-heading>a .link_name,.sidebar .admin-booking-heading>a i{color:#111!important}.sidebar .nav-links .admin-booking-children li{margin:0!important;padding:0!important;min-height:0;height:auto}.sidebar .nav-links .admin-booking-children li a{min-height:32px;height:auto!important;padding:5px 4px!important;line-height:1.4}.sidebar .nav-links .admin-booking-children li i{height:24px!important;line-height:24px!important}.sidebar .nav-links .admin-booking-children li .link_name{line-height:1.4}
-.sidebar .admin-booking-heading{display:flex;align-items:center;padding-right:10px}.sidebar .admin-booking-heading>a{flex:1;min-width:0;margin-right:0!important}.sidebar #adminBookingToggle{display:grid;place-items:center;border:0;background:transparent;color:inherit;border-radius:5px;padding:3px;cursor:pointer}.sidebar #adminBookingToggle i{min-width:24px;height:26px;line-height:26px;font-size:20px;transition:transform .18s}.sidebar #adminBookingToggle[aria-expanded="true"] i{transform:rotate(180deg)}.sidebar #adminBookingToggle:focus-visible{outline:2px solid #007367;outline-offset:2px}.sidebar .admin-booking-children[hidden]{display:none!important}
+.sidebar .admin-booking-heading{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;padding-right:12px}
+.sidebar .admin-booking-heading::-webkit-details-marker{display:none}
+.sidebar .admin-booking-heading>a{flex:none;width:max-content;margin-right:0!important;padding-right:0!important}
+.sidebar .admin-booking-heading:focus-visible{outline:2px solid #007367}
+.sidebar .admin-booking-heading .admin-booking-chevron{min-width:24px;height:26px;line-height:26px;font-size:20px}
+.sidebar .admin-booking-disclosure[open] .admin-booking-chevron{transform:rotate(180deg)}
 .sidebar .nav-links .admin-booking-children{padding:0 0 5px 15px;margin:0 0 0 27px;list-style:none;border-left:1px solid #cce1db}
 .sidebar .nav-links .admin-booking-children li a{margin:0!important;padding:6px 4px;font-size:12px;display:flex;align-items:center}.sidebar .nav-links .admin-booking-children li i{min-width:26px;font-size:16px}
 .sidebar .nav-links .admin-booking-children a[aria-current="page"]{color:#007367;background:#eaf6f1;border-radius:6px}.sidebar .nav-links .admin-booking-children .link_name{font-size:12px}.sidebar.close .admin-booking-children{margin-left:0;border:0;padding-left:0}
@@ -495,7 +508,7 @@
 
 
 
-<script src="{% static 'js/navigation.js' %}?v=booking-toggle-1"></script>
+<script src="{% static 'js/navigation.js' %}?v=booking-toggle-3"></script>
 <script>
 (() => {
     const trigger = document.getElementById('profileToggle');

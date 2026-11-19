@@ -113,19 +113,3 @@ function generateUUID() {
     });
     return uuid;
 };
-
-
-
-// Admin booking navigation: the chevron expands children; the title opens analytics.
-(() => {
-    const toggle = document.getElementById('adminBookingToggle');
-    const children = document.getElementById('adminBookingChildren');
-    if (!toggle || !children) return;
-    toggle.addEventListener('click', event => {
-        event.stopPropagation();
-        const expanded = toggle.getAttribute('aria-expanded') !== 'true';
-        toggle.setAttribute('aria-expanded', String(expanded));
-        toggle.setAttribute('aria-label', (expanded ? 'Collapse' : 'Expand') + ' Booking Analytics pages');
-        children.hidden = !expanded;
-    });
-})();
