@@ -1,5 +1,3 @@
-import sys
-import clr
 from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
@@ -10,9 +8,6 @@ from django.contrib import messages
 from .models import *
 from django.shortcuts import render
 from django.http import HttpResponse
-#sys.path.append(r"D:\Projects\Admissions")
-#clr.AddReference("ClassLibrary1")
-#from testDLLApp import Class1
 
 
 def get_ip(request):
