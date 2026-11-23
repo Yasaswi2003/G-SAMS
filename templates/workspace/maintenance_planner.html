@@ -2,41 +2,114 @@
 <dialog id="cm-planner" class="cm-dialog" aria-labelledby="cm-title"
         data-schedule-url="{% url 'schedule_classroom_maintenance' %}"
         data-reason-url="{% url 'classroom_maintenance_reason' %}">
-    <header class="cm-dialog-head"><h2 id="cm-title">Maintenance Details</h2></header>
+    <header class="cm-dialog-head"><h2 id="cm-title">Maintenance Details</h2><button type="button" id="cm-edit-close" aria-label="Close Edit Maintenance" hidden>×</button></header>
     <form id="cm-form">
         {% csrf_token %}
-        <div id="cm-target"></div>
-        <details id="cm-edit-rooms" hidden>
-            <summary>Edit classrooms</summary>
-            <fieldset id="cm-room-choices"><legend>Classrooms in this building</legend></fieldset>
-        </details>
+        <div class="cm-form-body">
+        <div id="cm-edit-fields">
+        <section id="cm-maintenance-details">
+            <h3 id="cm-details-heading" hidden>Maintenance Details</h3>
+            <div id="cm-target"></div>
+        </section>
+        <section id="cm-classroom-summary" class="cm-edit-section" hidden>
+            <div class="cm-edit-section-heading">
+                <h3 id="cm-classroom-count">Selected Classrooms</h3>
+                <button type="button" id="cm-edit-rooms" aria-controls="cm-room-picker" aria-expanded="false">Edit Classrooms</button>
+            </div>
+            <div class="cm-room-chips" id="cm-room-chips">
+                <button type="button" id="cm-more-chips" aria-expanded="false" hidden>Show all classrooms</button>
+            </div>
+            <div class="cm-room-change" id="cm-room-change" hidden><span id="cm-room-change-text" role="status"></span><button type="button" id="cm-undo-rooms">Undo last removal</button></div>
+            <div id="cm-room-picker" hidden>
+                <div class="cm-edit-section-heading"><h4>Classroom Selection</h4><span id="cm-room-count" aria-live="polite"></span></div>
+                <label class="cm-stacked-field">Search classrooms<input id="cm-room-search" type="search" placeholder="Name, room number, or floor"></label>
+                <div class="cm-edit-section-heading">
+                    <label class="cm-check-label"><input type="checkbox" id="cm-select-all"> Select All</label>
+                    <button type="button" id="cm-clear-rooms">Clear Selection</button>
+                </div>
+                <fieldset id="cm-room-choices"><legend class="visually-hidden">Classrooms in this building</legend></fieldset>
+                <p id="cm-no-room-results" hidden>No classrooms match your search.</p>
+                <p id="cm-room-required" role="status" hidden>Please select at least one classroom.</p>
+                <div class="cm-room-change" id="cm-picker-change" hidden><span id="cm-picker-change-text" role="status"></span><button type="button" id="cm-undo-picker">Undo last removal</button></div>
+                <ul class="cm-room-legend" aria-label="Classroom selection legend">
+                    <li data-room-state="maintenance">Under maintenance</li><li data-room-state="available">Available</li>
+                    <li data-room-state="selected">Selected for maintenance</li><li data-room-state="released">Released / removed</li>
+                </ul>
+                <div class="cm-selection-actions cm-form-actions">
+                    <button type="button" id="cm-cancel-rooms">Cancel</button>
+                    <button type="button" class="cm-primary" id="cm-apply-rooms">Apply</button>
+                </div>
+            </div>
+        </section>
+        <section id="cm-maintenance-summary" hidden>
+            <h3>Maintenance Summary</h3>
+            <div id="cm-summary-values"></div>
+        </section>
+        <section id="cm-extension" class="cm-edit-section" hidden>
+            <div class="cm-edit-section-heading cm-timing-heading">
+                <h3>Maintenance Timing</h3>
+                <button type="button" id="cm-extend-button" aria-expanded="false" aria-controls="cm-extension-fields">Extend Maintenance</button>
+            </div>
+            <dl class="cm-timing">
+                <div><dt>Start Date &amp; Time</dt><dd id="cm-current-start"></dd></div>
+                <div>
+                    <dt>Expected Completion</dt>
+                    <dd id="cm-current-completion"></dd>
+                </div>
+            </dl>
+            <div id="cm-extension-fields" hidden>
+                <label class="cm-stacked-field">New expected completion date and time<input id="cm-extend-until" type="datetime-local"></label>
+                <p id="cm-extension-note"></p>
+                <button type="button" id="cm-save-extension" class="cm-primary">Save Extension</button>
+            </div>
+        </section>
         <div id="cm-selected-schedule"></div>
-        <details id="cm-edit-schedule" hidden>
-            <summary>Edit dates and times</summary>
+        <details id="cm-schedule-details" class="cm-edit-section" hidden>
+            <summary>Selected Schedule Details</summary>
+            <div id="cm-schedule-table"></div>
+            <details id="cm-edit-schedule">
+            <summary>Edit Dates &amp; Times</summary>
             <div class="cm-fields" id="cm-recurrence" hidden>
                 <label>Repeat from<input name="start_date" type="date"></label>
                 <label>Repeat until<input name="end_date" type="date"></label>
             </div>
             <div id="cm-selections"></div>
-            <button type="button" id="cm-add-window">Add date or time</button>
+            <button type="button" id="cm-add-window">Add Date or Time Slot</button>
+            </details>
         </details>
-        <label>Reason for Maintenance
+        <section class="cm-reason-fields">
+        <label class="cm-stacked-field">Reason for Maintenance
             <select name="reason" required><option value="">Choose a reason</option>
                 {% for reason in maintenance_reasons %}<option value="{{ reason }}">{{ reason }}</option>{% endfor %}
             </select>
         </label>
         <button type="button" id="cm-new-reason">+ Add Reason</button>
-        <div class="cm-fields">
+        <div id="cm-inline-reason" hidden>
+            <label class="cm-stacked-field">New maintenance reason<input id="cm-inline-reason-name" maxlength="120"></label>
+            <button type="button" id="cm-cancel-reason">Cancel</button>
+            <button type="button" class="cm-primary" id="cm-save-reason">Save reason</button>
+        </div>
+        <label class="cm-stacked-field">Description / maintenance notes <textarea name="description" maxlength="5000" rows="3"></textarea></label>
+        </section>
+        <div class="cm-fields" id="cm-time-bounds">
             <label>Start Date &amp; Time <input name="starts_at" type="datetime-local" required></label>
             <label>Expected Completion Date &amp; Time <input name="expected_completion" type="datetime-local" required></label>
         </div>
-        <label>Description <textarea name="description" maxlength="5000" rows="2"></textarea></label>
+        <details id="cm-edit-history" class="cm-edit-section" hidden><summary>Maintenance History</summary><ul id="cm-edit-history-list"></ul></details>
+        </div>
+        <section id="cm-inline-review" aria-label="Review maintenance changes" hidden></section>
+        </div>
+        <footer class="cm-dialog-footer">
         <p id="cm-error" role="alert" hidden></p>
+        <p id="cm-save-status" role="status" hidden></p>
         <div class="cm-selection-actions cm-form-actions">
             <button type="button" data-cm-back>Back</button>
             <button type="button" data-cm-close>Cancel</button>
-            <button type="submit" class="cm-primary">Review &amp; Submit</button>
+            <button type="button" id="cm-back-to-edit" hidden>Back to Edit</button>
+            <button type="button" id="cm-confirm-edit" class="cm-primary" hidden>Confirm Save</button>
+            <button type="submit" class="cm-primary" id="cm-submit">Review &amp; Submit</button>
         </div>
+        </footer>
     </form>
 </dialog>
-<script defer src="{% static 'js/classroom_maintenance.js' %}?v=selection-23"></script>
+<script defer src="{% static 'js/classroom_maintenance.js' %}?v=selection-32"></script>

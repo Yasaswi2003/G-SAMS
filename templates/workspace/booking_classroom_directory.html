@@ -1,0 +1,42 @@
+<div class="bs-campus-directory" data-classroom-directory data-selected-building="{{ filters.building }}">
+  <div class="bs-campus-controls">
+    <label>Search classrooms
+      <input type="search" data-classroom-search placeholder="Room name, code, or building">
+    </label>
+    <label>Campus
+      <select data-classroom-campus>
+        <option value="">All campuses</option>
+        {% for campus in classroom_campuses %}
+        <option value="{{ campus }}"{% if campus == filters.campus %} selected{% endif %}>{{ campus }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Building
+      <select data-classroom-building><option value="">All buildings</option></select>
+    </label>
+    <label>Classroom
+      <select data-classroom-choice><option value="">All classrooms</option></select>
+    </label>
+    <button type="button" class="bs-classroom-clear" data-classroom-clear>Clear</button>
+  </div>
+  <p role="status" class="bs-building-status" data-classroom-status></p>
+  {% if kpi.utilization_buildings %}
+  {% for building in kpi.utilization_buildings %}
+  <p data-utilization-building data-campus="{{ building.campus }}" data-building="{{ building.name }}" hidden>
+    <strong>{{ building.name }} · {{ building.campus }}</strong>
+    <span>· {% if building.utilization != None %}{{ building.utilization|floatformat:"-1" }}% building utilization{% else %}Building utilization unavailable{% endif %}</span>
+  </p>
+  {% endfor %}
+  {% endif %}
+  <ul class="bs-dialog-records bs-classroom-results" aria-label="Classrooms">
+    {% for room in kpi.classrooms %}
+    <li data-classroom-key="{{ room.key }}" data-campus="{{ room.campus }}" data-building="{{ room.building }}" data-room-label="{{ room.room_name }} · {{ room.building }} · {{ room.campus }}" data-room-search="{{ room.room_name }} {{ room.room_code }} {{ room.building }} {{ room.campus }}">
+      <div>
+        <strong>{{ room.room_name }}</strong>
+        <span>{% if room.utilization != None %}{{ room.utilization|floatformat:"-1" }}% utilization{% else %}Utilization unavailable{% endif %}</span>
+      </div>
+      <p>{{ room.room_code }} · {{ room.building }} · {{ room.campus }}{% if kpi.show_timetable_status %} · {{ room.timetable_status }}{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ul>
+</div>

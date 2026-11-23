@@ -1,4 +1,12 @@
 <div class="cm-selection-bar" data-cm-selection-bar hidden>
+    {% if undo_token %}
+    <p>Uncheck the classrooms you want to release from maintenance.</p>
+    <span data-cm-count aria-live="polite"></span>
+    <div class="cm-selection-actions">
+        <button type="button" data-cm-cancel>Cancel</button>
+        <button type="button" class="cm-primary" data-cm-finish="undo" data-token="{{ undo_token }}" data-url="{% url 'undo_floor_maintenance' %}" disabled>Undo Maintenance</button>
+    </div>
+    {% else %}
     {% if building_scope %}<label><input type="checkbox" data-cm-whole-building> Entire building</label>{% endif %}
     {% if date_range %}
     <label>From <input type="date" data-cm-from min="{{ today_iso }}"></label>
@@ -9,4 +17,5 @@
         <button type="button" data-cm-cancel>Cancel</button>
         <button type="button" class="cm-primary" data-cm-proceed disabled>Proceed Further</button>
     </div>
+    {% endif %}
 </div>

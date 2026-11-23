@@ -12,7 +12,7 @@
 .classroom-design :is(.cu-filter-card,.ba-filter-panel){padding:18px 20px}
 .classroom-design :is(.bw input,.bw select,.ba-field input,.ba-field select,.cu-filter-field input,.cu-filter-field select){min-height:42px;border:1px solid #dce2e8;border-radius:6px;background:white;color:#293746;font-size:13px}
 .classroom-design :is(.bw label,.ba label.ba-field,.cu-filter-field label){color:#344454;font-size:12px}
-.classroom-design :is(a,button,input,select,[tabindex]):focus-visible{outline:2px solid #008b7e;outline-offset:3px}
+.classroom-design :is(a,button,input,select,[tabindex]):focus-visible{outline:2px solid #595959;outline-offset:3px}
 .ref-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin:24px 0 20px}
 .ref-metric{display:flex;align-items:flex-start;gap:16px;padding:24px 20px;min-height:150px}
 .ref-icon{display:grid;place-items:center;background:#def3ee;color:#00786f;border-radius:50%;width:60px;height:60px;flex:0 0 60px;font-size:29px}

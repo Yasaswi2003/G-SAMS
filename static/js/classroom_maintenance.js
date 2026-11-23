@@ -5,10 +5,11 @@
   const form = $('cm-form'), fields = form.elements;
   const records = JSON.parse($('cm-records')?.textContent || '{}');
   const roomOptions = JSON.parse($('cm-room-options')?.textContent || '[]');
+  const reload = () => BookingLoading.navigate(() => location.reload());
   const updates = typeof BroadcastChannel === 'function' ? new BroadcastChannel('classroom-maintenance') : null;
   updates?.addEventListener('message', () => {
     if (document.querySelector('[data-cm-region][data-cm-mode="timetable"]') && !dialog.open && !Swal.isVisible()) {
-      location.reload();
+      reload();
     }
   });
   const maintenanceAlert = options => Swal.fire({
@@ -19,32 +20,47 @@
       popup: ['cm-alert-popup', options.customClass?.popup].filter(Boolean).join(' '),
     },
   });
-  let current, selections, onCancel;
+  let current, selections, onCancel, saving = false, editReview;
 
   function node(tag,text) {
     const item=document.createElement(tag);
     if(text!=null)item.textContent=text;
     return item;
   }
-  async function send(url,payload) {
-    const response=await fetch(url,{method:'POST',headers:{
-      'Content-Type':'application/json','X-CSRFToken':fields.csrfmiddlewaretoken.value,
-    },body:JSON.stringify(payload)});
-    let data;
-    try{data=await response.json();}
-    catch{throw new Error('Maintenance could not be updated. Refresh and try again.');}
-    if(!response.ok)throw new Error(data.error||'Maintenance request failed.');
-    return data;
-  }
+  const send = (url,payload,quiet=false) => {
+    const request=async () => {
+      const response=await fetch(url,{method:'POST',headers:{
+        'Content-Type':'application/json','X-CSRFToken':fields.csrfmiddlewaretoken.value,
+      },body:JSON.stringify(payload)});
+      let data;
+      try{data=await response.json();}
+      catch{throw new Error('Maintenance could not be updated. Refresh and try again.');}
+      if(!response.ok)throw new Error(data.error||'Maintenance request failed.');
+      return data;
+    };
+    return quiet?request():BookingLoading.run(request);
+  };
   function error(text='') {
     $('cm-error').textContent=text;
     $('cm-error').hidden=!text;
   }
   const dateLabel=date=>date?new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric'}):'';
+  const dateTimeLabel=value=>{
+    if(!value)return '';
+    const [date,time]=value.split('T');
+    const label=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'})
+      .format(new Date(date+'T12:00:00Z'));
+    return time?label+' · '+time:label;
+  };
   const floorLabel=floor=>floor==='__unrecorded__'?'Not recorded':floor;
   const scopeLabel=scope=>({room:'Classroom',floor:'Entire floor',building:'Entire building'})[scope];
   const selectionText=items=>items.map(item=>dateLabel(item.date)+' · '+item.start+'–'+item.end).join('\n');
   const sortSelections=items=>[...items].sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+  const scheduleFields=['starts_at','expected_completion','start_date','end_date'];
+  const scheduleState=()=>JSON.stringify([
+    ...scheduleFields.map(name=>fields[name].value),
+    sortSelections(selections).map(({date,start,end})=>[date,start,end]),
+  ]);
 
   function rows(values) {
     const list=node('dl');list.className='cm-review-list';
@@ -68,13 +84,17 @@
     }
     return days;
   }
-  function scheduleReview(windows,roomLabel) {
+  function scheduleReview(windows,roomLabel,compact=false) {
     const section=node('section');section.className='cm-schedule-review';
-    section.append(node('h3','Selected Maintenance Schedule'));
+    if(!compact)section.append(node('h3','Selected Maintenance Schedule'));
     const sorted=sortSelections(windows), first=sorted[0], last=sorted.at(-1);
-    section.append(rows([
-      ['Selected dates',String(new Set(sorted.map(item=>item.date)).size)],
-      ['Selected time slots',String(sorted.length)],
+    if(compact){
+      const dates=new Set(sorted.map(item=>item.date)).size;
+      const counts=node('p',dates+' date'+(dates===1?'':'s')+' · '+sorted.length+' time slot'+(sorted.length===1?'':'s'));
+      counts.className='cm-schedule-counts';section.append(counts);
+    }else section.append(rows([
+      ['Total selected dates',String(new Set(sorted.map(item=>item.date)).size)],
+      ['Total selected time slots',String(sorted.length)],
       ['First selected date and time',first?dateLabel(first.date)+' · '+first.start:''],
       ['Last selected date and time',last?dateLabel(last.date)+' · '+last.end:''],
     ]));
@@ -83,7 +103,7 @@
       if(!item.date)continue;
       const monday=new Date(item.date+'T12:00:00Z');
       monday.setUTCDate(monday.getUTCDate()-(monday.getUTCDay()+6)%7);
-      const key=monday.toISOString().slice(0,10);
+      const key=compact?'':monday.toISOString().slice(0,10);
       if(!weeks.has(key))weeks.set(key,new Map());
       const dates=weeks.get(key);
       if(!dates.has(item.date))dates.set(item.date,[]);
@@ -92,14 +112,12 @@
     const dateFormat=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
     const shortDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
     const weekdayFormat=new Intl.DateTimeFormat('en-GB',{weekday:'long',timeZone:'UTC'});
+    if(!sorted.length&&compact)section.append(node('p','No complete time slots selected.'));
     for(const [week,dates] of weeks){
-      const monday=new Date(week+'T12:00:00Z'),end=new Date(monday);
-      const lastDay=new Date([...dates.keys()].at(-1)+'T12:00:00Z').getUTCDay();
-      end.setUTCDate(end.getUTCDate()+(lastDay===0?6:lastDay===6?5:4));
       const wrap=node('div');wrap.className='cm-table-wrap';
       const table=node('table');table.className='cm-table';
       const header=table.createTHead().insertRow();
-      for(const label of ['Date','Day','Selected time slots','Classroom']){
+      for(const label of ['Date','Day','Selected time slots','Classrooms']){
         const th=node('th',label);th.scope='col';header.append(th);
       }
       const body=table.createTBody();
@@ -117,6 +135,10 @@
         row.insertCell().textContent=roomLabel;
       }
       wrap.append(table);
+      if(compact){section.append(wrap);continue;}
+      const monday=new Date(week+'T12:00:00Z'),end=new Date(monday);
+      const lastDay=new Date([...dates.keys()].at(-1)+'T12:00:00Z').getUTCDay();
+      end.setUTCDate(end.getUTCDate()+(lastDay===0?6:lastDay===6?5:4));
       const group=expandable(dateFormat.format(monday)+' to '+dateFormat.format(end),wrap);
       group.open=true;
       section.append(group);
@@ -125,11 +147,53 @@
   }
   function refreshSummary() {
     const target=current.target;
-    $('cm-target').replaceChildren(rows([
+    const targetDetails=[
       ['Scope',scopeLabel(target.scope)],['Campus / Building',target.campus+' / '+current.buildingLabel],
-      ['Floor',current.floorLabel],['Classroom(s)',current.roomLabel],
-    ]));
-    $('cm-selected-schedule').replaceChildren(scheduleReview(current.allDay?boundedWindows():selections,current.roomLabel));
+      ['Floor',current.floorLabel],
+    ];
+    if(!current.record)targetDetails.push(['Selected Classrooms',current.roomLabel]);
+    $('cm-target').replaceChildren(rows(targetDetails));
+    const windows=current.record?editScheduleWindows():current.allDay?boundedWindows():selections;
+    if(current.record){
+      const completion=fields.expected_completion.value;
+      const metrics=rows([
+        ['Originally selected classrooms',String(current.originalRoomCount)],
+        ['Classrooms under this schedule',String(current.roomKeys.length)],
+      ]);
+      metrics.classList.add('cm-maintenance-summary');
+      $('cm-summary-values').replaceChildren(metrics);
+      $('cm-current-start').textContent=dateTimeLabel(current.originalStart)||'Not recorded';
+      $('cm-current-completion').textContent=dateTimeLabel(completion)||'Not recorded';
+      $('cm-schedule-table').replaceChildren(scheduleReview(windows,current.roomLabel,true));
+    }else{
+      $('cm-selected-schedule').replaceChildren(scheduleReview(windows,current.roomLabel));
+    }
+  }
+  const completeWindows=()=>selections.filter(item=>item.date&&item.start&&item.end&&item.start<item.end);
+  function editScheduleWindows() {
+    if(current.record.saved_windows?.length&&scheduleState()===current.savedSchedule)return current.record.saved_windows;
+    if(!current.record.recurrence)return boundedWindows().filter(item=>item.start<item.end);
+    const first=fields.start_date.value, last=fields.end_date.value;
+    if(!first||!last||first>last)return [];
+    const weekday=day=>new Date(day+'T12:00:00Z').getUTCDay();
+    const rules=completeWindows();
+    const windows=dateRange(first,last).slice(0,366).flatMap(day=>rules
+      .filter(rule=>weekday(rule.date)===weekday(day.date)).map(rule=>({...rule,date:day.date})));
+    const limit=fields.expected_completion.value;
+    if(!limit||!current.record.history?.some(entry=>entry.extended_until))return windows;
+    return windows.filter(slot=>slot.date+'T'+slot.start<limit).map(slot=>({
+      ...slot,end:slot.date+'T'+slot.end>limit?limit.slice(11):slot.end,
+    }));
+  }
+  function refreshEditedWindows() {
+    if(!current.record.recurrence){
+      const valid=completeWindows();
+      const starts=valid.map(slot=>slot.date+'T'+slot.start).sort();
+      const ends=valid.map(slot=>slot.date+'T'+slot.end).sort();
+      if(starts.length&&(!fields.starts_at.value||starts[0]<fields.starts_at.value))fields.starts_at.value=starts[0];
+      if(ends.length&&(!fields.expected_completion.value||ends.at(-1)>fields.expected_completion.value))fields.expected_completion.value=ends.at(-1);
+    }
+    refreshSummary();
   }
   function boundedWindows(){
     const start=fields.starts_at.value, end=fields.expected_completion.value;
@@ -140,8 +204,8 @@
       end:item.date===end.slice(0,10)&&item.end>end.slice(11)?end.slice(11):item.end,
     }));
   }
-  for(const field of [fields.starts_at,fields.expected_completion])field.addEventListener('input',()=>{
-    if(current.allDay)refreshSummary();
+  for(const field of [fields.starts_at,fields.expected_completion,fields.start_date,fields.end_date])field.addEventListener('input',()=>{
+    if(current?.allDay||current?.record)refreshSummary();
   });
   function renderEditableWindows() {
     const container=$('cm-selections');container.replaceChildren();
@@ -149,13 +213,234 @@
       const row=node('div');row.className='cm-day-row';
       for(const [property,label,type] of [['date','Date','date'],['start','From','time'],['end','To','time']]){
         const wrapper=node('label',label),input=node('input');input.type=type;input.required=true;input.value=entry[property];
-        input.addEventListener('change',()=>{entry[property]=input.value;refreshSummary();});
+        input.addEventListener('change',()=>{entry[property]=input.value;refreshEditedWindows();});
         wrapper.append(input);row.append(wrapper);
       }
       const remove=node('button','Remove');remove.type='button';
-      remove.addEventListener('click',()=>{selections=selections.filter(item=>item!==entry);renderEditableWindows();refreshSummary();});
+      remove.addEventListener('click',()=>{selections=selections.filter(item=>item!==entry);renderEditableWindows();refreshEditedWindows();});
       row.append(remove);container.append(row);
     }
+  }
+  const roomInputs=() => [...$('cm-room-choices').querySelectorAll('input')];
+  const picker=$('cm-room-picker');
+  const moreChips=$('cm-more-chips');
+  const extension=$('cm-extension-fields'), extendUntil=$('cm-extend-until');
+  const tooltip=node('div');tooltip.className='cm-room-tooltip';tooltip.hidden=true;
+  tooltip.setAttribute('aria-hidden','true');dialog.append(tooltip);
+  const roomCode=key=>current.rooms.get(key)?.room_code||key.split('|').at(-1);
+  const sameRooms=(first,second)=>first.length===second.length&&first.every(key=>second.includes(key));
+  function roomState(key,selected) {
+    if(!selected&&(current.savedRoomKeys.includes(key)||current.releasedKeys.has(key)))return 'released';
+    if(selected&&!current.savedRoomKeys.includes(key))return 'selected';
+    if(current.rooms.get(key)?.under_maintenance)return 'maintenance';
+    return selected?'selected':'available';
+  }
+  const roomStateLabel={maintenance:'Under maintenance',available:'Available',selected:'Selected for maintenance',released:'Released / removed'};
+  function bindRoomTooltip(element,key) {
+    function show() {
+      const room=current.rooms.get(key)||{};
+      const selected=picker.hidden?current.roomKeys.includes(key):current.draftRooms.includes(key);
+      const details=[
+        ['Building',room.building||current.buildingLabel],['Room number',roomCode(key)],
+        ['Floor',floorLabel(room.floor_code||'__unrecorded__')],['Campus',room.campus||current.target.campus],
+        ['Status',room.under_maintenance?'Under maintenance':roomStateLabel[roomState(key,selected)]],
+      ];
+      tooltip.replaceChildren(...details.map(([label,value])=>node('div',label+': '+value)));
+      tooltip.hidden=false;
+      const {left,right,bottom,top}=element.getBoundingClientRect();
+      const {width,height}=tooltip.getBoundingClientRect();
+      tooltip.style.left=Math.max(6,Math.min(left,innerWidth-width-6,right))+'px';
+      tooltip.style.top=(bottom+height+8<innerHeight?bottom+6:Math.max(6,top-height-6))+'px';
+    }
+    element.addEventListener('pointerenter',show);
+    element.addEventListener('pointerleave',()=>{tooltip.hidden=true;});
+    element.addEventListener('focusin',show);
+    element.addEventListener('focusout',()=>{tooltip.hidden=true;});
+  }
+  dialog.addEventListener('scroll',()=>{tooltip.hidden=true;},true);
+  dialog.addEventListener('close',()=>{tooltip.hidden=true;});
+
+  function selectionMessage(previous,next) {
+    const removed=previous.filter(key=>!next.includes(key)).map(roomCode);
+    if(removed.length)return 'Classroom '+removed.at(-1)+' removed.'+(removed.length>1?' '+removed.length+' classrooms removed in this action.':'');
+    return 'Classroom selection updated.';
+  }
+  function roomRemovalHistory(previous,next,history) {
+    const added=new Set(next);
+    const removed=previous.filter(key=>!added.has(key));
+    return [...new Set([...history.filter(key=>!added.has(key)),...removed])];
+  }
+  function restoreRoom(keys,key) {
+    return [...keys,key].sort((first,second)=>current.roomOrder.get(first)-current.roomOrder.get(second));
+  }
+  function updateUndo(prefix,history,message) {
+    const notice=$(prefix==='picker'?'cm-picker-change':'cm-room-change');
+    const button=$(prefix==='picker'?'cm-undo-picker':'cm-undo-rooms');
+    const text=$(prefix==='picker'?'cm-picker-change-text':'cm-room-change-text');
+    if(message!==undefined)text.textContent=message;
+    notice.hidden=!text.textContent&&!history.length;
+    button.disabled=!history.length;
+    if(history.length)button.setAttribute('aria-label','Undo removal of classroom '+roomCode(history.at(-1)));
+    else button.removeAttribute('aria-label');
+  }
+  function applyRoomSelection(next,draftHistory) {
+    const previous=current.roomKeys;
+    if(sameRooms(previous,next)&&!draftHistory)return;
+    current.roomUndo=draftHistory||roomRemovalHistory(previous,next,current.roomUndo);
+    current.roomKeys=next;
+    if(!sameRooms(previous,next))updateUndo('rooms',current.roomUndo,selectionMessage(previous,next));
+    renderRoomChips();
+  }
+  function changeDraftRooms() {
+    const next=roomInputs().filter(input=>input.checked).map(input=>input.value);
+    if(!sameRooms(current.draftRooms,next)){
+      current.pickerUndo=roomRemovalHistory(current.draftRooms,next,current.pickerUndo);
+      updateUndo('picker',current.pickerUndo,selectionMessage(current.draftRooms,next));
+      current.draftRooms=next;
+    }
+    updateRoomPicker();
+  }
+  function renderRoomChips() {
+    tooltip.hidden=true;
+    const rooms=current.roomKeys.map(key=>({key,code:roomCode(key)}));
+    const chips=$('cm-room-chips');
+    chips.replaceChildren();
+    const previewLimit=6;
+    if(rooms.length<=previewLimit)current.showAllChips=false;
+    if(current.showAllChips)chips.append(moreChips);
+    for(const room of current.showAllChips?rooms:rooms.slice(0,previewLimit)){
+      const chip=node('span',room.code);chip.className='cm-room-chip';
+      chip.dataset.roomState=roomState(room.key,true);
+      bindRoomTooltip(chip,room.key);
+      if(rooms.length>1){
+        const remove=node('button','×');remove.type='button';
+        remove.setAttribute('aria-label','Remove classroom '+room.code);
+        remove.addEventListener('click',()=>{
+          if(!picker.hidden)return;
+          applyRoomSelection(current.roomKeys.filter(key=>key!==room.key));
+          $('cm-edit-rooms').focus();
+        });
+        chip.append(remove);
+      }else chip.tabIndex=0;
+      chips.append(chip);
+    }
+    if(!current.showAllChips)chips.append(moreChips);
+    moreChips.hidden=rooms.length<=previewLimit;
+    moreChips.setAttribute('aria-expanded',String(current.showAllChips));
+    moreChips.textContent=current.showAllChips?'Show fewer':'+'+(rooms.length-previewLimit)+' more';
+    updateUndo('rooms',current.roomUndo);
+    $('cm-classroom-count').textContent='Selected Classrooms ('+rooms.length+')';
+    current.roomLabel=rooms.map(room=>room.code).join(', ');
+    if(current.record.scope==='room'){
+      const floors=[...new Set(current.roomKeys.map(key=>current.rooms.get(key)?.floor_code||'__unrecorded__'))].sort();
+      current.floorLabel=floors.map(floorLabel).join(', ');
+    }
+    refreshSummary();
+  }
+  function updateRoomPicker() {
+    const text=$('cm-room-search').value.trim().toLowerCase();
+    const inputs=roomInputs();
+    for(const input of inputs)input.parentElement.hidden=!input.parentElement.textContent.toLowerCase().includes(text);
+    for(const input of inputs){
+      const state=roomState(input.value,input.checked);
+      input.parentElement.dataset.roomState=state;
+      input.parentElement.querySelector('[data-room-state-label]').textContent=roomStateLabel[state];
+    }
+    const visible=inputs.filter(input=>!input.parentElement.hidden);
+    const selected=inputs.filter(input=>input.checked).length;
+    const checked=visible.filter(input=>input.checked).length;
+    const all=$('cm-select-all');
+    all.disabled=!visible.length;
+    all.checked=visible.length>0&&checked===visible.length;
+    all.indeterminate=checked>0&&checked<visible.length;
+    $('cm-room-count').textContent=selected+' selected';
+    $('cm-no-room-results').hidden=visible.length>0;
+    $('cm-room-required').hidden=selected>0;
+    $('cm-apply-rooms').disabled=!selected;
+    updateUndo('picker',current.pickerUndo);
+  }
+  function closeRoomPicker(focus=false) {
+    picker.hidden=true;
+    $('cm-edit-rooms').setAttribute('aria-expanded','false');
+    if(focus)$('cm-edit-rooms').focus();
+  }
+  $('cm-edit-rooms').addEventListener('click',()=>{
+    if(!picker.hidden){closeRoomPicker(true);return;}
+    $('cm-room-search').value='';
+    current.draftRooms=[...current.roomKeys];
+    current.pickerUndo=[...current.roomUndo];
+    updateUndo('picker',current.pickerUndo,current.pickerUndo.length
+      ?'Most recent removal: Classroom '+roomCode(current.pickerUndo.at(-1))+'.':'');
+    for(const input of roomInputs())input.checked=current.roomKeys.includes(input.value);
+    picker.hidden=false;
+    $('cm-edit-rooms').setAttribute('aria-expanded','true');
+    updateRoomPicker();
+    $('cm-room-search').focus();
+  });
+  $('cm-room-search').addEventListener('input',updateRoomPicker);
+  $('cm-select-all').addEventListener('change',event=>{
+    for(const input of roomInputs())if(!input.parentElement.hidden)input.checked=event.target.checked;
+    changeDraftRooms();
+  });
+  $('cm-clear-rooms').addEventListener('click',()=>{
+    for(const input of roomInputs())input.checked=false;
+    changeDraftRooms();
+  });
+  $('cm-cancel-rooms').addEventListener('click',()=>closeRoomPicker(true));
+  $('cm-apply-rooms').addEventListener('click',()=>{
+    closeRoomPicker(true);
+    applyRoomSelection(current.draftRooms,current.pickerUndo);
+  });
+  $('cm-undo-picker').addEventListener('click',()=>{
+    const key=current.pickerUndo.pop();
+    if(!key)return;
+    current.draftRooms=restoreRoom(current.draftRooms,key);
+    for(const input of roomInputs())input.checked=current.draftRooms.includes(input.value);
+    updateUndo('picker',current.pickerUndo,'Classroom '+roomCode(key)+' restored.');
+    updateRoomPicker();
+    if(!current.pickerUndo.length)$('cm-room-search').focus();
+  });
+  $('cm-undo-rooms').addEventListener('click',()=>{
+    if(!picker.hidden)return;
+    const key=current.roomUndo.pop();
+    if(!key)return;
+    current.roomKeys=restoreRoom(current.roomKeys,key);
+    updateUndo('rooms',current.roomUndo,'Classroom '+roomCode(key)+' restored.');
+    renderRoomChips();
+    if(!current.roomUndo.length)$('cm-edit-rooms').focus();
+  });
+  $('cm-more-chips').addEventListener('click',()=>{
+    current.showAllChips=!current.showAllChips;
+    renderRoomChips();
+    $('cm-room-chips').scrollTop=0;
+    moreChips.focus();
+  });
+  $('cm-extend-button').addEventListener('click',()=>{
+    extension.hidden=!extension.hidden;
+    $('cm-extend-button').setAttribute('aria-expanded',String(!extension.hidden));
+    if(extension.hidden){extendUntil.value='';refreshSummary();}
+    else extendUntil.focus();
+  });
+  $('cm-save-extension').addEventListener('click',()=>form.requestSubmit($('cm-submit')));
+  function renderEditHistory(record) {
+    const list=$('cm-edit-history-list');
+    list.replaceChildren();
+    function appendEvent(message,at,by) {
+      const event=node('li');
+      event.append(node('strong',message),node('small',
+        [at?new Date(at).toLocaleString():'',by].filter(Boolean).join(' · ')));
+      list.append(event);
+    }
+    for(const item of [...(record.history||[])].reverse()){
+      const releases=item.room_releases||(item.released_rooms||[]).map(room_key=>({room_key,released_at:item.at}));
+      for(const release of releases){
+        appendEvent('Classroom '+roomCode(release.room_key)+' released from maintenance.',release.released_at,item.by);
+      }
+      if(item.extended_until)appendEvent('Expected completion: '+(dateTimeLabel(item.previous?.expected_completion)||'Not recorded')
+        +' → '+dateTimeLabel(item.extended_until),item.at,item.by);
+    }
+    $('cm-edit-history').hidden=!list.children.length;
+    $('cm-edit-history').open=false;
   }
   function openDetails(target,windows,options={}) {
     current={target,...options};
@@ -163,50 +448,109 @@
     onCancel=options.cancel;
     form.reset();error();
     const record=options.record;
-    const editRooms=$('cm-edit-rooms'), choices=$('cm-room-choices');
-    editRooms.hidden=record?.scope!=='room';
-    editRooms.open=false;
+    dialog.classList.toggle('cm-dialog-edit',Boolean(record));
+    $('cm-edit-close').hidden=!record;
+    $('cm-submit').textContent=record?'Save Changes':'Review & Submit';
+    $('cm-classroom-summary').hidden=!record;
+    $('cm-details-heading').hidden=!record;
+    $('cm-maintenance-summary').hidden=!record;
+    $('cm-selected-schedule').hidden=Boolean(record);
+    $('cm-schedule-details').hidden=!record;
+    $('cm-schedule-details').open=false;
+    $('cm-edit-rooms').hidden=!record;
+    $('cm-room-change').hidden=true;
+    moreChips.hidden=true;
+    $('cm-extension').hidden=!record;
+    $('cm-edit-history').hidden=true;
+    extension.hidden=true;
+    extendUntil.value='';
+    $('cm-extend-button').setAttribute('aria-expanded','false');
+    const bounds=$('cm-time-bounds');
+    if(record)$('cm-edit-schedule').append(bounds);
+    else $('cm-edit-fields').insertBefore(bounds,$('cm-edit-history'));
+    $('cm-inline-reason').hidden=true;
+    leaveEditReview();
+    closeRoomPicker();
+    const choices=$('cm-room-choices');
     choices.querySelectorAll('label').forEach(label=>label.remove());
-    if(!editRooms.hidden){
-      for(const room of roomOptions.filter(room=>room.building_key===record.building)){
+    if(record){
+      const allowedFloors=record.targets.length?record.targets:[record.floor];
+      current.roomKeys=[...(record.assigned_room_keys||[])];
+      current.savedRoomKeys=[...current.roomKeys];
+      current.roomUndo=[];
+      current.showAllChips=false;
+      updateUndo('rooms',current.roomUndo,'');
+      current.releasedKeys=new Set();
+      const history=record.history||[];
+      for(const entry of history){
+        for(const key of entry.released_rooms||[])current.releasedKeys.add(key);
+        for(const key of entry.added_rooms||[])current.releasedKeys.delete(key);
+      }
+      const original=history.find(item=>item.previous?.selections?.length)?.previous||record;
+      const initial=sortSelections(original.selections)[0];
+      current.originalStart=history[0]?.original_start||(initial?initial.date+'T'+initial.start:'');
+      current.originalRoomCount=history[0]?.added_rooms?.length||original.room_codes.length;
+      current.rooms=new Map(roomOptions.filter(room=>room.building_key===record.building
+        &&(record.scope!=='floor'||allowedFloors.includes(room.floor_code||'__unrecorded__'))).map(room=>[room.key,room]));
+      for(const key of current.roomKeys){
+        if(!current.rooms.has(key))current.rooms.set(key,{key,room_code:key.split('|').at(-1)});
+      }
+      current.roomOrder=new Map([...new Set([...current.savedRoomKeys,...current.rooms.keys()])]
+        .map((key,index)=>[key,index]));
+      for(const room of current.rooms.values()){
         const label=node('label'), input=node('input');
         input.type='checkbox';
         input.value=room.key;
-        input.checked=record.targets.includes(room.key)||record.room===room.key;
-        label.append(input, document.createTextNode(room.room_name+' · Floor '+floorLabel(room.floor_code||'__unrecorded__')));
+        input.addEventListener('change',changeDraftRooms);
+        const details=node('span');
+        const status=node('small');status.setAttribute('data-room-state-label','');
+        details.append(node('strong',room.room_code),node('small',(room.room_name||room.room_code)+' · Floor '+floorLabel(room.floor_code||'__unrecorded__')),status);
+        label.append(input,details);
+        bindRoomTooltip(label,room.key);
         choices.append(label);
       }
+      $('cm-extension-note').textContent=record.recurrence
+        ?'The existing weekday pattern continues for the classrooms still selected.'
+        :'Maintenance continues for the classrooms still selected through the new completion time.';
+      renderEditHistory(record);
     }
     fields.reason.value=record?.reasons[0]||'';
     const first=selections[0],last=selections.at(-1);
     fields.starts_at.value=first?first.date+'T'+first.start:'';
     fields.starts_at.readOnly=Boolean(options.selectedWindows?.length);
     const lastWindow=last?last.date+'T'+last.end:'';
-    fields.expected_completion.value=record?.expected_completion>lastWindow?record.expected_completion:lastWindow;
+    fields.expected_completion.value=record?.expected_completion||lastWindow;
     fields.description.value=record?.description||'';
     fields.start_date.value=record?.start_date||'';
     fields.end_date.value=record?.end_date||'';
+    if(record)current.savedSchedule=scheduleState();
     $('cm-title').textContent=record?'Edit Maintenance':'Maintenance Details';
     $('cm-edit-schedule').hidden=!record;
     $('cm-edit-schedule').open=false;
     $('cm-recurrence').hidden=!record?.recurrence;
     dialog.querySelector('[data-cm-back]').hidden=!options.cancel;
-    if(record)renderEditableWindows();
-    else $('cm-selections').replaceChildren();
-    refreshSummary();dialog.showModal();
+    if(record){renderEditableWindows();renderRoomChips();}
+    else {$('cm-selections').replaceChildren();refreshSummary();}
+    dialog.showModal();
   }
   $('cm-add-window').addEventListener('click',()=>{
-    selections.push({...selections.at(-1) || {date:'',start:'08:00',end:'16:00'}});
-    renderEditableWindows();
+    const last=sortSelections(completeWindows()).at(-1);
+    const next=last?new Date(last.date+'T12:00:00Z'):null;
+    if(next)next.setUTCDate(next.getUTCDate()+1);
+    selections.push({date:next?.toISOString().slice(0,10)||fields.starts_at.value.slice(0,10),start:last?.start||'08:00',end:last?.end||'16:00'});
+    renderEditableWindows();refreshEditedWindows();
+    $('cm-selections').lastElementChild.querySelector('input').focus();
   });
   dialog.querySelector('[data-cm-back]').addEventListener('click',()=>dialog.close());
-  function cancelDetails(){dialog.close();onCancel?.();}
+  function cancelDetails(){if(saving)return;dialog.close();onCancel?.();}
+  $('cm-edit-close').addEventListener('click',cancelDetails);
   dialog.querySelector('[data-cm-close]').addEventListener('click',cancelDetails);
   dialog.addEventListener('cancel',event=>{event.preventDefault();cancelDetails();});
 
   function bindSelection(region) {
     const start=region.querySelector('[data-cm-start]'), bar=region.querySelector('[data-cm-selection-bar]');
     if(!start||!bar)return;
+    const undo = bar.querySelector('[data-cm-finish="undo"]');
     const mode=region.dataset.cmMode, timetable=mode==='timetable';
     const storageKey='maintenance-selection:'+region.dataset.room;
     const cards=[...region.querySelectorAll('[data-cm-card]')], days=[...region.querySelectorAll('[data-cm-day]')];
@@ -216,6 +560,8 @@
     const proceed=bar.querySelector('[data-cm-proceed]'), count=bar.querySelector('[data-cm-count]');
     const first=bar.querySelector('[data-cm-from]'),last=bar.querySelector('[data-cm-to]'),whole=bar.querySelector('[data-cm-whole-building]');
     const pickedSlots=new Map(), pickedCards=new Map();
+    const uncheckedRooms = () => [...pickedCards].filter(([, input]) => !input.checked)
+      .map(([card]) => card.dataset.cmCard);
     const date=region.dataset.date>=region.dataset.today?region.dataset.date:region.dataset.today;
     let active=false;
     const slotKey=item=>item.id;
@@ -247,6 +593,12 @@
       for(const [card,input] of pickedCards){
         card.classList.toggle('cm-card-chosen',input.checked);
       }
+      if (undo) {
+        const total = uncheckedRooms().length;
+        undo.disabled = !active || total === 0;
+        count.textContent = total + (total === 1 ? ' classroom' : ' classrooms') + ' to release';
+        return;
+      }
       const total=timetable?pickedSlots.size:[...pickedCards.values()].filter(input=>input.checked).length;
       const dates=timetable?[]:dateRange(first.value,last.value);
       const validDates=timetable||Boolean(first.value&&last.value&&first.checkValidity()&&last.checkValidity()&&dates.length&&dates.length<=366);
@@ -260,14 +612,15 @@
       active=true;region.setAttribute('data-cm-active','');bar.hidden=false;start.setAttribute('aria-expanded','true');
       for(const card of cards){
         const wrapper=node('div');wrapper.className='cm-card-choice';
-        const input=node('input');input.type='checkbox';input.setAttribute('aria-label','Select '+card.querySelector('strong').textContent);
+        const input=node('input');input.type='checkbox';input.checked=Boolean(undo);
+        input.setAttribute('aria-label',(undo ? 'Keep under maintenance: ' : 'Select ')+card.querySelector('strong').textContent);
         card.before(wrapper);wrapper.append(card,input);pickedCards.set(card,input);
         input.addEventListener('change',()=>{
           if(whole&&!input.checked)whole.checked=false;
           synchronize();
         });
       }
-      if(!timetable){first.value=date;last.value=date;last.min=date;}
+      if(first){first.value=date;last.value=date;last.min=date;}
       synchronize();
       if(focus)(pickedCards.values().next().value||days.find(input=>!input.disabled))?.focus();
     }
@@ -276,7 +629,7 @@
       for(const card of pickedCards.keys()){card.classList.remove('cm-card-chosen');card.parentElement.replaceWith(card);}
       pickedCards.clear();pickedSlots.clear();
       if(whole)whole.checked=false;
-      synchronize();start.focus();
+      synchronize();start.closest('details').querySelector('summary').focus();
     }
     for(const card of cards)card.addEventListener('click',event=>{
       if(!active)return;
@@ -308,7 +661,8 @@
     });
     bar.querySelector('[data-cm-cancel]').addEventListener('click',cancel);
     region.querySelector('[data-cm-exit]')?.addEventListener('click',()=>{active=false;saveDraft();});
-    proceed.addEventListener('click',()=>{
+    undo?.addEventListener('click', () => finishMaintenance(undo, uncheckedRooms()));
+    proceed?.addEventListener('click',()=>{
       if(proceed.disabled)return;
       const chosen=[...pickedCards].filter(([,input])=>input.checked).map(([card])=>card);
       const scope=timetable?'room':whole?.checked?'building':mode;
@@ -355,51 +709,124 @@
     }
     wrap.append(table);return wrap;
   }
+  function setSaving(active,message='') {
+    saving=active;
+    const status=$('cm-save-status');
+    status.textContent=message;
+    status.hidden=!message;
+    form.setAttribute('aria-busy',String(active));
+    for(const button of [$('cm-submit'),$('cm-save-extension'),$('cm-back-to-edit'),$('cm-edit-close'),dialog.querySelector('[data-cm-close]')]){
+      button.disabled=active;
+    }
+    $('cm-confirm-edit').disabled=active||Boolean(editReview?.blocking&&!editReview.acknowledgement.checked);
+  }
+  function leaveEditReview() {
+    editReview=null;
+    $('cm-inline-review').hidden=true;
+    $('cm-inline-review').replaceChildren();
+    $('cm-edit-fields').hidden=false;
+    $('cm-back-to-edit').hidden=true;
+    $('cm-confirm-edit').hidden=true;
+    $('cm-submit').hidden=false;
+  }
+  $('cm-back-to-edit').addEventListener('click',()=>{
+    leaveEditReview();error();$('cm-submit').focus();
+  });
+  $('cm-confirm-edit').addEventListener('click',async()=>{
+    if(saving||!editReview)return;
+    const {payload,token,acknowledgement,blocking}=editReview;
+    if(blocking&&!acknowledgement.checked)return;
+    error();setSaving(true,'Saving changes…');
+    try{
+      await send(dialog.dataset.scheduleUrl,{...payload,action:'save',token,acknowledge_overlaps:acknowledgement.checked},true);
+    }catch(problem){
+      error(problem.message);setSaving(false);return;
+    }
+    setSaving(false);
+    dialog.close();
+    updates?.postMessage({type:'saved'});
+    await maintenanceAlert({icon:'success',title:payload.extend_until?'Maintenance extended':'Maintenance changes saved',
+      text:payload.extend_until?dateTimeLabel(payload.extend_until):undefined,showConfirmButton:false,timer:1600});
+    reload();
+  });
+  form.addEventListener('invalid',event=>{
+    if(event.target.closest('#cm-edit-schedule')){
+      $('cm-schedule-details').open=true;
+      $('cm-edit-schedule').open=true;
+    }
+  },true);
   form.addEventListener('submit',async event=>{
     event.preventDefault();error();
+    if(saving||editReview)return;
     const operation=current;
     const data=new FormData(form),record=operation.record;
-    const expected=data.get('expected_completion');
+    if(record&&!picker.hidden){error('Apply or cancel your classroom selection before saving.');return;}
+    const reason=data.get('reason');
+    const description=data.get('description');
+    const target={...operation.target};
+    let classroomsOnly=false;
+    if(record){
+      target.classroom_keys=[...operation.roomKeys];
+      if(!target.classroom_keys.length){error('Please select at least one classroom.');return;}
+      if(!sameRooms(target.classroom_keys,operation.savedRoomKeys)){
+        classroomsOnly=scheduleState()===operation.savedSchedule&&reason===record.reasons[0]
+          && description===(record.description||'');
+        target.booking_ids=[];
+        target.timetable_selection=false;
+      }
+      if(record.scope==='room'){
+        target.targets=target.classroom_keys;
+        target.room='';
+        target.floor='';
+      }
+    }
+    const extending=Boolean(record&&!extension.hidden);
+    const expected=extending?extendUntil.value:data.get('expected_completion');
     const start=data.get('starts_at');
-    if(!start||!expected||start>=expected){error('Expected completion must be after the start date and time.');return;}
+    if(extending&&(scheduleState()!==operation.savedSchedule||reason!==record.reasons[0]
+      ||description!==(record.description||''))){
+      error('Save date, time, or reason edits separately before extending maintenance.');return;
+    }
+    if(extending&&!expected){error('Enter the new expected completion date and time.');return;}
+    if(!extending&&!classroomsOnly&&record&&completeWindows().length!==selections.length){
+      error('Enter a date and an end time after the start time for every slot.');return;
+    }
+    if(!extending&&!classroomsOnly&&(!start||!expected||start>=expected)){
+      error('Expected completion must be after the start date and time.');return;
+    }
     const fixedSlots=operation.selectedWindows?.length;
     if(fixedSlots&&selections.some(item=>item.date+'T'+item.start<start||item.date+'T'+item.end>expected)){
       error('Start and completion must cover every selected slot. Use Back to change the selected slots.');return;
     }
     const windows=fixedSlots||record?.recurrence?selections:boundedWindows();
-    if(!windows.length){error('The date and time range must include at least one selected maintenance window.');return;}
-    const reason=data.get('reason');
-    const target={...operation.target};
-    if(record?.scope==='room'){
-      target.targets=[...$('cm-room-choices').querySelectorAll('input:checked')].map(input=>input.value);
-      if(!target.targets.length){error('Select at least one classroom.');return;}
-      const original=record.targets.length?record.targets:[record.room];
-      if(target.targets.length!==original.length||target.targets.some(key=>!original.includes(key))){
-        target.booking_ids=[];
-        target.timetable_selection=false;
-      }
-      target.room='';
-      target.floor='';
+    if(!extending&&!classroomsOnly&&!windows.length){
+      error('The date and time range must include at least one selected maintenance window.');return;
     }
-    const payload={...target,action:'preview',duration:record?.duration,
-      description:data.get('description'),reasons:record?.reasons[0]===reason?record.reasons:[reason],
+    const reasons=record?.reasons[0]===reason?record.reasons:[reason];
+    const payload=extending?{id:record.id,classroom_keys:target.classroom_keys,extend_until:expected,action:'preview'}
+      :classroomsOnly?{id:record.id,classroom_keys:target.classroom_keys,classrooms_only:true,action:'preview'}
+      :{...target,action:'preview',duration:record?.duration,
+      description,reasons,
       expected_completion:expected,starts_at:record?.recurrence?undefined:start,
       recurrence:Boolean(record?.recurrence),start_date:data.get('start_date'),end_date:data.get('end_date'),
       selections:sortSelections(windows)};
     const submit=form.querySelector('[type="submit"]');
-    submit.disabled=true;
+    if(record)setSaving(true,'Checking maintenance schedule…');
+    else submit.disabled=true;
     try{
-      const review=await send(dialog.dataset.scheduleUrl,payload);
+      const review=await send(dialog.dataset.scheduleUrl,payload,Boolean(record));
       if(!dialog.open||current!==operation)return;
       const content=node('div');
-      content.append(node('p','Place the selected location under maintenance?'),rows([
-        ['Scope',scopeLabel(payload.scope)],['Campus / Building',review.campus+' / '+review.building],
-        ['Floor',review.floor ? floorLabel(review.floor) : scopeLabel(payload.scope)],['Affected classrooms',review.room_codes.length>1
+      const heading=node(record?'h3':'p',record?'Review Changes':'Place the selected location under maintenance?');
+      content.append(heading,rows([
+        ['Scope',scopeLabel(target.scope)],['Campus / Building',review.campus+' / '+review.building],
+        ['Floor',review.floor ? floorLabel(review.floor) : scopeLabel(target.scope)],['Affected classrooms',review.room_codes.length>1
           ?expandable('View '+review.room_codes.length+' classrooms',node('p',review.room_codes.join(', ')))
           :review.room_codes[0]],
         ['Start Date & Time',start.replace('T',' ')],['End Date & Time',expected.replace('T',' ')],
-        ['Reason',payload.reasons.join(', ')],
-      ]),scheduleReview(windows,record?.scope==='room'?review.room_codes.join(', '):operation.roomLabel));
+        ['Reason',reasons.join(', ')],
+      ]),scheduleReview(extending?[...editScheduleWindows(), ...review.extension_windows]
+        :record?editScheduleWindows():windows,record?review.room_codes.join(', '):operation.roomLabel,Boolean(record)));
       const canAcknowledge=review.blocking&&!payload.timetable_selection&&!payload.booking_ids?.length;
       const acknowledgement=node('input');acknowledgement.type='checkbox';
       if(review.affected.length){
@@ -410,6 +837,22 @@
         const label=node('label');label.className='cm-overlap-acknowledgement';
         label.append(acknowledgement,document.createTextNode('I acknowledge the overlaps and want to submit this maintenance.'));
         content.append(label);
+      }
+      if(record){
+        editReview={payload,token:review.token,acknowledgement,blocking:review.blocking};
+        if(!canAcknowledge&&review.blocking)content.append(node('p','Resolve the overlapping classes or bookings before saving.'));
+        acknowledgement.addEventListener('change',()=>{
+          $('cm-confirm-edit').disabled=!acknowledgement.checked;
+        });
+        $('cm-inline-review').replaceChildren(content);
+        $('cm-inline-review').hidden=false;
+        $('cm-edit-fields').hidden=true;
+        $('cm-submit').hidden=true;
+        $('cm-back-to-edit').hidden=false;
+        $('cm-confirm-edit').hidden=false;
+        $('cm-confirm-edit').textContent=extending?'Confirm Extension':'Confirm Save';
+        heading.tabIndex=-1;heading.focus();
+        return;
       }
       dialog.close();
       const result=await maintenanceAlert({title:'Confirm Classroom Maintenance',html:content,width:760,returnFocus:false,
@@ -430,16 +873,51 @@
         operation.clearDraft?.();
         updates?.postMessage({type:'saved'});
         await maintenanceAlert({icon:'success',title:'Maintenance saved',showConfirmButton:false,timer:2000});
-        location.reload();
+        reload();
       }else if(current===operation&&!dialog.open){
         dialog.showModal();
       }
     }catch(problem){
       if(current===operation&&dialog.open)error(problem.message);
     }
-    finally{submit.disabled=false;}
+    finally{if(record)setSaving(false);else submit.disabled=false;}
+  });
+  function chooseReason(name) {
+    if(![...fields.reason.options].some(option=>option.value===name))fields.reason.add(new Option(name,name));
+    fields.reason.value=name;
+  }
+  const reasonName=$('cm-inline-reason-name');
+  $('cm-cancel-reason').addEventListener('click',()=>{
+    $('cm-inline-reason').hidden=true;
+    $('cm-new-reason').focus();
+  });
+  reasonName.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){event.preventDefault();$('cm-save-reason').click();}
+  });
+  $('cm-save-reason').addEventListener('click',async()=>{
+    if(saving)return;
+    error();setSaving(true,'Saving reason…');
+    $('cm-save-reason').disabled=true;
+    $('cm-cancel-reason').disabled=true;
+    try{
+      const result=await send(dialog.dataset.reasonUrl,{name:reasonName.value},true);
+      chooseReason(result.name);
+      $('cm-inline-reason').hidden=true;
+      fields.reason.focus();
+    }catch(problem){error(problem.message);}
+    finally{
+      $('cm-save-reason').disabled=false;
+      $('cm-cancel-reason').disabled=false;
+      setSaving(false);
+    }
   });
   $('cm-new-reason').addEventListener('click',async()=>{
+    if(current.record){
+      reasonName.value='';
+      $('cm-inline-reason').hidden=false;
+      reasonName.focus();
+      return;
+    }
     dialog.close();
     const result=await maintenanceAlert({title:'Add Maintenance Reason',width:420,customClass:{popup:'cm-reason-popup'},returnFocus:false,input:'text',inputAttributes:{maxlength:120},
       confirmButtonText:'Save reason',confirmButtonColor:'#007367',showCancelButton:true,showLoaderOnConfirm:true,
@@ -447,9 +925,7 @@
     dialog.showModal();
     $('cm-new-reason').focus();
     if(!result.isConfirmed)return;
-    const name=result.value.name;
-    if(![...fields.reason.options].some(option=>option.value===name))fields.reason.add(new Option(name,name));
-    fields.reason.value=name;
+    chooseReason(result.value.name);
   });
 
   for(const button of document.querySelectorAll('[data-cm-edit]'))button.addEventListener('click',()=>{
@@ -502,14 +978,24 @@
         heading.focus({preventScroll:true});
       }});
   });
-  for(const button of document.querySelectorAll('[data-cm-finish]'))button.addEventListener('click',async()=>{
-    const action=button.dataset.cmFinish,label={complete:'End',cancel:'Cancel'}[action];
-    const result=await maintenanceAlert({title:label+' this maintenance?',text:'The schedule stays in history and its remaining time is released.',
+  async function finishMaintenance(button, rooms) {
+    const action=button.dataset.cmFinish,label={complete:'End',cancel:'Cancel',undo:'Undo'}[action];
+    const text = action === 'undo'
+      ? `This releases ${rooms.length} unchecked ${rooms.length === 1 ? 'classroom' : 'classrooms'} for all remaining dates in these maintenance schedules.`
+      : 'The schedule stays in history and its remaining time is released.';
+    const result=await maintenanceAlert({title:label+' this maintenance?',text,
       input:'textarea',inputLabel:'Reason (optional)',inputAttributes:{maxlength:5000},showCancelButton:true,
       confirmButtonText:label+' maintenance',confirmButtonColor:'#007367',showLoaderOnConfirm:true,
-      preConfirm:async reason=>{try{return await send(button.dataset.url,{action,reason});}catch(problem){Swal.showValidationMessage(problem.message);return false;}}});
-    if(result.isConfirmed){await maintenanceAlert({icon:'success',title:result.value.message,confirmButtonColor:'#007367'});location.reload();}
-  });
+      preConfirm:async reason=>{try{return await send(button.dataset.url,{action,reason,token:button.dataset.token,rooms});}catch(problem){Swal.showValidationMessage(problem.message);return false;}}});
+    if(result.isConfirmed){
+      if (action === 'undo') updates?.postMessage({type:'saved'});
+      await maintenanceAlert({icon:'success',title:result.value.message,confirmButtonColor:'#007367'});
+      reload();
+    }
+  }
+  for (const button of document.querySelectorAll('[data-cm-finish]:not([data-cm-finish="undo"])')) {
+    button.addEventListener('click', () => finishMaintenance(button));
+  }
   const filterForm=document.querySelector('.cm-filters');
   if(filterForm){
     const options=roomOptions,saved=JSON.parse($('cm-filter-values').textContent);

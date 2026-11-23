@@ -1,7 +1,7 @@
 """Maintenance schedules backed by the classroom catalog and booking mutex."""
 import json
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from functools import wraps
 from hashlib import sha256
 from django.conf import settings
@@ -26,6 +26,26 @@ DEFAULT_REASONS = (
     'Network / Internet Issue', 'Plumbing Issue', 'Other',
 )
 SALT = 'classroom-maintenance-review'
+FLOOR_UNDO_SALT = 'classroom-maintenance-floor-undo'
+
+
+def scope_fields(scope, rooms):
+    target = rooms[0]
+    floors = {room.get('floor_code') or '__unrecorded__' for room in rooms}
+    targets = sorted(floors) if scope == 'floor' else (
+        sorted(room['key'] for room in rooms) if scope == 'room' else [])
+    return {
+        'scope': scope, 'campus': target['campus'], 'building_key': target['building_key'],
+        'building_name': target['building'],
+        'floor': next(iter(floors)) if scope != 'building' and len(floors) == 1 else '',
+        'room_key': target['key'] if scope == 'room' and len(rooms) == 1 else '',
+        'room_codes': [room['room_code'] for room in rooms], 'scope_targets': targets,
+    }
+
+
+def floor_undo_token(user, campus, building, floor, records, room_keys):
+    return dumps({'user': user.pk, 'campus': campus, 'building': building, 'floor': floor,
+                  'records': records, 'rooms': sorted(room_keys)}, salt=FLOOR_UNDO_SALT, compress=True)
 
 
 def admin_only(view):
@@ -125,9 +145,13 @@ def local_now():
     return timezone.localtime(now) if timezone.is_aware(now) else now
 
 
-def parse_schedule(data, rooms, *, now, editing=False):
+def parse_schedule(data, rooms, *, now, editing=False, selected_rooms=None, cap_recurrence=False):
     affected = scope_rooms(data, rooms)
-    target = affected[0]
+    if selected_rooms is not None:
+        keys = {room['key'] for room in selected_rooms}
+        affected = [room for room in affected if room['key'] in keys]
+        if keys != {room['key'] for room in affected}:
+            raise ValueError('Every selected classroom must belong to the selected location.')
     recurring = data.get('recurrence') is True
     reason_names = data.get('reasons', [])
     valid_reasons = available_reasons()
@@ -145,6 +169,10 @@ def parse_schedule(data, rooms, *, now, editing=False):
         expected = timezone.make_aware(expected, timezone.get_current_timezone())
     elif expected and not settings.USE_TZ and timezone.is_aware(expected):
         expected = timezone.make_naive(expected, timezone.get_current_timezone())
+    recurrence_limit = None
+    if recurring and expected and cap_recurrence:
+        recurrence_limit = (timezone.make_naive(expected, timezone.get_current_timezone())
+                            if timezone.is_aware(expected) else expected)
     selected = data.get('selections')
     if not isinstance(selected, list) or not selected or len(selected) > (168 if recurring else 366*24):
         raise ValueError('Select at least one maintenance day.')
@@ -173,16 +201,25 @@ def parse_schedule(data, rooms, *, now, editing=False):
     if (not editing and first < now.date()) or last < first or (last-first).days > 365:
         raise ValueError('Use current or future dates spanning at most 366 days.')
     windows = []
+    matches_range = False
     for offset in range((last-first).days+1):
         day = first+timedelta(days=offset)
         for start,end in rules.get(day.weekday() if recurring else day, ()):
+            matches_range = True
+            if recurrence_limit:
+                if day > recurrence_limit.date() or day == recurrence_limit.date() and start >= recurrence_limit.time():
+                    continue
+                if day == recurrence_limit.date():
+                    end = min(end, recurrence_limit.time())
             if editing and (day < now.date() or day == now.date() and end <= now.time()):
                 continue
             if day == now.date() and end <= now.time():
                 raise ValueError('Select a time range that has not already ended.')
             windows.append((day,start,end))
     if not windows:
-        raise ValueError('No selected weekdays occur in this recurrence range.')
+        if recurring and not matches_range:
+            raise ValueError('No selected weekdays occur in this recurrence range.')
+        raise ValueError('No selected maintenance time slots remain. Choose a date and time that has not ended.')
     if data.get('starts_at'):
         start_bound = datetime.fromisoformat(data['starts_at'])
         if timezone.is_aware(start_bound):
@@ -196,16 +233,8 @@ def parse_schedule(data, rooms, *, now, editing=False):
             raise ValueError('Maintenance hours must fall within the start and completion dates and times.')
     if expected and expected.date() < first:
         raise ValueError('Expected completion must be on or after the first maintenance date.')
-    scope = data['scope']
-    targets = sorted({room.get('floor_code') or '__unrecorded__' for room in affected}) if scope=='floor' else (
-        sorted(room['key'] for room in affected) if scope=='room' else [])
-    floors = {room.get('floor_code') or '__unrecorded__' for room in affected}
     values = {
-        'scope': scope, 'campus': target['campus'], 'building_key': target['building_key'],
-        'building_name': target['building'],
-        'floor': next(iter(floors)) if scope != 'building' and len(floors)==1 else '',
-        'room_key': target['key'] if scope == 'room' and len(affected)==1 else '',
-        'room_codes': [room['room_code'] for room in affected], 'scope_targets':targets,
+        **scope_fields(data['scope'], affected),
         'recurrence': recurring, 'start_date': first, 'end_date': last, 'selections': selected,
         'reasons': list(dict.fromkeys(reason_names)), 'description': description,
         'duration': duration, 'expected_completion': expected,
@@ -290,6 +319,13 @@ def history_entry(user, action, reason='', previous=None):
             'reason':reason,'previous':previous}
 
 
+def record_room_releases(entry, keys):
+    entry['released_rooms'] = sorted(keys)
+    entry['room_releases'] = [
+        {'room_key': key, 'released_at': entry['at']} for key in entry['released_rooms']
+    ]
+
+
 def read_json(request):
     data = json.loads(request.body)
     if not isinstance(data, dict):
@@ -297,9 +333,12 @@ def read_json(request):
     return data
 
 
-def review_digest(data, rooms, overlaps):
+def review_digest(data, rooms, overlaps, added_windows=()):
     payload = {**data, 'action':'preview'}
-    material = json.dumps([payload, sorted(room['key'] for room in rooms), overlaps], sort_keys=True)
+    material = [payload, sorted(room['key'] for room in rooms), overlaps]
+    if added_windows:
+        material.append([[value.isoformat() for value in window] for window in added_windows])
+    material = json.dumps(material, sort_keys=True)
     return sha256(material.encode()).hexdigest()
 
 
@@ -337,6 +376,83 @@ def review_overlaps(data, rooms, windows, catalog):
     return overlaps
 
 
+def edit_room_scope(record, data, catalog):
+    scope = {
+        'scope': record.scope, 'building': record.building_key, 'campus': record.campus,
+        'floor': record.floor, 'targets': record.scope_targets,
+    }
+    keys = data.get('classroom_keys')
+    if keys is None and data.get('classrooms_only') is True and record.scope == 'room':
+        keys = data.get('targets')
+    if keys is None:
+        keys = list(record.rooms.values_list('room_key', flat=True))
+    if not isinstance(keys, list) or any(not isinstance(key, str) for key in keys) or not keys:
+        raise ValueError('Please select at least one classroom.')
+    if record.scope == 'room':
+        return scope_rooms({**scope, 'targets': keys, 'floor': ''}, catalog)
+    allowed = scope_rooms(scope, catalog)
+    selected = [room for room in allowed if room['key'] in keys]
+    if set(keys) != {room['key'] for room in selected}:
+        raise ValueError('Every selected classroom must belong to the original maintenance scope.')
+    return selected
+
+
+def extension_schedule(record, end_text, now):
+    if not isinstance(end_text, str):
+        raise ValueError('Enter the new expected completion date and time.')
+    completion = datetime.fromisoformat(end_text)
+    if timezone.is_aware(completion):
+        completion = timezone.make_naive(completion, timezone.get_current_timezone())
+    last_window = record.windows.order_by('-date', '-end').first()
+    if last_window is None:
+        raise ValueError('There are no saved maintenance slots to extend.')
+    last_end = datetime.combine(last_window.date, last_window.end)
+    previous = record.expected_completion
+    if previous and timezone.is_aware(previous):
+        previous = timezone.make_naive(previous, timezone.get_current_timezone())
+    local = now.replace(tzinfo=None)
+    if completion <= max(last_end, previous or last_end, local):
+        raise ValueError('Choose a completion time later than the current schedule and the current time.')
+    if (completion.date() - record.start_date).days > 365:
+        raise ValueError('The extended schedule must span at most 366 days.')
+
+    windows = []
+    if record.recurrence:
+        rules = defaultdict(list)
+        for item in record.selections:
+            rules[date.fromisoformat(item['date']).weekday()].append(
+                (time.fromisoformat(item['start']), time.fromisoformat(item['end'])))
+        start = max(record.end_date, local.date())
+        for offset in range((completion.date() - start).days + 1):
+            day = start + timedelta(days=offset)
+            for first, last in sorted(rules[day.weekday()]):
+                if day == record.end_date:
+                    if not previous or previous.date() != day:
+                        continue
+                    first = max(first, previous.time(), last_end.time() if last_end.date() == day else time.min)
+                if day == completion.date():
+                    last = min(last, completion.time())
+                if first < last and datetime.combine(day, last) > local:
+                    windows.append((day, first, last))
+        if not windows:
+            raise ValueError('The extension must include at least one scheduled weekday and time slot.')
+        selections = record.selections
+    else:
+        first_at = max(last_end, local.replace(second=0, microsecond=0))
+        for offset in range((completion.date() - first_at.date()).days + 1):
+            day = first_at.date() + timedelta(days=offset)
+            first = first_at.time() if day == first_at.date() else time.min
+            last = completion.time() if day == completion.date() else time(23, 59)
+            if first < last:
+                windows.append((day, first, last))
+        selections = [*record.selections, *(
+            {'date': day.isoformat(), 'start': first.strftime('%H:%M'), 'end': last.strftime('%H:%M')}
+            for day, first, last in windows
+        )]
+    expected = timezone.make_aware(completion, timezone.get_current_timezone()) if settings.USE_TZ else completion
+    return {'end_date': completion.date(), 'expected_completion': expected, 'selections': selections}, windows
+
+
 @admin_only
 @require_POST
 def schedule(request):
@@ -345,17 +461,64 @@ def schedule(request):
         data = read_json(request)
         record_id = data.get('id') or None
         catalog = _load_room_catalog()
-        values, rooms, windows = parse_schedule(data,catalog[0],now=local_now(),editing=bool(record_id))
+        classrooms_only = data.get('classrooms_only') is True
+        extending = 'extend_until' in data
+        now = local_now()
+        record = get_object_or_404(ClassroomMaintenance, pk=record_id, state='open') if record_id else None
+        if classrooms_only or extending:
+            if record is None:
+                raise ValueError('Open an existing classroom maintenance record before editing classrooms.')
+            rooms = edit_room_scope(record, data, catalog[0])
+            values = scope_fields(record.scope, rooms)
+            if record.scope == 'floor':
+                values['floor'] = record.floor
+                values['scope_targets'] = record.scope_targets or [record.floor]
+            existing_keys = set(record.rooms.values_list('room_key', flat=True))
+            added_rooms = [room for room in rooms if room['key'] not in existing_keys]
+            existing_windows = list(record.windows.filter(
+                Q(date__gt=now.date()) | Q(date=now.date(), end__gt=now.time())
+            ).values_list('date', 'start', 'end')) if added_rooms else []
+            windows = []
+            if extending:
+                extended_values, windows = extension_schedule(record, data['extend_until'], now)
+                values.update(extended_values)
+        else:
+            scoped_edit = record and (data.get('classroom_keys') is not None or (
+                record.scope != 'room' and record.scope == data.get('scope')
+                and record.building_key == data.get('building')))
+            selected_rooms = edit_room_scope(record, data, catalog[0]) if scoped_edit else None
+            values, rooms, windows = parse_schedule(data, catalog[0], now=now, editing=bool(record_id),
+                selected_rooms=selected_rooms,
+                cap_recurrence=bool(record and any(entry.get('extended_until') for entry in record.history)))
+            if scoped_edit and record.scope == 'floor':
+                values['floor'] = record.floor
+                values['scope_targets'] = record.scope_targets or [record.floor]
+
+        def review_schedule():
+            overlaps = []
+            if windows:
+                validate_conflicts(windows, rooms, record_id)
+                overlaps.extend(review_overlaps({} if extending else data, rooms, windows, catalog))
+            if (classrooms_only or extending) and existing_windows:
+                validate_conflicts(existing_windows, added_rooms, record_id)
+                overlaps.extend(review_overlaps({}, added_rooms, existing_windows, catalog))
+            return overlaps
+
+        def digest(overlaps):
+            return review_digest(data, rooms, overlaps, windows if extending else ())
+
         if data.get('action') == 'preview':
-            record = get_object_or_404(ClassroomMaintenance,pk=record_id,state='open') if record_id else None
-            validate_conflicts(windows,rooms,record_id)
-            overlaps = review_overlaps(data,rooms,windows,catalog)
-            signature = dumps({'user':request.user.pk,'digest':review_digest(data,rooms,overlaps),
+            overlaps = review_schedule()
+            signature = dumps({'user':request.user.pk,'digest':digest(overlaps),
                                'version':record.updated_at.isoformat() if record else ''},salt=SALT,compress=True)
             return JsonResponse({'token':signature,'affected':overlaps,'room_codes':values['room_codes'],
                                  'building':values['building_name'],'campus':values['campus'],'floor':values['floor'],
                                  'targets':values['scope_targets'],'blocking':any(item['blocking'] for item in overlaps),
-                                 'window_count':len(windows)})
+                                 'window_count':len(windows) + (record.windows.count() if classrooms_only or extending else 0),
+                                 'extension_windows': [
+                                     {'date': day.isoformat(), 'start': first.strftime('%H:%M'), 'end': last.strftime('%H:%M')}
+                                     for day, first, last in windows
+                                 ] if extending else []})
         if data.get('action') != 'save':
             raise ValueError('Choose a valid maintenance action.')
         confirmed = loads(data.pop('token',''),salt=SALT,max_age=900)
@@ -367,29 +530,47 @@ def schedule(request):
             record = get_object_or_404(ClassroomMaintenance,pk=record_id,state='open') if record_id else None
             if (record.updated_at.isoformat() if record else '') != confirmed['version']:
                 raise ValueError('This schedule changed. Reopen it before updating.')
-            validate_conflicts(windows,rooms,record_id)
-            overlaps = review_overlaps(data,rooms,windows,catalog)
+            overlaps = review_schedule()
             has_conflicts = any(item['blocking'] for item in overlaps)
             if has_conflicts and not (acknowledged and not data.get('booking_ids') and not data.get('timetable_selection')):
                 raise ValueError('Resolve overlapping scheduled classes and approved bookings before confirming maintenance.')
-            if review_digest(data,rooms,overlaps) != confirmed['digest']:
+            if digest(overlaps) != confirmed['digest']:
                 raise ValueError('The schedule or affected bookings changed. Review the schedule again before confirming.')
             previous = snapshot(record) if record else None
+            prior_keys = set(record.rooms.values_list('room_key', flat=True)) if record else set()
+            selected_keys = {room['key'] for room in rooms}
             record = record or ClassroomMaintenance(created_by=request.user)
             for field,value in values.items():
                 setattr(record,field,value)
             record.updated_by = request.user
             entry = history_entry(request.user,'Edited' if previous else 'Scheduled',previous=previous)
-            entry['booking_ids'] = data.get('booking_ids', [])
-            entry['timetable_selection'] = data.get('timetable_selection') is True
+            entry['booking_ids'] = [] if classrooms_only or extending else data.get('booking_ids', [])
+            entry['timetable_selection'] = not (classrooms_only or extending) and data.get('timetable_selection') is True
+            if prior_keys - selected_keys:
+                record_room_releases(entry, prior_keys - selected_keys)
+            if selected_keys - prior_keys:
+                entry['added_rooms'] = sorted(selected_keys - prior_keys)
+            if previous is None:
+                first_day, first_start, _ = min(windows)
+                entry['original_start'] = f'{first_day.isoformat()}T{first_start:%H:%M}'
+            if extending:
+                entry['extended_until'] = data['extend_until']
             if has_conflicts:
                 entry['reason'] = f'Admin acknowledged {sum(item["blocking"] for item in overlaps)} overlapping classes or approved bookings.'
             record.history = [*record.history,entry]
             record.save()
-            record.rooms.all().delete()
-            record.windows.all().delete()
-            ClassroomMaintenanceRoom.objects.bulk_create(ClassroomMaintenanceRoom(maintenance=record,room_key=room['key']) for room in rooms)
-            ClassroomMaintenanceWindow.objects.bulk_create(ClassroomMaintenanceWindow(maintenance=record,date=day,start=start,end=end) for day,start,end in windows)
+            if classrooms_only or extending:
+                record.rooms.exclude(room_key__in=selected_keys).delete()
+                ClassroomMaintenanceRoom.objects.bulk_create(
+                    ClassroomMaintenanceRoom(maintenance=record, room_key=key)
+                    for key in sorted(selected_keys - prior_keys)
+                )
+            else:
+                record.rooms.all().delete()
+                record.windows.all().delete()
+                ClassroomMaintenanceRoom.objects.bulk_create(ClassroomMaintenanceRoom(maintenance=record,room_key=room['key']) for room in rooms)
+            if not classrooms_only or extending:
+                ClassroomMaintenanceWindow.objects.bulk_create(ClassroomMaintenanceWindow(maintenance=record,date=day,start=start,end=end) for day,start,end in windows)
         return JsonResponse({'id':record.pk,'message':'Maintenance scheduled successfully!'})
     except (BadSignature, SignatureExpired):
         return JsonResponse({'error':'The review expired. Review the schedule again.'},status=409)
@@ -451,12 +632,82 @@ def finish(request, pk):
 
 
 @admin_only
+@require_POST
+def undo_floor(request):
+    from .class_utilization import _load_room_catalog
+
+    try:
+        data = read_json(request)
+        signed = loads(data.get('token') or '', salt=FLOOR_UNDO_SALT, max_age=900)
+        if signed['user'] != request.user.pk:
+            raise BadSignature
+        reason = str(data.get('reason') or '').strip()
+        if len(reason) > 5000:
+            raise ValueError('Keep the reason within 5,000 characters.')
+        rooms, rooms_by_key, _ = _load_room_catalog()
+        floor_keys = {room['key'] for room in scope_rooms({**signed, 'scope': 'floor'}, rooms)}
+        if floor_keys != set(signed['rooms']):
+            return JsonResponse({'error': 'The classroom list changed. Reload the floor and try again.'}, status=409)
+        selected = data.get('rooms')
+        if not isinstance(selected, list) or not selected or any(
+            not isinstance(key, str) or key not in floor_keys for key in selected
+        ):
+            raise ValueError('Uncheck at least one classroom on this floor to release it.')
+        release_keys = set(selected)
+        versions = signed['records']
+        with transaction.atomic():
+            lock_bookings()
+            records = list(ClassroomMaintenance.objects.filter(
+                pk__in=versions, state='open', building_key=signed['building'],
+            ).prefetch_related('rooms'))
+            if len(records) != len(versions) or any(
+                record.updated_at.isoformat() != versions[str(record.pk)] for record in records
+            ):
+                return JsonResponse({'error': 'Maintenance changed. Reload the floor and try again.'}, status=409)
+            for record in records:
+                assigned = {room.room_key for room in record.rooms.all()}
+                released = assigned & release_keys
+                if not released:
+                    continue
+                remaining = assigned - released
+                if not remaining.issubset(rooms_by_key):
+                    raise ValueError('The classroom list changed. Reload the floor and try again.')
+                previous = snapshot(record)
+                if remaining:
+                    remaining_rooms = [rooms_by_key[key] for key in sorted(remaining)]
+                    scope = 'room'
+                    if record.scope != 'room':
+                        remaining_floors = {room.get('floor_code') or '__unrecorded__' for room in remaining_rooms}
+                        floor_scope = scope_rooms({**signed, 'scope': 'floor', 'targets': sorted(remaining_floors)}, rooms)
+                        if {room['key'] for room in floor_scope} == remaining:
+                            scope = 'floor'
+                    for field, value in scope_fields(scope, remaining_rooms).items():
+                        setattr(record, field, value)
+                    record.rooms.filter(room_key__in=released).delete()
+                else:
+                    record.state = 'cancelled'
+                entry = history_entry(request.user, 'Classroom maintenance undone', reason, previous)
+                entry['floor'] = signed['floor']
+                record_room_releases(entry, released)
+                record.history = [*record.history, entry]
+                record.updated_by = request.user
+                record.save()
+        return JsonResponse({'message': 'Maintenance undone for the unchecked classrooms.'})
+    except BadSignature:
+        return JsonResponse({'error': 'This action expired. Reload the floor and try again.'}, status=409)
+    except (KeyError, TypeError, ValueError) as exc:
+        return JsonResponse({'error': str(exc) or 'Invalid floor maintenance.'}, status=400)
+    except DatabaseError:
+        return JsonResponse({'error': 'Maintenance could not be updated. Try again.'}, status=503)
+
+
+@admin_only
 @require_GET
 def manage(request):
     from .class_utilization import _load_room_catalog
     rooms, rooms_by_key, _ = _load_room_catalog()
     filters={field:request.GET.get(field,'').strip() for field in ('campus','building','floor','room','status','date','q')}
-    queryset=ClassroomMaintenance.objects.select_related('created_by','updated_by')
+    queryset=ClassroomMaintenance.objects.select_related('created_by','updated_by').prefetch_related('rooms', 'windows')
     for field,query_field in {'campus':'campus__iexact','building':'building_key','room':'rooms__room_key'}.items():
         if filters[field]:
             queryset=queryset.filter(**{query_field:filters[field]})
@@ -479,6 +730,14 @@ def manage(request):
             conditions|=Q(pk=int(query))
         queryset=queryset.filter(conditions)
     page=Paginator(queryset.distinct(),25).get_page(request.GET.get('page'))
+    now = local_now()
+    active = window_map(now.date(), now.date(), rooms_by_key)
+    rooms = [
+        {**room, 'under_maintenance': bool(room['maintenance']) or any(
+            window.start <= now.time() < window.end for window in active.get((room['key'], now.date()), ())
+        )}
+        for room in rooms
+    ]
     records={}
     for record in page:
         record.display_status = 'Active' if record.state == 'open' else record.get_state_display()
@@ -490,6 +749,11 @@ def manage(request):
                              for key in record.scope_targets})
         record.floor_labels = ['Not recorded' if floor == '__unrecorded__' else floor for floor in floors]
         records[record.pk]={**snapshot(record),'id':record.pk,'status':record.display_status,
+                            'assigned_room_keys': [room.room_key for room in record.rooms.all()],
+                            'saved_windows': [
+                                {'date': window.date.isoformat(), 'start': window.start.strftime('%H:%M'),
+                                 'end': window.end.strftime('%H:%M')} for window in record.windows.all()
+                            ],
                             'floor_labels':record.floor_labels,
                             'history':record.history,'created_at':record.created_at,'updated_at':record.updated_at,
                             'created_by':str(record.created_by or ''),'updated_by':str(record.updated_by or '')}

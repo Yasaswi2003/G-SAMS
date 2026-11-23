@@ -17,3 +17,4 @@ __pycache__/
 *.log
 /scratch_out*.txt
 /ClassLibrary1.dll
+/workspace/data/room_utilization.json

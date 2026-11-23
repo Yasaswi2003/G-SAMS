@@ -1,12 +1,14 @@
 from . import booking_workflow, booking_analytics, booking_notifications, booking_revisions, classroom_maintenance
 from django.urls import path,include
 from . import views,admin,class_utilization
+from . import room_utilization
 from django.conf import settings
 
 urlpatterns = [
     path('classroom_maintenance', classroom_maintenance.manage, name='classroom_maintenance'),
     path('classroom_maintenance/schedule', classroom_maintenance.schedule, name='schedule_classroom_maintenance'),
     path('classroom_maintenance/reason', classroom_maintenance.reason, name='classroom_maintenance_reason'),
+    path('classroom_maintenance/undo-floor', classroom_maintenance.undo_floor, name='undo_floor_maintenance'),
     path('classroom_maintenance/<int:pk>/finish', classroom_maintenance.finish, name='finish_classroom_maintenance'),
     path('booking_revision_start', booking_revisions.start, name='booking_revision_start'),
     path('booking_revision_state', booking_revisions.state, name='booking_revision_state'),
@@ -18,6 +20,8 @@ urlpatterns = [
     path('booking_updates', booking_workflow.booking_updates, name='booking_updates'),
     path('booking_analytics', booking_analytics.analytics_page, name='booking_analytics'),
     path('booking_analytics_data', booking_analytics.analytics_data, name='booking_analytics_data'),
+    path('room_utilization', room_utilization.dashboard, name='room_utilization'),
+    path('room_utilization/data', room_utilization.data, name='room_utilization_data'),
     path('building', admin.building, name='building'),
     path('block', admin.block, name='block'),
     path('get_block_details', admin.get_block_details, name='get_block_details'),

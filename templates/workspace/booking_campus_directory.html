@@ -1,0 +1,32 @@
+{% if campus_directory %}
+<div class="bs-campus-directory" data-campus-directory data-selected-campus="{{ filters.campus }}">
+  <div class="bs-campus-controls">
+    <label>Search buildings
+      <input type="search" data-building-search placeholder="Enter a building name">
+    </label>
+  </div>
+  <div class="bs-campus-list">
+    {% for campus, buildings in campus_directory %}
+    <button type="button" data-campus-choice="{{ campus }}" aria-pressed="{% if campus == filters.campus %}true{% else %}false{% endif %}">
+      <strong>{{ campus }}</strong>
+      <span>{{ buildings|length }} building{{ buildings|length|pluralize }}</span>
+    </button>
+    {% endfor %}
+  </div>
+  {% for campus, buildings in campus_directory %}
+  <section data-campus-buildings="{{ campus }}" aria-label="{{ campus }} buildings"{% if campus != filters.campus %} hidden{% endif %}>
+    <h3>{{ campus }} buildings</h3>
+    <ul class="bs-dialog-records">
+      {% for building in buildings %}
+      <li data-building-name="{{ building }}">{{ building }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+  <p data-building-status role="status" class="bs-building-status"></p>
+</div>
+{% elif catalog_unavailable %}
+<p>The classroom catalogue is unavailable.</p>
+{% else %}
+<p>No campuses are available.</p>
+{% endif %}

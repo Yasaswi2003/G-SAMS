@@ -760,7 +760,7 @@ def class_utilization(request):
             occupancy[(row["room_key"], row["weekday"])].append(row)
 
     available_room_keys = set()
-    from .classroom_maintenance import available_reasons, window_map
+    from .classroom_maintenance import available_reasons, floor_undo_token, window_map
     maintenance_rooms = {room['key'] for room in rooms
                          if not filters['selected_campus'] or room['campus_key'] == filters['selected_campus']}
     maintenance_windows = window_map(week_start, week_end, maintenance_rooms)
@@ -957,6 +957,12 @@ def class_utilization(request):
         selection = selection_context(request, rooms, card_schedules, filters, today,
                                       partially_booked=rooms_with_open_slots & rooms_with_booked_slots,
                                       maintenance_windows=maintenance_windows,grid_hours=(grid_start,grid_end))
+        if booking_role == 'ADMIN' and selection['selection_step'] == 4 and selection['floor_undo_records']:
+            selection['floor_undo_token'] = floor_undo_token(
+                request.user, filters['selected_campus'], filters['selected_building'],
+                filters['selected_floor'], selection['floor_undo_records'],
+                [room['key'] for room in selection['classroom_cards']],
+            )
     context = {
         **selection,
         "revision_context": revision_context,

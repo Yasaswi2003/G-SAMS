@@ -1,0 +1,114 @@
+{% load l10n %}
+<section class="bs-card bs-maintenance-charts" aria-labelledby="bs-maintenance-charts-title">
+  <h2 id="bs-maintenance-charts-title">Classroom Maintenance</h2>
+  {% if maintenance_unavailable or catalog_unavailable %}
+  <p>Maintenance data is temporarily unavailable.</p>
+  {% else %}
+  <div class="bs-maintenance-filters" role="group" aria-label="Filter maintenance by campus">
+    {% for view in maintenance_views %}
+    <button type="button" data-maintenance-campus="{{ view.campus }}" aria-pressed="{{ forloop.first|yesno:'true,false' }}"{% if not view.rows %} data-empty{% endif %}>
+      <span aria-hidden="true"></span>{{ view.label }} <strong>{{ view.rows|length }}</strong>
+    </button>
+    {% endfor %}
+  </div>
+  {% for view in maintenance_views %}
+  <div data-maintenance-view="{{ view.campus }}"{% if not forloop.first %} hidden{% endif %}>
+    <dl class="bs-maintenance-totals">
+      <div><dt>Rooms under maintenance now</dt><dd>{{ view.now }}</dd></div>
+      <div><dt>Scheduled in the selected dates</dt><dd>{{ view.scheduled }}</dd></div>
+      <div><dt>Total maintenance hours</dt><dd>{{ view.duration }}</dd></div>
+      <div{% if view.overdue %} class="bs-maintenance-alert"{% endif %}><dt>Overdue / past end date</dt><dd>{{ view.overdue }}</dd></div>
+    </dl>
+    {% if view.rows %}
+    {% if view.breakdown %}
+    <section class="bs-maintenance-breakdown" aria-label="Scheduled rooms by status">
+      <h3>Scheduled rooms {{ view.breakdown_label|lower }}</h3>
+      <ul>
+        {% for bar in view.breakdown %}
+        <li data-maintenance-campus="{{ bar.campus }}">
+          <strong>{{ bar.label }}</strong>
+          <div class="bs-maintenance-stack">
+            {% for part in bar.segments %}
+            <span data-status="{{ part.status }}" style="width:{{ part.width|unlocalize }}%" tabindex="0" role="img" aria-label="{{ bar.label }} · {{ part.status }} · {{ part.count }} room{{ part.count|pluralize }}" data-chart-details="{{ bar.label }} · {{ part.status }} · {{ part.count }} room{{ part.count|pluralize }}"></span>
+            {% endfor %}
+          </div>
+          <div class="bs-maintenance-counts">
+            {% for part in bar.segments %}<span class="bs-maintenance-badge" data-status="{{ part.status }}">{{ part.count }} {{ part.status|lower }}</span>{% endfor %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    {% if view.groups %}
+    <ul class="bs-maintenance-groups" aria-label="Rooms with matching durations">
+      {% for group in view.groups %}
+      <li><strong>{{ group.count }} rooms · {{ group.duration }} each</strong> ({{ group.rooms }}, {{ group.building }} · {{ group.campus }})</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <div class="bs-maintenance-tools">
+      <h3>Maintenance details</h3>
+      {% if view.scheduled %}
+      <div role="group" aria-label="Maintenance details view">
+        <button type="button" data-maintenance-mode="table" aria-pressed="true">Table</button>
+        <button type="button" data-maintenance-mode="timeline" aria-pressed="false">Timeline</button>
+      </div>
+      {% endif %}
+    </div>
+    <div data-maintenance-panel="table">
+      <table class="bs-maintenance-table">
+        <thead><tr>
+          <th scope="col"><button type="button" data-maintenance-sort="room">Room</button></th>
+          <th scope="col"><button type="button" data-maintenance-sort="building">Building</button></th>
+          <th scope="col"><button type="button" data-maintenance-sort="campus">Campus</button></th>
+          <th scope="col"><button type="button" data-maintenance-sort="status">Status</button></th>
+          <th scope="col"><button type="button" data-maintenance-sort="end">Start → End</button></th>
+          <th scope="col"><button type="button" data-maintenance-sort="minutes">Duration</button></th>
+          <th scope="col"><button type="button" data-maintenance-sort="reason">Reason / type</button></th>
+        </tr></thead>
+        <tbody>
+          {% for row in view.rows %}
+          <tr data-room="{{ row.room }}" data-building="{{ row.building }}" data-campus="{{ row.campus }}" data-status="{{ row.status }}" data-end="{{ row.end|date:'Y-m-d' }}" data-minutes="{{ row.minutes|unlocalize }}" data-reason="{{ row.reason }}"{% if forloop.counter > 10 %} hidden{% endif %}>
+            <td data-label="Room"><strong>{{ row.room }}</strong></td>
+            <td data-label="Building">{{ row.building }}</td>
+            <td data-label="Campus"><span class="bs-maintenance-location" data-maintenance-campus="{{ row.campus }}">{{ row.campus }}</span></td>
+            <td data-label="Status">
+              <span class="bs-maintenance-badge" data-status="{{ row.status }}">{{ row.status }}</span>
+              {% if row.catalog and row.status != 'Catalog-only' %}<small>Also marked in catalog</small>{% endif %}
+            </td>
+            <td data-label="Start → End">{% if row.start %}{{ row.start|date:"d M Y" }} → {{ row.end|date:"d M Y" }}{% else %}—{% endif %}</td>
+            <td data-label="Duration">{{ row.duration|default:"—" }}</td>
+            <td data-label="Reason / type">{{ row.reason|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if view.rows|length > 10 %}<button type="button" data-maintenance-more aria-expanded="false">View all {{ view.rows|length }}</button>{% endif %}
+    </div>
+    {% if view.scheduled %}
+    <div class="bs-maintenance-timeline" data-maintenance-panel="timeline" hidden>
+      <div class="bs-maintenance-timeline-axis"><span>Room</span><div><time datetime="{{ start }}">{{ start }}</time><time datetime="{{ end }}">{{ end }}</time></div></div>
+      <ul>
+        {% for row in view.rows %}
+        {% if row.timeline %}
+        <li data-maintenance-campus="{{ row.campus }}">
+          <div><strong>{{ row.room }}</strong><small>{{ row.building }} · {{ row.campus }}</small></div>
+          <div class="bs-maintenance-track">
+            {% for period in row.timeline %}
+            <span style="left:{{ period.left|unlocalize }}%;width:{{ period.width|unlocalize }}%" tabindex="0" role="img" aria-label="{{ row.room }} · {{ period.label }}" data-chart-details="{{ row.room }} · {{ row.building }} · {{ row.campus }} · {{ row.status }} · {{ period.label }}"></span>
+            {% endfor %}
+          </div>
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="bs-maintenance-empty"><i class="bx bx-wrench" aria-hidden="true"></i> No classrooms under maintenance for these dates</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+</section>

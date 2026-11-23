@@ -6,7 +6,17 @@
 <div class="cu-classroom-selection-head"><div><h2>Choose a floor</h2><p class="cu-selection-note">Select a floor to view its classrooms.</p></div>
 {% if booking_role == 'ADMIN' and floor_cards %}{% include 'workspace/maintenance_start_button.html' %}{% endif %}</div>
 {% if booking_role == 'ADMIN' and floor_cards %}{% include 'workspace/maintenance_selection_bar.html' with date_range=True building_scope=True %}{% endif %}
-<div class="cu-classroom-cards">{% for floor in floor_cards %}<a class="cu-classroom-card cu-floor-card" href="{{ floor.url }}"{% if booking_role == 'ADMIN' %} data-cm-card="{{ floor.key }}"{% endif %}><i class="bx bx-layer" aria-hidden="true"></i><strong>{% if floor.key == '__unrecorded__' %}{{ floor.label }}{% else %}Floor {{ floor.label }}{% endif %}</strong><span class="cu-room-badge">{{ floor.room_count }} classroom{{ floor.room_count|pluralize }}</span><small>View classrooms &rarr;</small></a>{% empty %}<p>No floors are recorded for this building.</p>{% endfor %}</div>
+<div class="cu-classroom-cards">
+    {% for floor in floor_cards %}
+    <a class="cu-classroom-card cu-floor-card{% if floor.state %} cu-room-{{ floor.state }}{% endif %}" href="{{ floor.url }}"{% if booking_role == 'ADMIN' %} data-cm-card="{{ floor.key }}"{% endif %}{% if floor.maintenance_hint %} title="{{ floor.maintenance_hint }}"{% endif %}>
+        <i class="bx {% if floor.state %}bx-wrench{% else %}bx-layer{% endif %}" aria-hidden="true"></i>
+        <strong>{% if floor.key == '__unrecorded__' %}{{ floor.label }}{% else %}Floor {{ floor.label }}{% endif %}</strong>
+        {% if floor.state %}<span class="cu-legend-item"><span class="cu-legend-dot cu-room-dot-{{ floor.state }}" aria-hidden="true"></span>{{ floor.state_label }}</span>{% endif %}
+        <span class="cu-room-badge">{{ floor.room_count }} classroom{{ floor.room_count|pluralize }}</span>
+        <small>View classrooms &rarr;</small>
+    </a>
+    {% empty %}<p>No floors are recorded for this building.</p>{% endfor %}
+</div>
 {% elif selection_step == 4 %}
 <div class="cu-classroom-selection-head">
     <div><h2>Choose a classroom</h2><p class="cu-selection-note">Availability now &middot; {{ availability_timestamp }}. Select any classroom to inspect its weekly timetable.</p></div>
@@ -16,7 +26,7 @@
       <a class="cu-button cu-button-primary" href="{{ back_to_floors_url }}"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to Floors</a>
     </div>
 </div>
-{% if booking_role == 'ADMIN' and classroom_cards %}{% include 'workspace/maintenance_selection_bar.html' with date_range=True %}{% endif %}
+{% if booking_role == 'ADMIN' and classroom_cards %}{% include 'workspace/maintenance_selection_bar.html' with date_range=True undo_token=floor_undo_token %}{% endif %}
 <div class="cu-classroom-cards">
     {% for room in classroom_cards %}
     <a class="cu-classroom-card cu-room-{{ room.state }}" href="{{ room.url }}" data-timetable-room data-classroom-match="{{ room.room_name }} {{ room.room_code }}" aria-haspopup="dialog"{% if booking_role == 'ADMIN' %} data-cm-card="{{ room.key }}"{% endif %}{% if room.maintenance_hint %} title="{{ room.maintenance_hint }}"{% endif %}>

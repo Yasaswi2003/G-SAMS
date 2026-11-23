@@ -114,18 +114,25 @@
 {{ rooms|json_script:'bw-rooms' }}
 {{ revision_token|json_script:'bw-revision-token' }}
 </main>
-<script src="{% static 'js/classroom_booking.js' %}?v=revision-9"></script><script src="{% static 'js/booking_live.js' %}"></script>
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script><script src="{% static 'js/booking_live.js' %}?v=2"></script>
 <script>
 (() => {
 const rooms = JSON.parse(document.getElementById('bw-rooms').textContent);
 const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
 const notice = document.getElementById('bw-message');
 function message(text, error=false) {notice.hidden=false;notice.textContent=text;notice.classList.toggle('bw-error',error);}
-async function send(url, data) {
+const reloadRequests = () => BookingLoading.navigate(() => location.reload());
+const send = (url, data) => BookingLoading.run(async () => {
  const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':csrf},body:data});
  let result;try{result=await response.json();}catch(e){throw new Error('The request failed. Refresh the page and try again.');}
  if(!response.ok)throw new Error(result.error || 'Request failed.');return result;
-}
+});
+const read = (url, options) => BookingLoading.run(async () => {
+ const response = await fetch(url, options);
+ const record = await response.json();
+ if (!response.ok) throw new Error(record.error);
+ return record;
+});
 const pageSummary=document.getElementById('bw-page-summary');
 if(pageSummary){
  const rows=[...document.querySelectorAll('#bw-requests-panel tbody > tr')].filter(row=>!row.querySelector('[colspan]'));
@@ -140,7 +147,7 @@ document.addEventListener('click',async event=>{
  const activeDetails=document.getElementById('bw-view-dialog');if(activeDetails.open)activeDetails.close();
  const selectedAction=button.dataset.action,bookingId=button.dataset.id;
  if(selectedAction==='edit'||selectedAction==='request_amendment'){
-  try{const response=await fetch("{% url 'booking_edit_data' %}?booking_id="+encodeURIComponent(bookingId));const record=await response.json();if(!response.ok)throw new Error(record.error);await ClassroomBooking.open({rooms:record.rooms,initial:record.initial,original:record.original,role:'TEACHER',mode:selectedAction,bookingId,subjectCode:record.subject_code,subjectName:record.subject_name,revision:record.revision,revisionToken:record.revision_token,selection:record.selection,respond:record.status==='changes_requested',revisionStartUrl:"{% url 'booking_revision_start' %}",submitUrl:"{% url 'review_classroom_booking' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>{if(record.status==='changes_requested'){const url=new URL(location.href);url.searchParams.delete('revision');url.searchParams.set('status_group','pending');url.searchParams.delete('status');location.assign(url);}else location.reload();}});}
+  try{const record=await read("{% url 'booking_edit_data' %}?booking_id="+encodeURIComponent(bookingId));await ClassroomBooking.open({rooms:record.rooms,initial:record.initial,original:record.original,role:'TEACHER',mode:selectedAction,bookingId,subjectCode:record.subject_code,subjectName:record.subject_name,revision:record.revision,revisionToken:record.revision_token,selection:record.selection,respond:record.status==='changes_requested',revisionStartUrl:"{% url 'booking_revision_start' %}",submitUrl:"{% url 'review_classroom_booking' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>{if(record.status==='changes_requested'){const url=new URL(location.href);url.searchParams.delete('revision');url.searchParams.set('status_group','pending');url.searchParams.delete('status');BookingLoading.navigate(()=>location.assign(url));}else reloadRequests();}});}
   catch(error){await Swal.fire({icon:'error',title:'Request unavailable',text:error.message,confirmButtonColor:'#007367'});}return;
  }
  const reconsider=button.dataset.reconsider==='true';
@@ -156,7 +163,7 @@ document.addEventListener('click',async event=>{
  };
  const choice=choices[selectedAction];if(!choice)return;
  const result=await Swal.fire({title:choice.title,text:choice.text,icon:['reject','withdraw','request_cancellation','reject_change'].includes(selectedAction)?'warning':'question',...(choice.required?{input:'textarea',inputLabel:choice.label,inputPlaceholder:choice.placeholder}:{}),showCancelButton:true,confirmButtonText:choice.button,cancelButtonText:'Cancel',confirmButtonColor:['reject','withdraw','request_cancellation','reject_change'].includes(selectedAction)?'#b83242':'#007367',showLoaderOnConfirm:true,allowOutsideClick:()=>!Swal.isLoading(),allowEscapeKey:()=>!Swal.isLoading(),preConfirm:async value=>{const comment=choice.required?String(value||'').trim():'';if(choice.required&&!comment){Swal.showValidationMessage('Please enter the required reason or comments.');return false;}const payload=new FormData();payload.set('booking_id',bookingId);payload.set('action',selectedAction);const revision=button.dataset.revision||button.closest('tr')?.dataset.revision;if(revision)payload.set('expected_revision',revision);if(comment)payload.set('comment',comment);if(button.dataset.changeId)payload.set('change_request_id',button.dataset.changeId);try{return await send("{% url 'review_classroom_booking' %}",payload);}catch(error){Swal.showValidationMessage(error.message);return false;}}});
- if(result.isConfirmed){ClassroomBooking.announce();await Swal.fire({icon:'success',title:'Request updated',text:result.value.message,confirmButtonColor:'#007367'});location.reload();}
+ if(result.isConfirmed){ClassroomBooking.announce();await Swal.fire({icon:'success',title:'Request updated',text:result.value.message,confirmButtonColor:'#007367'});reloadRequests();}
 });
 const viewDialog=document.getElementById('bw-view-dialog');
 function bindPurposePreview(){
@@ -220,14 +227,14 @@ document.getElementById('bw-view-close').addEventListener('click',()=>viewDialog
  if(event.target===modal&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))modal.close();
 }));
 const resumeRevision=JSON.parse(document.getElementById('bw-revision-token').textContent);
-if(resumeRevision){(async()=>{try{const response=await fetch("{% url 'booking_revision_state' %}?revision="+encodeURIComponent(resumeRevision),{cache:'no-store'});const record=await response.json();if(!response.ok)throw new Error(record.error);await ClassroomBooking.open({rooms:record.rooms,initial:record.initial,original:record.original,role:'TEACHER',mode:'edit',respond:true,extended:true,bookingId:record.booking_id,subjectCode:record.subject_code,subjectName:record.subject_name,revision:record.revision,revisionToken:resumeRevision,selection:record.selection,revisionStartUrl:"{% url 'booking_revision_start' %}",submitUrl:"{% url 'review_classroom_booking' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>{const url=new URL(location.href);url.searchParams.delete('revision');url.searchParams.set('status_group','pending');url.searchParams.delete('status');location.assign(url);}});}catch(error){await Swal.fire({icon:'warning',title:'Revision unavailable',text:error.message,confirmButtonColor:'#007367'});}})();}
+if(resumeRevision){(async()=>{try{const record=await read("{% url 'booking_revision_state' %}?revision="+encodeURIComponent(resumeRevision),{cache:'no-store'});await ClassroomBooking.open({rooms:record.rooms,initial:record.initial,original:record.original,role:'TEACHER',mode:'edit',respond:true,extended:true,bookingId:record.booking_id,subjectCode:record.subject_code,subjectName:record.subject_name,revision:record.revision,revisionToken:resumeRevision,selection:record.selection,revisionStartUrl:"{% url 'booking_revision_start' %}",submitUrl:"{% url 'review_classroom_booking' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>{const url=new URL(location.href);url.searchParams.delete('revision');url.searchParams.set('status_group','pending');url.searchParams.delete('status');BookingLoading.navigate(()=>location.assign(url));}});}catch(error){await Swal.fire({icon:'warning',title:'Revision unavailable',text:error.message,confirmButtonColor:'#007367'});}})();}
 const focusBooking=new URLSearchParams(location.search).get('booking_id');
 if(focusBooking&&/^\d+$/.test(focusBooking)){const target=[...document.querySelectorAll('[data-view]')].find(button=>button.dataset.view===focusBooking);if(target)target.click();}
-ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:()=>location.reload()});
+ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:reloadRequests});
 })();
 </script>
 <link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
-<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-9">
+<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-10">
 <link rel="stylesheet" href="{% static 'user/css/booking_management.css' %}?v=management-9">
 <script src="{% static 'js/booking_management.js' %}?v=management-4"></script>
 {% endblock %}

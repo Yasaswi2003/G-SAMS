@@ -1,13 +1,20 @@
 (() => {
 const color='#007367';
-async function post(url,data){const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:data});let result;try{result=await response.json();}catch(e){throw new Error('The server could not process the request. Please refresh and retry.');}if(!response.ok){const error=new Error(result.error||'Request failed.');error.payload=result;throw error;}return result;}
+function post(url,data){return BookingLoading.run(async()=>{
+ const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:data});
+ let result;try{result=await response.json();}catch(e){throw new Error('The server could not process the request. Please refresh and retry.');}
+ if(!response.ok){const error=new Error(result.error||'Request failed.');error.payload=result;throw error;}
+ return result;
+});}
 function announce(){localStorage.setItem('classroom-booking-updated',String(Date.now()));}
 function isConflict(error){return error?.payload?.code==='booking_conflict'&&['hold','booked'].includes(error.payload.conflict?.availability);}
-async function checkAvailability(payload,options){
+function checkAvailability(payload,options){
  if(!options.availabilityUrl)return;
- const response=await fetch(options.availabilityUrl+'?'+new URLSearchParams(payload),{credentials:'same-origin',cache:'no-store'});
- let result;try{result=await response.json();}catch(e){throw new Error('Availability could not be checked. Please retry.');}
- if(!response.ok||result.available!==true){const error=new Error(result.error||'Availability could not be verified.');error.payload=result;throw error;}
+ return BookingLoading.run(async()=>{
+  const response=await fetch(options.availabilityUrl+'?'+new URLSearchParams(payload),{credentials:'same-origin',cache:'no-store'});
+  let result;try{result=await response.json();}catch(e){throw new Error('Availability could not be checked. Please retry.');}
+  if(!response.ok||result.available!==true){const error=new Error(result.error||'Availability could not be verified.');error.payload=result;throw error;}
+ });
 }
 function showConflict(error,onChange){
  if(!isConflict(error))return Promise.resolve(false);
@@ -87,20 +94,20 @@ async function chooseRevisionSlot(loadTimetable,checkbox,applySelection){
  const dialog=document.createElement('dialog');dialog.className='cb-revision-timetable';dialog.setAttribute('aria-label','Classroom Utilization');
  const close=document.createElement('button');close.type='button';close.textContent='Back to Form';
  const content=document.createElement('div');content.className='cb-revision-timetable-content';
- const loading=document.createElement('p');loading.setAttribute('role','status');loading.textContent='Loading classroom timetable…';
  const frame=document.createElement('iframe');frame.title='Classroom Utilization';frame.dataset.revisionTimetable='';
- const ready=()=>{loading.hidden=true;frame.classList.remove('is-loading');};
- frame.className='is-loading';
- frame.addEventListener('revision-timetable-ready',()=>{ready();close.hidden=true;});
- frame.addEventListener('load',()=>{if(frame.hasAttribute('src')&&frame.contentDocument?.URL!=='about:blank')ready();});
+ let stopLoading;
+ frame.addEventListener('revision-timetable-ready',()=>{close.hidden=true;});
  close.addEventListener('click',()=>dialog.close());
  frame.addEventListener('revision-slot-selected',event=>{applySelection(event.detail);dialog.close();});
- dialog.addEventListener('close',()=>{dialog.remove();checkbox.checked=false;checkbox.disabled=false;checkbox.focus();},{once:true});
- content.append(loading,frame);dialog.append(close,content);document.body.append(dialog);dialog.showModal();
+ dialog.addEventListener('close',()=>{stopLoading?.();dialog.remove();checkbox.checked=false;checkbox.disabled=false;checkbox.focus();},{once:true});
+ content.append(frame);dialog.append(close,content);document.body.append(dialog);dialog.showModal();
  try{
-  const url=await loadTimetable();
-  if(!dialog.open)return;
-  const address=new URL(url,location.href);address.searchParams.set('revision_popup','1');frame.src=address.href;
+  await BookingLoading.run(async()=>{
+   const url=await loadTimetable();
+   if(!dialog.open)return;
+   const address=new URL(url,location.href);address.searchParams.set('revision_popup','1');
+   stopLoading=BookingLoading.loadFrame(frame,address.href);
+  });
  }catch(error){if(dialog.open){dialog.close();Swal.showValidationMessage(error.message);}}
 }
 
@@ -167,7 +174,7 @@ async function open(options){
   });
   form.prepend(link);
  }
- const result=await Swal.fire({title:options.selectOnly?'Select a replacement slot':options.respond?'Booking Revision':options.mode==='edit'?'Edit & Resubmit Booking':options.mode==='request_amendment'?'Request Booking Amendment':options.role==='ADMIN'?'Admin Direct Booking':'Book a Classroom',html:form,width:options.respond&&!options.selectOnly?840:760,customClass:options.respond&&!options.selectOnly?{popup:'cb-revision-popup'}:{},showCancelButton:true,cancelButtonText:options.onBackToForm?'Back to Form':'Cancel',confirmButtonText:options.selectOnly?'Use this slot':options.mode==='edit'?'Save & Resubmit':options.mode==='request_amendment'?'Submit Amendment':options.role==='ADMIN'?'Confirm Booking':'Submit to HOD',confirmButtonColor:color,showLoaderOnConfirm:true,allowOutsideClick:()=>!Swal.isLoading(),preConfirm:async()=>{try{const payload=collect();if(options.mode){payload.set('action',options.mode);payload.set('booking_id',options.bookingId);if(options.revision)payload.set('expected_revision',options.revision);}if(options.revisionToken)payload.set('revision_token',options.revisionToken);if(options.respond&&!options.selectOnly)return {revisionPayload:payload};if(!options.selectOnly)await checkAvailability(payload,options);return await post(options.submitUrl,payload);}catch(error){if(isConflict(error)){await showConflict(error,()=>form.elements.room_key.focus());if(options.respond&&!options.selectOnly)form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}Swal.showValidationMessage(error.message);if(options.respond&&!options.selectOnly&&error.payload?.code==='slot_unavailable')form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}}});
+ const result=await Swal.fire({title:options.selectOnly?'Select a replacement slot':options.respond?'Booking Revision':options.mode==='edit'?'Edit & Resubmit Booking':options.mode==='request_amendment'?'Request Booking Amendment':options.role==='ADMIN'?'Admin Direct Booking':'Book a Classroom',html:form,width:options.respond&&!options.selectOnly?840:760,customClass:options.respond&&!options.selectOnly?{popup:'cb-revision-popup'}:{},showCancelButton:true,cancelButtonText:options.onBackToForm?'Back to Form':'Cancel',confirmButtonText:options.selectOnly?'Use this slot':options.mode==='edit'?'Save & Resubmit':options.mode==='request_amendment'?'Submit Amendment':options.role==='ADMIN'?'Confirm Booking':'Submit to HOD',confirmButtonColor:color,showLoaderOnConfirm:true,allowOutsideClick:()=>!Swal.isLoading(),preConfirm:async()=>{try{const payload=collect();if(options.mode){payload.set('action',options.mode);payload.set('booking_id',options.bookingId);if(options.revision)payload.set('expected_revision',options.revision);}if(options.revisionToken)payload.set('revision_token',options.revisionToken);if(options.respond&&!options.selectOnly)return {revisionPayload:payload};return await BookingLoading.run(async()=>{if(!options.selectOnly)await checkAvailability(payload,options);return await post(options.submitUrl,payload);});}catch(error){if(isConflict(error)){await showConflict(error,()=>form.elements.room_key.focus());if(options.respond&&!options.selectOnly)form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}Swal.showValidationMessage(error.message);if(options.respond&&!options.selectOnly&&error.payload?.code==='slot_unavailable')form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}}});
  if(result.isConfirmed){
   if(options.selectOnly){if(options.onSelection)await options.onSelection(result.value);}
   else if(result.value?.revisionPayload){

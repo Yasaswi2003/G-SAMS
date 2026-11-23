@@ -1,0 +1,67 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'user/css/room_utilization.css' %}">
+<section class="ru" id="room-utilization" aria-labelledby="ru-heading" data-url="{% url 'room_utilization_data' %}">
+    <header class="ru-header">
+        <div><h2 id="ru-heading">Room utilization</h2><p>See where and when the university schedules classes.</p></div>
+    </header>
+    <p id="ru-status" role="status">Loading timetable data…</p>
+    <div class="ru-content" hidden>
+        <section class="ru-filters" aria-label="Filters">
+            <label>Term<select id="ru-term"></select></label>
+            <label>Campus<select id="ru-campus"></select></label>
+            <label>Building<select id="ru-building"></select></label>
+            <label>Room<select id="ru-room"></select></label>
+            <label>Day<select id="ru-day"></select></label>
+            <button type="button" id="ru-reset">Reset filters</button>
+        </section>
+        <section class="ru-metrics" aria-label="Summary" aria-live="polite">
+            <article><h2>Utilization</h2><strong id="ru-rate"></strong><p>Share of room time used for classes.</p></article>
+            <article><h2 id="ru-hours-label">Class hours per week</h2><strong id="ru-hours"></strong><p>One hour counts each time a room is used for class.</p></article>
+            <article><h2>Active rooms</h2><strong id="ru-rooms"></strong><p>Rooms in the room master that match your filters.</p></article>
+            <article><h2>Rooms never used</h2><strong id="ru-unused"></strong><p>Rooms with no classes during the selected days.</p></article>
+        </section>
+        <section class="ru-panel ru-insights" aria-labelledby="ru-insights-title">
+            <h2 id="ru-insights-title">What this means</h2>
+            <ul id="ru-insights"></ul>
+        </section>
+        <div class="ru-split">
+            <section class="ru-panel ru-visual">
+                <h2>Class hours by day</h2>
+                <p>Total scheduled class hours for each weekday.</p>
+                <div id="ru-by-day" class="ru-chart"></div>
+            </section>
+            <section class="ru-panel ru-visual">
+                <h2>Class hours by time of day</h2>
+                <p>Scheduled class hours by start time across the selected days.</p>
+                <div id="ru-by-hour" class="ru-chart"></div>
+            </section>
+        </div>
+        <div class="ru-split ru-breakdown">
+            <section class="ru-panel ru-visual"><h2>Usage by building</h2><p>Choose a building to see its rooms.</p><div id="ru-buildings"></div></section>
+            <section class="ru-panel ru-visual"><h2>How rooms are used</h2><p>Rooms grouped by the share of their time used for classes.</p><div id="ru-bands"></div></section>
+        </div>
+        <section class="ru-panel ru-visual">
+            <div class="ru-panel-head">
+                <div><h2>Busy times</h2><p>Number of rooms in use at each hour. Darker cells show a larger share in use.</p></div>
+                <div class="ru-legend">Quiet <span aria-hidden="true"></span> Busy</div>
+            </div>
+            <div id="ru-heatmap" class="ru-scroll"></div>
+        </section>
+        <section class="ru-panel">
+            <div class="ru-panel-head">
+                <div><h2>Rooms</h2><p>Busiest first. Choose a room to see its usage.</p></div>
+                <label class="ru-search">Find a room<input id="ru-search" type="search" placeholder="Room, building or type"></label>
+            </div>
+            <div class="ru-scroll"><table>
+                <thead><tr><th scope="col">Room</th><th scope="col">Building</th><th scope="col">Type</th><th scope="col">Booked hours</th><th scope="col">% used</th></tr></thead>
+                <tbody id="ru-table"></tbody>
+            </table></div>
+            <div class="ru-pagination">
+                <span id="ru-count" aria-live="polite"></span>
+                <button type="button" id="ru-prev">Previous</button><button type="button" id="ru-next">Next</button>
+            </div>
+        </section>
+        <p class="ru-note">The dashboard counts scheduled classes in active rooms, Monday to Friday, 08:00–17:00. Each room has 45 possible hours per week.</p>
+    </div>
+</section>
+<script src="{% static 'js/room_utilization.js' %}" defer></script>

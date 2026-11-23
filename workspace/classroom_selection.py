@@ -5,6 +5,17 @@ from .models import ClassroomBooking
 from .holidays import closures_on
 
 
+def maintenance_status(windows, full_day, *, details, full_day_label='Under Maintenance'):
+    state, label = ('maintenance', full_day_label) if full_day else (
+        'partial-maintenance', 'Partially Under Maintenance')
+    first = min(windows, key=lambda window: (window.date, window.start))
+    hint = (f'{label}\n{", ".join(first.maintenance.reasons)}\n'
+            f'{first.date:%A, %d %b} · {first.start:%H:%M}–{first.end:%H:%M}')
+    if len(windows) > 1:
+        hint += f'\n{details}'
+    return state, label, hint
+
+
 def selection_context(request, rooms, schedules, filters, today, *, partially_booked=(), maintenance_windows=None, grid_hours=(8,16)):
     from .classroom_maintenance import covers_full_day
     def link(**updates):
@@ -18,8 +29,11 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
 
     campus,building,floor = (filters['selected_campus'],filters['selected_building'],filters['selected_floor'])
     selected = next((room for room in rooms if room['key']==filters['selected_room_key']),None)
-    candidates = [room for room in rooms if room['campus_key']==campus and room['building_key']==building
-                  and (room.get('floor_code','') or '__unrecorded__')==floor] if campus and building and floor else []
+    rooms_by_floor = defaultdict(list)
+    for room in rooms:
+        if room['campus_key'] == campus and room['building_key'] == building:
+            rooms_by_floor[room.get('floor_code') or '__unrecorded__'].append(room)
+    candidates = rooms_by_floor.get(floor, ())
     now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
     minute = now.hour*60+now.minute
     by_room = defaultdict(list)
@@ -45,25 +59,49 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
             label = 'Partially booked' if state == 'available' else f'Partially booked · {label}'
             state = 'partial'
         room_maintenance = by_room.get(room['key'], ())
-        if room_maintenance and not room.get('maintenance'):
-            full_day = covers_full_day(room_maintenance,*grid_hours)
-            state = 'maintenance' if full_day else 'partial-maintenance'
-            label = 'Under Maintenance' if full_day else 'Partially Under Maintenance'
         hint = ''
         if room_maintenance:
-            window = min(room_maintenance,key=lambda item:(item.date,item.start))
-            record = window.maintenance
-            hint = (f'{label}\n{", ".join(record.reasons)}\n'
-                    f'{window.date:%A, %d %b} · {window.start:%H:%M}–{window.end:%H:%M}')
-            if len(room_maintenance)>1:
-                hint += '\nOpen the timetable to see all maintenance windows.'
+            state, label, hint = maintenance_status(
+                room_maintenance, room.get('maintenance') or covers_full_day(room_maintenance, *grid_hours),
+                details='Open the timetable to see all maintenance windows.',
+                full_day_label='Maintenance' if room.get('maintenance') else 'Under Maintenance',
+            )
         cards.append({**room,'state':state,'state_label':label,'floor_label':room.get('floor_code') or 'Not recorded',
                       'maintenance_hint':hint,
                       'url':link(campus=room['campus'],building=room['building_key'],floor=room.get('floor_code') or '__unrecorded__',room=room['key'])})
-    floor_cards = [{**choice,'url':link(floor=choice['key'],room=''),
-                    'room_count':sum(1 for room in rooms if room['campus_key']==campus and room['building_key']==building
-                                     and (room.get('floor_code','') or '__unrecorded__')==choice['key'])}
-                   for choice in filters['floor_choices']]
+    floor_cards = []
+    floor_undo_records = {}
+    for choice in filters['floor_choices']:
+        floor_rooms = rooms_by_floor[choice['key']]
+        card = {**choice, 'url': link(floor=choice['key'], room=''), 'room_count': len(floor_rooms)}
+        windows_by_date = defaultdict(lambda: defaultdict(list))
+        floor_windows = {}
+        for room in floor_rooms:
+            for window in by_room.get(room['key'], ()):
+                windows_by_date[window.date][room['key']].append(window)
+                floor_windows[window.pk] = window
+        full_days = {
+            day for day, room_windows in windows_by_date.items()
+            if len(room_windows) == len(floor_rooms) and
+            all(covers_full_day(windows, *grid_hours) for windows in room_windows.values())
+        }
+        if floor_windows:
+            card['state'], card['state_label'], card['maintenance_hint'] = maintenance_status(
+                floor_windows.values(), bool(full_days), details='Open a classroom timetable to see all maintenance windows.',
+                full_day_label='Entire Floor Under Maintenance',
+            )
+        elif any(room.get('maintenance') for room in floor_rooms):
+            full_floor = all(room.get('maintenance') for room in floor_rooms)
+            card.update(state='maintenance' if full_floor else 'partial-maintenance',
+                        state_label='Entire Floor Under Maintenance' if full_floor else 'Partially Under Maintenance')
+        if choice['key'] == floor:
+            floor_undo_records = {
+                window.maintenance_id: window.maintenance.updated_at.isoformat()
+                for window in floor_windows.values() if window.date in full_days
+                and window.start.hour < grid_hours[1]
+                and (window.end.hour, window.end.minute) > (grid_hours[0], 0)
+            }
+        floor_cards.append(card)
     step = 5 if selected else 4 if floor else 3 if campus and building else 2 if campus else 1
     campus_cards=[]
     for choice in filters['campuses']:
@@ -76,6 +114,7 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
               for number,label in enumerate(['Campus','Building','Floor','Classroom','Weekly timetable'],1)]
     return {'campus_cards':campus_cards,'building_cards':building_cards,'selection_progress':progress,
             'floor_cards':floor_cards,'back_to_floors_url':link(floor='',room=''),
+            'floor_undo_records':floor_undo_records,
             'classroom_cards':cards,'selected_classroom':selected,
             'back_to_classrooms_url':link(room='',booking_id=None),
             'selection_step':step,

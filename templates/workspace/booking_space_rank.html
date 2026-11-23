@@ -1,0 +1,17 @@
+{% load l10n %}
+<article class="bs-card bs-ranking">
+  <h3>{{ heading }}</h3>
+  {% if spaces %}
+  <ol>
+    {% for room in spaces %}
+    <li>
+      <div>
+        <a href="{{ room.url }}">{{ room.name }}</a>
+        <strong>{{ room.percent|floatformat:"-1" }}%</strong>
+      </div>
+      <meter min="0" max="100" value="{{ room.percent|unlocalize }}" aria-label="{{ room.name }} utilisation">{{ room.percent }}%</meter>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}<p>{{ empty_message }}</p>{% endif %}
+</article>

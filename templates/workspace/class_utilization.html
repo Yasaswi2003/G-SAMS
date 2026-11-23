@@ -142,9 +142,9 @@
     transition: border-color .15s, box-shadow .15s;
 }
 .cu-filter-field select:focus, .cu-filter-field input:focus {
-    border-color: #007367;
+    border-color: #595959;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 115, 103, .13);
+    box-shadow: 0 0 0 3px rgba(0,0,0, .13);
     background: #fff;
 }
 .cu-semester-badge {
@@ -655,8 +655,7 @@
 .cu-dialog::backdrop {
     position: fixed !important;
     inset: 0 !important;
-    background: rgba(0, 40, 35, .62) !important;
-    backdrop-filter: blur(6px) !important;
+    background: transparent !important;
     z-index: 99999 !important;
 }
 .cu-dialog-shell { padding: 26px 28px; max-height: 85vh; overflow-y: auto; }
@@ -737,9 +736,9 @@
     transition: border-color .15s, box-shadow .15s;
 }
 .cu-dialog-field input:focus, .cu-dialog-field select:focus, .cu-dialog-field textarea:focus {
-    border-color: #007367;
+    border-color: #595959;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0,115,103,.12);
+    box-shadow: 0 0 0 3px rgba(0,0,0,.12);
     background: #fff;
 }
 .cu-dialog-field textarea { min-height: 72px; resize: vertical; }
@@ -861,7 +860,7 @@
 .cu-grid .cu-slot-faculty{display:block!important;font-size:10px;font-weight:500;line-height:1.25;margin:0;white-space:normal;overflow-wrap:anywhere}
 .cu-slot-dot{width:5px;height:5px;margin:0}.cu-slot-view-hint{font-size:12px;margin:0;opacity:.45}
 .cu-grid .cu-slot-available{min-height:32px;padding:6px;border-radius:6px}.cu-grid .cu-slot-available span{font-size:9px}
-.cu-grid .cu-slot-booked:focus-visible,.cu-grid .cu-slot-available:focus-visible{outline:2px solid #007367;outline-offset:2px}
+.cu-grid .cu-slot-booked:focus-visible,.cu-grid .cu-slot-available:focus-visible{outline:2px solid #595959;outline-offset:2px}
 .cu-grid .cu-slot-booked:hover .cu-slot-view-hint{opacity:1}.cu-grid thead th.cu-day-today{background:#dcefe5;box-shadow:inset 0 -3px #008574}
 .cu-calendar-help{font-size:11px!important}
 .cu-grid .cu-slot-passed {
@@ -943,7 +942,6 @@
             <p>Analyze classroom usage across campus and time slots.</p>
         </div>
         <div class="cu-header-actions">
-            {% if booking_role == 'ADMIN' and not selected_building %}<a class="cu-button cu-button-secondary" href="{% url 'classroom_maintenance' %}">Manage Maintenance</a>{% endif %}
             {% if revision_popup %}<a class="cu-button cu-button-primary" href="{{ revision_context.return_url }}" data-revision-back>Back to Form</a>{% endif %}
             <span class="cu-source-label"><span class="cu-live-dot" aria-hidden="true"></span> Live Schedule</span>
         </div>
@@ -956,7 +954,6 @@
     </div>
     {% endif %}
 
-    {% if not revision_popup %}{% include 'workspace/utilization_overview.html' %}{% endif %}
     <!-- Filter Card: Day filter removed; Semester auto-updated -->
     <section class="cu-filter-card" aria-label="Schedule filters">
         <form class="cu-filter-form" id="cuFilterForm" method="get">
@@ -969,8 +966,8 @@
             <div class="cu-filter-field"><label for="cuSemester">Academic Semester</label><input id="cuSemester" value="{{ current_semester }}" readonly aria-label="Academic semester, automatically selected from the timetable date" title="Updates automatically for the selected date: July?December ODD; January?June EVEN"></div>
             <div class="cu-filter-field">
                 <label for="cuCampus">Campus</label>
-                <select id="cuCampus" name="campus" aria-describedby="cuCampusError" required>
-                    <option value="">Select campus</option>
+                <select id="cuCampus" name="campus"{% if revision_context %} aria-describedby="cuCampusError" required{% endif %}>
+                    <option value="">{% if revision_context %}Select campus{% else %}All campuses{% endif %}</option>
                     {% for campus in campuses %}
                     <option value="{{ campus.key }}" {% if selected_campus == campus.key %}selected{% endif %}>{{ campus.label }}</option>
                     {% endfor %}
@@ -980,8 +977,8 @@
 
             <div class="cu-filter-field">
                 <label for="cuBuilding">Building</label>
-                <select id="cuBuilding" name="building" aria-describedby="cuBuildingError" required>
-                    <option value="">Select building</option>
+                <select id="cuBuilding" name="building"{% if revision_context %} aria-describedby="cuBuildingError" required{% endif %}>
+                    <option value="">{% if revision_context %}Select building{% else %}All buildings{% endif %}</option>
                     {% for building in buildings %}
                     <option value="{{ building.key }}" {% if selected_building == building.key %}selected{% endif %}>{% if not selected_campus and building.campus_key %}{{ building.campus_key }} - {% endif %}{{ building.label }}</option>
                     {% endfor %}
@@ -1002,6 +999,7 @@
         </form>
     </section>
 
+    {% if not revision_popup %}{% include 'workspace/utilization_overview.html' %}{% endif %}
     {% include 'workspace/classroom_selection.html' %}
     {% endif %}
     {% if show_schedule %}
@@ -1018,13 +1016,14 @@
             <div class="cu-panel-actions">
                 {% if not maintenance_picker %}
                 <a class="cu-button cu-button-primary" href="{{ back_to_classrooms_url }}" data-cm-exit{% if timetable_popup %} data-timetable-back{% endif %}>Back to Classrooms</a>
-                <a class="cu-button cu-button-secondary" href="{{ export_url }}"><i class="bx bx-download"></i> Download Excel</a>
+                <a class="cu-button cu-button-secondary" href="{{ export_url }}" id="cuExport"><i class="bx bx-download"></i> Download Excel</a>
                 {% if booking_role == 'ADMIN' and selected_room_key %}
                 {% include 'workspace/maintenance_start_button.html' %}
                 {% endif %}
                 {% endif %}
             </div>
         </div>
+        <p id="cuExportError" class="cu-calendar-missing" role="alert" hidden>The timetable download failed. Please try again.</p>
         {% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %}{% include 'workspace/maintenance_selection_bar.html' %}{% endif %}
         {% if timetable_popup and data_error %}<p class="cu-calendar-missing" role="alert">{{ data_error }}</p>{% endif %}
         <nav class="cu-week-nav" aria-label="Weekly timetable navigation"><a href="{{ previous_week_url }}">&larr; Previous Week</a><a href="{{ current_week_url }}">Current Week</a><a href="{{ next_week_url }}">Next Week &rarr;</a></nav>
@@ -1210,12 +1209,11 @@
 {% endif %}
 </main>
 {% if booking_role == 'ADMIN' and not maintenance_picker %}{% include 'workspace/maintenance_planner.html' %}{% endif %}
-<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-24">
+<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-26">
 
 {% if not timetable_popup and not revision_popup and classroom_cards and not selected_classroom %}
 <dialog class="cu-timetable-modal" id="cuTimetableModal" aria-label="Weekly Timetable">
     <button class="cu-timetable-close" type="button" aria-label="Close weekly timetable" autofocus>&times;</button>
-    <p class="cu-timetable-loading" role="status" hidden>Loading weekly timetable…</p>
     <iframe title="Weekly Timetable"></iframe>
 </dialog>
 {% endif %}
@@ -1230,10 +1228,40 @@
 <form id="cuCsrfForm" hidden>{% csrf_token %}</form>
 {{ booking_room_catalog_json|json_script:"cuBookingRoomCatalog" }}
 
-<script src="{% static 'js/classroom_booking.js' %}?v=revision-9"></script>
-<script src="{% static 'js/booking_live.js' %}"></script>
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script>
+<script src="{% static 'js/booking_live.js' %}?v=2"></script>
 <script>
 (function () {
+    const filterForm = document.getElementById('cuFilterForm');
+    const reloadSchedule = () => BookingLoading.navigate(() => location.reload());
+    document.getElementById('cuExport')?.addEventListener('click', async event => {
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        const error = document.getElementById('cuExportError');
+        error.hidden = true;
+        try {
+            const file = await BookingLoading.run(async () => {
+                const response = await fetch(event.currentTarget.href);
+                if (response.redirected) return {redirect: response.url};
+                if (!response.ok) throw new Error('Timetable export failed.');
+                const name = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1];
+                return {blob: await response.blob(), name};
+            });
+            if (file.redirect) {
+                BookingLoading.navigate(() => location.assign(file.redirect));
+                return;
+            }
+            const url = URL.createObjectURL(file.blob);
+            const download = document.createElement('a');
+            download.href = url;
+            download.download = file.name || 'class-utilization-timetable.csv';
+            download.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch {
+            error.hidden = false;
+        }
+    });
+
     const classroomSearch = document.querySelector('[data-classroom-search]');
     if (classroomSearch) {
         const cards = [...document.querySelectorAll('[data-classroom-match]')];
@@ -1256,20 +1284,16 @@
             for (const field of ['campus', 'building', 'floor', 'room']) params.set(field, '');
         }
         if (filterForm.elements.revision_popup) params.set('revision_popup', '1');
-        window.location.assign(window.location.pathname + (params.size ? '?' + params : ''));
+        BookingLoading.navigate(() => location.assign(location.pathname + (params.size ? '?' + params : '')));
     });
 
-    const filterForm = document.getElementById('cuFilterForm');
     const timetableModal = document.getElementById('cuTimetableModal');
     if (timetableModal) {
         const frame = timetableModal.querySelector('iframe');
-        const loading = timetableModal.querySelector('[role="status"]');
-        let classroomLink, timetableRoomKey;
+        let classroomLink, timetableRoomKey, stopLoading;
         timetableModal.querySelector('button').addEventListener('click', () => timetableModal.close());
-        frame.addEventListener('load', () => {
-            if (frame.contentDocument?.URL !== 'about:blank') loading.hidden = true;
-        });
         timetableModal.addEventListener('close', () => {
+            stopLoading?.();
             if (timetableRoomKey) {
                 try { sessionStorage.removeItem('maintenance-selection:' + timetableRoomKey); }
                 catch { /* Storage is optional. */ }
@@ -1286,16 +1310,14 @@
                 timetableRoomKey = url.searchParams.get('room');
                 url.searchParams.set('timetable_popup', '1');
                 frame.title = `Weekly Timetable — ${link.querySelector('strong').textContent}`;
-                loading.hidden = false;
                 timetableModal.showModal();
-                frame.src = url.href;
+                stopLoading = BookingLoading.loadFrame(frame, url.href);
             });
         });
     }
 
     const enclosingModal = window.frameElement?.closest('#cuTimetableModal');
     if (enclosingModal) {
-        enclosingModal.querySelector('[role="status"]').hidden = true;
         document.querySelector('[data-timetable-back]')?.addEventListener('click', event => {
             event.preventDefault();
             enclosingModal.close();
@@ -1323,6 +1345,7 @@
     const buildingSelect = document.getElementById('cuBuilding');
     if (campusSelect && buildingSelect) {
         const buildings = JSON.parse(document.getElementById('cuBuildingOptions').textContent);
+        const buildingPlaceholder = buildingSelect.options[0].text;
         let validationStarted = false;
         const validateRequiredFields = () => {
             for (const field of [campusSelect, buildingSelect]) {
@@ -1355,7 +1378,7 @@
             const campus = campusSelect.value;
             const previousBuilding = buildingSelect.value;
             const options = buildings.filter(building => !campus || building.campus_key === campus);
-            buildingSelect.replaceChildren(new Option('Select building', ''),
+            buildingSelect.replaceChildren(new Option(buildingPlaceholder, ''),
                 ...options.map(building => new Option(!campus && building.campus_key
                     ? `${building.campus_key} - ${building.label}` : building.label, building.key)));
             if (options.some(building => building.key === previousBuilding)) {
@@ -1363,20 +1386,26 @@
             }
             clearRoom();
             validateRequiredFields();
+            if (!campusSelect.required) filterForm.requestSubmit();
         });
         buildingSelect.addEventListener('change', () => {
             clearRoom();
             validateRequiredFields();
+            if (!buildingSelect.required) filterForm.requestSubmit();
         });
+        if (!campusSelect.required) {
+            document.getElementById('cuDate').addEventListener('change', () => filterForm.requestSubmit());
+        }
     }
-    document.getElementById('cuSchedulePeriod')?.addEventListener('change', () => filterForm.submit());
+    const submitScheduleOptions = () => BookingLoading.navigate(() => filterForm.submit());
+    document.getElementById('cuSchedulePeriod')?.addEventListener('change', submitScheduleOptions);
 
     // Weekend toggle switch (Ask user on top of timetable)
     const weekendToggle = document.getElementById('cuToggleWeekends');
     if (weekendToggle) {
         weekendToggle.addEventListener('change', function () {
             document.getElementById('cuIncludeWeekendsHidden').value = this.checked ? '1' : '0';
-            filterForm.submit();
+            submitScheduleOptions();
         });
     }
 
@@ -1438,16 +1467,16 @@
             await bookingDialogsReady;
             const ds=el.dataset,indexes=JSON.parse(ds.freeRoomIndexes||'[]');
             const eligible=indexes.map(i=>roomCatalog[i]).filter(Boolean);
-            if(revisionContext){ClassroomBooking.open({rooms:eligible,initial:{...revisionContext.fields,room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start},role:'TEACHER',mode:'edit',respond:true,extended:true,selectOnly:true,bookingId:revisionContext.booking_id,revision:revisionContext.revision,revisionToken:revisionContext.token,submitUrl:"{% url 'booking_revision_select' %}",availabilityUrl:"{% url 'classroom_availability' %}",onBackToForm:revisionFrame&&containingDialog?()=>containingDialog.close():null,onSelection:async result=>{const selected=result.selection;revisionContext.selection=selected;revisionContext.fields={...revisionContext.fields,...selected};if(revisionFrame){revisionFrame.dispatchEvent(new CustomEvent('revision-slot-selected',{detail:selected}));return;}const response=await Swal.fire({icon:'success',title:'Replacement slot selected',text:selected.room_name+' / '+selected.booking_date+' / '+selected.from_time+' - '+selected.to_time+'. Return to Booking Revision to review and resubmit.',confirmButtonText:'Back to Your Form',showCancelButton:true,cancelButtonText:'Stay on timetable',buttonsStyling:false,customClass:{actions:'cu-revision-selection-actions',confirmButton:'cu-button cu-button-primary',cancelButton:'cu-button cu-button-secondary'}});if(response.isConfirmed)(enclosingModal ? window.parent : window).location.assign(result.return_url);else window.location.reload();}});return;}
+            if(revisionContext){ClassroomBooking.open({rooms:eligible,initial:{...revisionContext.fields,room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start},role:'TEACHER',mode:'edit',respond:true,extended:true,selectOnly:true,bookingId:revisionContext.booking_id,revision:revisionContext.revision,revisionToken:revisionContext.token,submitUrl:"{% url 'booking_revision_select' %}",availabilityUrl:"{% url 'classroom_availability' %}",onBackToForm:revisionFrame&&containingDialog?()=>containingDialog.close():null,onSelection:async result=>{const selected=result.selection;revisionContext.selection=selected;revisionContext.fields={...revisionContext.fields,...selected};if(revisionFrame){revisionFrame.dispatchEvent(new CustomEvent('revision-slot-selected',{detail:selected}));return;}const response=await Swal.fire({icon:'success',title:'Replacement slot selected',text:selected.room_name+' / '+selected.booking_date+' / '+selected.from_time+' - '+selected.to_time+'. Return to Booking Revision to review and resubmit.',confirmButtonText:'Back to Your Form',showCancelButton:true,cancelButtonText:'Stay on timetable',buttonsStyling:false,customClass:{actions:'cu-revision-selection-actions',confirmButton:'cu-button cu-button-primary',cancelButton:'cu-button cu-button-secondary'}});if(response.isConfirmed){const target=enclosingModal ? window.parent : window;target.BookingLoading.navigate(()=>target.location.assign(result.return_url));}else reloadSchedule();}});return;}
             ClassroomBooking.open({rooms:eligible,initial:{room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start,duration_hours:1},
                 role:'{{ booking_role|escapejs }}',subjectCode:'{{ request.user.teaching_subject_code|escapejs }}',subjectName:'{{ request.user.teaching_subject_name|escapejs }}',
-                submitUrl:"{% url 'book_classroom' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:()=>location.reload()});
+                submitUrl:"{% url 'book_classroom' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:reloadSchedule});
         });
     });
-    ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:()=>location.reload()});
+    ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:reloadSchedule});
 })();
 </script>
 <link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
-<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-9">
-<link rel="stylesheet" href="{% static 'user/css/classroom_weekly.css' %}?v=weekly-25">
+<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-10">
+<link rel="stylesheet" href="{% static 'user/css/classroom_weekly.css' %}?v=weekly-27">
 {% endblock %}

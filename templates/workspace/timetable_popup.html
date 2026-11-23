@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="{% static 'user/css/typography.css' %}">
     <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.5/dist/sweetalert2.all.min.js"></script>
 </head>
-<body class="classroom-workspace">
+<body class="classroom-workspace" data-booking-paths="{% url 'class_utilization' %}">
+    {% include 'workspace/loading_indicator.html' %}
     {% block body %}{% endblock %}
 </body>
 </html>

@@ -1,66 +1,155 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static l10n %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/booking_dashboard.css' %}?v=crossfilter-15">
-<link rel="stylesheet" href="{% static 'user/css/utilization_charts.css' %}?v=utilization-2">
-<main class="ba-crossfilter" id="booking-analytics" data-start="{{ start }}" data-end="{{ end }}">
-  <header class="ba-header">
-    <div><h1>Booking Analytics</h1><p>Insights into room bookings, usage patterns and demand.</p></div>
-    <div class="ba-header-actions"><button type="button" id="ba-export">Export CSV</button><button type="button" id="ba-refresh">Refresh</button></div>
-  </header>
-    <section class="ba-utilization-section" aria-label="Classroom utilization">
-      <form method="get" id="ba-utilization-filters" class="ba-dates" aria-label="Analytics filters">
-        <label>From<input type="date" name="start" value="{{ start }}" required></label>
-        <label>To<input type="date" name="end" value="{{ end }}" required></label>
-        <label>Campus<select name="util_campus" id="ba-util-campus"><option value="">All campuses</option>{% for value in util_options.campuses %}<option value="{{ value }}" {% if util_filters.campus == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
-        <label>Building<select name="util_building" id="ba-util-building"><option value="">All buildings</option>{% for value in util_options.buildings %}<option value="{{ value }}" {% if util_filters.building == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
-        <label>Classroom<select name="util_room" id="ba-util-room"><option value="">All rooms</option>{% for room in util_options.classrooms %}<option value="{{ room.key }}" {% if util_filters.room == room.key or util_filters.room == room.room_code %}selected{% endif %}>{{ room.room_name }} ({{ room.room_code }}) &middot; {{ room.building }}</option>{% endfor %}</select></label>
-        <label>Booking status<select name="status" id="ba-status"><option value="">All statuses</option>{% for value, label in booking_statuses %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-        <label>Booking source<select name="source" id="ba-source"><option value="">All sources</option>{% for value, label in booking_sources %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-        <div class="ba-filter-actions"><button type="submit">Apply Filters</button><a href="{% url 'booking_analytics' %}">Reset</a></div>
-      </form>
-  <section id="ba-cards" class="ba-kpis" aria-label="Booking totals"></section>
-      <div id="ba-chips" aria-live="polite" hidden></div>
-      {% if utilization_error %}<div class="ba-error" role="status">{{ utilization_error }}</div>{% else %}{% include 'workspace/utilization_charts.html' %}{% endif %}
-    </section>
-  {% if util_filters.room and design_summary.daily %}
-  <section class="ba-room-insights" aria-label="Classroom occupancy trends">
-    <div class="ba-panel-header"><h2>Classroom Usage Over Time</h2><label>Group by <select id="ba-room-group"><option value="day">Day</option><option value="week">Week</option></select></label></div>
-    <div id="ba-room-chart-grid">
-      <article class="ba-panel"><h3>Occupied and Unoccupied Hours</h3><div class="ba-canvas"><canvas id="ba-room-usage-chart" role="img" aria-label="Occupied and unoccupied classroom hours"></canvas></div></article>
-      <article class="ba-panel"><h3>Longest Unoccupied Window</h3><div class="ba-canvas"><canvas id="ba-room-window-chart" role="img" aria-label="Longest continuous unoccupied classroom window"></canvas></div><label class="ba-room-window-control">Inspect <select id="ba-room-window-period"></select></label><p class="ba-chart-summary" id="ba-room-window-detail" aria-live="polite"></p></article>
+<link rel="stylesheet" href="{% static 'user/css/booking_dashboard.css' %}?v=snapshot-32">
+<main class="booking-snapshot" id="booking-analytics">
+  <div class="bs-header">
+    <div>
+      <h1>Booking Analytics</h1>
+      <p>Analyze classroom bookings and usage across campuses and buildings.</p>
     </div>
-    {{ design_summary.daily|json_script:"ba-room-daily" }}
-  </section>
-  {% endif %}
-  {% if data_error %}<div class="ba-error" role="alert">{{ data_error }}</div>{% endif %}
-  <div id="ba-chart-error" class="ba-error" role="alert" hidden>Charts could not load. Check your connection, then refresh. Filters and booking tables remain available.</div>
-  <p id="ba-no-bookings" class="ba-panel" role="status" hidden>No booking requests match the selected filters. The occupancy charts include scheduled classes and confirmed bookings.</p>
-  <nav id="ba-tabs" class="ba-tabs" role="tablist" aria-label="Analytics sections">
-    <button type="button" role="tab" data-tab="overview" id="ba-tab-overview" aria-controls="ba-overview" aria-selected="true">Overview</button>
-  </nav>
-  <section id="ba-overview" class="ba-overview" role="tabpanel" aria-labelledby="ba-tab-overview">
-    <article class="ba-panel ba-trend"><div class="ba-panel-header"><h2>Bookings Trend</h2><label>View<select id="ba-trend-style"><option value="line">Area trend</option><option value="bar">Columns + trend</option></select></label><label>Group by<select id="ba-group"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label></div><div class="ba-canvas"><canvas id="ba-trend-chart" role="img" aria-label="Booking requests over time"></canvas></div><p class="ba-chart-summary" id="ba-trend-summary"></p></article>
-    <article class="ba-panel ba-status"><h2>Booking Status</h2><div class="ba-canvas"><canvas id="ba-status-chart" role="img" aria-label="Requests by booking status"></canvas></div><div id="ba-status-legend" class="ba-legend" aria-label="Filter booking statuses"></div></article>
-    <article class="ba-panel ba-department" data-overview-only>
-      <h2>Booking Demand by Department</h2>
-      <p class="ba-chart-description">Uses the requester’s department. Select a department to filter the booking charts and table.</p>
-      <div class="ba-canvas" id="ba-department-plot"><canvas id="ba-department-chart" role="img" aria-label="Confirmed and other requests by requester department"></canvas></div>
-      <p class="ba-chart-summary" id="ba-department-summary" hidden></p>
-      <div id="ba-department-legend" class="ba-legend" aria-label="Filter departments"></div>
-    </article>
-    <article class="ba-panel ba-weekday" data-overview-only><h2>Booking Source by Weekday</h2><div class="ba-canvas"><canvas id="ba-weekday-chart" role="img" aria-label="Faculty requests and admin direct bookings by weekday"></canvas></div><div id="ba-source-legend" class="ba-legend" aria-label="Filter booking sources"></div><div id="ba-weekday-buttons" class="ba-legend" aria-label="Filter weekdays"></div></article>
-    <article class="ba-panel ba-demand"><h2>Hourly Booking Demand</h2><div class="ba-canvas"><canvas id="ba-demand-chart" role="img" aria-label="Bookings by start hour and confirmation status"></canvas></div></article>
-    <article class="ba-panel ba-duration"><h2>Booking Duration</h2><div class="ba-canvas"><canvas id="ba-duration-chart" role="img" aria-label="Booking counts by duration in hours"></canvas></div></article>
-    <article class="ba-panel ba-funnel" data-overview-only><h2>Request Funnel</h2><div id="ba-funnel"></div><p class="ba-footnote">Completed means a confirmed reservation whose scheduled end has passed; attendance is not tracked. Rejected and cancelled requests reach Reviewed, not Confirmed.</p></article>
-    <article class="ba-panel ba-rooms" data-overview-only><h2>Top Classrooms by Requests</h2><div class="ba-table-scroll"><table><thead><tr><th scope="col">Classroom</th><th scope="col">Campus / Building</th><th scope="col">Requests</th></tr></thead><tbody id="ba-top-rooms"></tbody></table></div></article>
+    {% if download_url %}<a class="bs-secondary" id="bs-download" href="{{ download_url }}" download="booking-analytics.xlsx">Download Excel</a>{% endif %}
+  </div>
+  <p class="bs-card bs-notice" id="bs-download-error" role="alert" hidden>Excel download failed. Please try again.</p>
 
-    <article class="ba-panel ba-recent"><h2 id="ba-recent-heading">Recent bookings (0)</h2><p class="ba-footnote">Newest first. Showing up to 50 bookings.</p><div class="ba-table-scroll ba-recent-scroll"><table><thead><tr><th scope="col">ID</th><th scope="col">Date</th><th scope="col">Time</th><th scope="col">Room</th><th scope="col">Room type</th><th scope="col">Department</th><th scope="col">Faculty</th><th scope="col">Status</th></tr></thead><tbody id="ba-recent-rows"></tbody></table></div></article>
-  </section>
-  <dialog id="ba-metric-dialog" aria-labelledby="ba-metric-title"><h2 id="ba-metric-title"></h2><p id="ba-metric-description"></p><div id="ba-metric-content"></div><form method="dialog"><button type="submit">Close</button></form></dialog>
-  {{ bookings|json_script:"bookings-data" }}
-  {{ util_options|json_script:"ba-util-options" }}
+  <form class="bs-card bs-filters" method="get" action="{% url 'booking_analytics' %}" aria-label="Dashboard filters">
+    <label>Campus<select name="util_campus" id="bs-campus">
+      <option value="">All campuses</option>
+      {% for campus in campuses %}<option value="{{ campus }}"{% if campus == filters.campus %} selected{% endif %}>{{ campus }}</option>{% endfor %}
+    </select></label>
+    <label>Building<select name="util_building" id="bs-building">
+      <option value="">All buildings</option>
+      {% for building in buildings %}<option value="{{ building }}"{% if building == filters.building %} selected{% endif %}>{{ building }}</option>{% endfor %}
+    </select></label>
+    <label>From<input type="date" name="start" value="{{ start }}" required></label>
+    <label>To<input type="date" name="end" value="{{ end }}" required></label>
+    <div class="bs-actions"><button type="submit">Apply filters</button><a href="{% url 'booking_analytics' %}">Reset</a></div>
+  </form>
+
+  {% if error %}
+    <p class="bs-card bs-notice" role="alert">{{ error }}</p>
+  {% else %}
+    {% if catalog_unavailable %}<p class="bs-card bs-notice" role="status">The room catalogue is unavailable. Booking totals are still shown.</p>{% endif %}
+    {% if missing_terms %}<p class="bs-card bs-notice" role="status">Some timetable data is missing. Reported use may be lower than actual use.</p>{% endif %}
+
+    <section aria-label="Booking metrics">
+      <div class="bs-kpis">
+        {% for kpi in kpis %}
+        <button type="button" class="bs-card bs-kpi" data-kpi-details="bs-kpi-details-{{ forloop.counter }}" aria-haspopup="dialog">
+          <span class="bs-kpi-heading"><span class="bs-kpi-label">{{ kpi.label }}</span><i class="bx {{ kpi.icon }}" aria-hidden="true"></i></span>
+          <strong>{{ kpi.value }}</strong>
+          <span class="bs-kpi-note">{{ kpi.note }}</span>
+          {% if kpi.meter != None and kpi.meter_label %}<meter min="0" max="100" value="{{ kpi.meter|unlocalize }}" aria-label="{{ kpi.meter_label }}">{{ kpi.meter }}%</meter>{% endif %}
+          <span class="bs-kpi-footer">
+            {% if kpi.trend %}<span class="bs-delta" data-direction="{{ kpi.trend.direction }}">{{ kpi.trend.text }}</span>{% endif %}
+            <span class="bs-kpi-details">Details <i class="bx bx-chevron-right" aria-hidden="true"></i></span>
+          </span>
+        </button>
+        <template id="bs-kpi-details-{{ forloop.counter }}" data-title="{{ kpi.label }}">
+          <p>{{ scope }} · {{ start }} to {{ end }}</p>
+          {% if kpi.campus_directory %}
+          {% include 'workspace/booking_campus_directory.html' %}
+          {% else %}
+          <p class="bs-dialog-value"><strong>{{ kpi.value }}</strong> <span>{{ kpi.note }}</span></p>
+          {% if kpi.classroom_directory %}
+          {% include 'workspace/booking_classroom_directory.html' %}
+          {% endif %}
+          {% endif %}
+        </template>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if campus_utilization %}
+    <div class="bs-chart-row">
+    <section class="bs-card bs-campus-chart" aria-labelledby="bs-campus-chart-title">
+      <h2 id="bs-campus-chart-title">Average Utilization by Campus</h2>
+      {% if filters.campus %}
+      <p>Showing {{ filters.campus }} for the selected dates.</p>
+      {% else %}
+      <p>Select a campus to view its utilization details.</p>
+      {% endif %}
+      {% if campus_utilization_incomplete %}<p>Some timetable data is missing. Percentages may be lower than actual use.</p>{% endif %}
+      <div class="bs-campus-plot">
+        <div class="bs-campus-axis" aria-hidden="true">
+          <span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span>
+        </div>
+        <ul>
+          {% for campus in campus_utilization %}
+          <li>
+            <a class="bs-campus-bar" href="{{ campus.url }}" data-chart-details="{{ campus.name }} · {% if campus.rate != None %}{{ campus.rate|floatformat:"-1" }}% utilization{% else %}Utilization unavailable{% endif %} · {{ campus.room_count }} classroom{{ campus.room_count|pluralize }}"{% if campus.name == filters.campus %} aria-current="true"{% endif %}>
+              <span class="bs-campus-column" style="--campus-rate:{{ campus.rate|default_if_none:0|unlocalize }}%">
+                <span class="bs-campus-value">{% if campus.rate != None %}{{ campus.rate|floatformat:"-1" }}%{% else %}Unavailable{% endif %}</span>
+                {% if campus.rate != None %}<span class="bs-campus-fill" aria-hidden="true"></span>{% endif %}
+              </span>
+              <strong>{{ campus.name }}</strong>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+    <section class="bs-card bs-campus-buildings" aria-labelledby="bs-campus-buildings-title">
+      <div class="bs-campus-buildings-header">
+        <h2 id="bs-campus-buildings-title">Building Utilization</h2>
+        <form method="get" action="{% url 'booking_analytics' %}" id="bs-building-campus-filter">
+          <input type="hidden" name="start" value="{{ start }}">
+          <input type="hidden" name="end" value="{{ end }}">
+          <select name="util_campus" aria-label="Filter building utilization by campus">
+            <option value="">All campuses</option>
+            {% for campus in campuses %}
+            <option value="{{ campus }}"{% if campus == filters.campus %} selected{% endif %}>{{ campus }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button type="submit">Apply</button></noscript>
+        </form>
+      </div>
+      {% if selected_campus_buildings %}
+        <ul>
+          {% for building in selected_campus_buildings %}
+          <li>
+            <span>{{ building.name }}{% if not filters.campus %} <small>· {{ building.campus }}</small>{% endif %}</span>
+            <strong>{% if building.utilization != None %}{{ building.utilization|floatformat:"-1" }}%{% else %}Unavailable{% endif %}</strong>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No buildings match the selected filters.</p>
+      {% endif %}
+    </section>
+    </div>
+    {% endif %}
+    <section class="bs-room-chart" aria-labelledby="bs-room-chart-title">
+      <div class="bs-card bs-room-ranking-card">
+        <h2 id="bs-room-chart-title">Classroom Utilization</h2>
+        <div class="bs-chart-row">
+          {% for kind, title in room_utilization_charts|slice:":2" %}
+          {% include 'workspace/booking_room_chart.html' %}
+          {% endfor %}
+        </div>
+      </div>
+      <div class="bs-card bs-room-ranking-card">
+        <h2>Classroom Utilization by Timetable Status</h2>
+        <div class="bs-chart-row">
+          {% for kind, title in room_utilization_charts|slice:"2:" %}
+          {% include 'workspace/booking_room_chart.html' %}
+          {% endfor %}
+        </div>
+      </div>
+      {{ room_chart_data|json_script:"bs-room-chart-data" }}
+    </section>
+    {% include 'workspace/booking_maintenance_card.html' %}
+    <dialog class="bs-card bs-dialog" id="bs-kpi-dialog" aria-labelledby="bs-kpi-dialog-title">
+      <div class="bs-section-heading bs-dialog-header">
+        <h2 id="bs-kpi-dialog-title"></h2>
+        <form method="dialog"><button type="submit" class="bs-dialog-close" aria-label="Close" autofocus>×</button></form>
+      </div>
+      <div id="bs-kpi-dialog-content"></div>
+      <p id="bs-dialog-download-error" role="alert" hidden>Excel download failed. Please try again.</p>
+    </dialog>
+
+  {% endif %}
+  {{ building_options|json_script:"bs-building-data" }}
 </main>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
-<script src="{% static 'js/booking_analytics.js' %}?v=crossfilter-14"></script>
+<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-27" defer></script>
 {% endblock %}

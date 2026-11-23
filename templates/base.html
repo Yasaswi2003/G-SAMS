@@ -105,7 +105,10 @@
       width: 100%;
       height:100%;
       display: none;
-      background: rgba(0,0,0,0.6);
+      background: transparent;
+    }
+    .modal-backdrop, .swal2-container.swal2-backdrop-show, .swal2-container.swal2-backdrop-hide {
+      background: transparent !important;
     }
     .cv-spinner {
       height: 100%;
@@ -231,7 +234,8 @@
 		<span class="spinner"></span>
 	</div>
 </div>
-  <body id="page-top"{% if request.resolver_match.url_name == 'class_utilization' or request.resolver_match.url_name == 'classroom_requests' or request.resolver_match.url_name == 'booking_analytics' %} class="classroom-workspace"{% endif %}>
+  <body id="page-top" data-booking-paths="{% url 'class_utilization' %} {% url 'classroom_requests' %} {% url 'booking_analytics' %} {% url 'classroom_maintenance' %} {% url 'booking_activity' %}"{% if request.resolver_match.url_name == 'class_utilization' or request.resolver_match.url_name == 'classroom_requests' or request.resolver_match.url_name == 'booking_analytics' %} class="classroom-workspace"{% endif %}>
+    {% include 'workspace/loading_indicator.html' %}
     <div id="wrapper">
       <!-- sider bar -->
       <div class="sidebar-bg"></div>
@@ -365,7 +369,7 @@
             <li class="sidebar-divider" aria-hidden="true"></li>
             {% with page_name=request.resolver_match.url_name %}
             <li class="admin-booking-group">
-                <details class="admin-booking-disclosure"{% if page_name == 'class_utilization' or page_name == 'classroom_requests' %} open{% endif %}>
+                <details class="admin-booking-disclosure"{% if page_name == 'class_utilization' or page_name == 'classroom_requests' or page_name == 'classroom_maintenance' %} open{% endif %}>
                     <summary class="admin-booking-heading" aria-label="Toggle Booking Analytics pages">
                         <a href="{% url 'booking_analytics' %}" aria-label="Booking Analytics"><i class="bx bx-bar-chart-alt-2"></i><span class="link_name">Booking<br>Analytics</span></a>
                         <i class="bx bx-chevron-down admin-booking-chevron" aria-hidden="true"></i>
@@ -373,6 +377,7 @@
                     <ul class="admin-booking-children" aria-label="Booking Analytics pages">
                         <li><a href="{% url 'class_utilization' %}" {% if page_name == 'class_utilization' %}aria-current="page"{% endif %}><i class="bx bx-calendar"></i><span class="link_name">Class Utilization</span></a></li>
                         <li><a href="{% url 'classroom_requests' %}" {% if page_name == 'classroom_requests' %}aria-current="page"{% endif %}><i class="bx bx-task"></i><span class="link_name">Classroom Requests</span></a></li>
+                        <li><a href="{% url 'classroom_maintenance' %}" {% if page_name == 'classroom_maintenance' %}aria-current="page"{% endif %}><i class="bx bx-wrench"></i><span class="link_name">Manage Maintenance</span></a></li>
                     </ul>
                 </details>
             </li>
@@ -410,7 +415,7 @@
 .sidebar .admin-booking-heading{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;padding-right:12px}
 .sidebar .admin-booking-heading::-webkit-details-marker{display:none}
 .sidebar .admin-booking-heading>a{flex:none;width:max-content;margin-right:0!important;padding-right:0!important}
-.sidebar .admin-booking-heading:focus-visible{outline:2px solid #007367}
+.sidebar .admin-booking-heading:focus-visible{outline:2px solid #595959}
 .sidebar .admin-booking-heading .admin-booking-chevron{min-width:24px;height:26px;line-height:26px;font-size:20px}
 .sidebar .admin-booking-disclosure[open] .admin-booking-chevron{transform:rotate(180deg)}
 .sidebar .nav-links .admin-booking-children{padding:0 0 5px 15px;margin:0 0 0 27px;list-style:none;border-left:1px solid #cce1db}

@@ -1,0 +1,10 @@
+<section class="bs-room-chart-panel" data-room-chart-kind="{{ kind }}" aria-labelledby="bs-room-chart-{{ kind }}">
+  <h3 id="bs-room-chart-{{ kind }}">{{ title }}</h3>
+  <p data-room-chart-status role="status"></p>
+  <div class="bs-vertical-chart" data-room-chart-plot hidden>
+    <div class="bs-vertical-axis" aria-hidden="true"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
+    <div class="bs-vertical-scroll" tabindex="0" role="region" aria-label="{{ title }} bars">
+      <ul data-room-chart-results></ul>
+    </div>
+  </div>
+</section>

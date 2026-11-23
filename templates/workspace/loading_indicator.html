@@ -1,0 +1,10 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'user/css/booking_loading.css' %}?v=2">
+<div id="booking-loading" popover="manual" hidden>
+    <span class="booking-loading-mark" aria-hidden="true">
+        <span class="booking-loading-ring"></span>
+        <span class="booking-loading-letter">G</span>
+    </span>
+    <span class="booking-loading-status" role="status"></span>
+</div>
+<script src="{% static 'js/booking_loading.js' %}"></script>
