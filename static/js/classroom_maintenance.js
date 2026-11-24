@@ -76,6 +76,11 @@
     details.append(node('summary',label),body);
     return details;
   }
+  function classroomSummary(label) {
+    const rooms=String(label||'').split(',').map(item=>item.trim()).filter(Boolean);
+    if(rooms.length<=8)return label||'—';
+    return expandable('View '+rooms.length+' classrooms',node('p',rooms.join(', ')));
+  }
   function dateRange(first,last) {
     const days=[];
     const cursor=new Date(first+'T12:00:00Z'), end=new Date(last+'T12:00:00Z');
@@ -132,7 +137,8 @@
         const ranges=node('ul');ranges.className='cm-schedule-slots';
         for(const slot of slots)ranges.append(node('li',slot.start+'–'+slot.end));
         row.insertCell().append(ranges);
-        row.insertCell().textContent=roomLabel;
+        const classroomCell=row.insertCell(),summary=classroomSummary(roomLabel);
+        if(summary instanceof Node)classroomCell.append(summary);else classroomCell.textContent=summary;
       }
       wrap.append(table);
       if(compact){section.append(wrap);continue;}
@@ -151,7 +157,7 @@
       ['Scope',scopeLabel(target.scope)],['Campus / Building',target.campus+' / '+current.buildingLabel],
       ['Floor',current.floorLabel],
     ];
-    if(!current.record)targetDetails.push(['Selected Classrooms',current.roomLabel]);
+    if(!current.record)targetDetails.push(['Selected Classrooms',classroomSummary(current.roomLabel)]);
     $('cm-target').replaceChildren(rows(targetDetails));
     const windows=current.record?editScheduleWindows():current.allDay?boundedWindows():selections;
     if(current.record){
@@ -629,7 +635,7 @@
       for(const card of pickedCards.keys()){card.classList.remove('cm-card-chosen');card.parentElement.replaceWith(card);}
       pickedCards.clear();pickedSlots.clear();
       if(whole)whole.checked=false;
-      synchronize();start.closest('details').querySelector('summary').focus();
+      synchronize();start.focus();
     }
     for(const card of cards)card.addEventListener('click',event=>{
       if(!active)return;
@@ -655,7 +661,8 @@
     first?.addEventListener('change',()=>{last.min=first.value;if(last.value<first.value)last.value=first.value;synchronize();});
     last?.addEventListener('change',synchronize);
     start.addEventListener('click',()=>{
-      start.closest('details').open=false;
+      const menu=start.closest('details');
+      if(menu)menu.open=false;
       if(active)return;
       activate();
     });

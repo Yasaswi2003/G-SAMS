@@ -39,8 +39,8 @@
 .booking-snapshot .bs-secondary:hover { background:#f0faf8;border-color:#00786f; }
 @media(max-width:850px) { .booking-snapshot .bs-header h1 { font-size:25px!important; } }
 .bs-kpis { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr));gap:12px; }
-.bs-kpi { --tile-accent:#007367;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--tile-accent) 42%,#fff);font:inherit;color:inherit;text-align:left;cursor:pointer;transition:border-color .2s,box-shadow .2s; }
-.bs-kpi:hover { border-color:var(--tile-accent);box-shadow:0 4px 14px #00736721; }
+.bs-kpi { --tile-accent:#007367;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--tile-accent) 42%,#fff);font:inherit;color:inherit;text-align:left;cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .18s,background-color .18s; }
+.bs-kpi:is(:hover,:focus-visible) { border-color:var(--tile-accent);background-color:color-mix(in srgb,var(--tile-accent) 5%,#fff);box-shadow:0 10px 24px #173d3520;transform:translateY(-3px); }
 .bs-kpi::before { content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--tile-accent); }
 .bs-kpi:nth-of-type(2) { --tile-accent:#166534;background:linear-gradient(135deg,#f0fdf9,#e6f3ee); }
 .bs-kpi:nth-of-type(3) { --tile-accent:#475569; }
@@ -49,7 +49,9 @@
 .bs-kpi-heading,.bs-kpi-footer { display:flex;align-items:center;gap:6px;justify-content:space-between;width:100%; }
 .bs-kpi-heading i { display:grid;place-items:center;width:26px;height:26px;flex:0 0 26px;border-radius:7px;background:#00736710;color:var(--tile-accent);font-size:16px; }
 .bs-kpi-footer { margin-top:auto;padding-top:6px;flex-wrap:wrap; }
-.bs-kpi-details { display:inline-flex;align-items:center;margin-inline-start:auto;color:var(--bs-accent);font-size:11px;font-weight:650;white-space:nowrap; }
+.bs-kpi-details { display:inline-flex;align-items:center;margin-inline-start:auto;color:var(--bs-accent);font-size:11px;font-weight:650;white-space:nowrap;transition:transform .18s; }
+.bs-kpi:is(:hover,:focus-visible) .bs-kpi-details { transform:translateX(2px); }
+.bs-kpi:is(:hover,:focus-visible) .bs-kpi-heading i { background:var(--tile-accent);color:#fff; }
 .booking-snapshot .bs-kpi meter { height:5px;--bs-meter:var(--tile-accent); }
 .bs-kpi-label { color:var(--bs-muted);font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.06em; }
 .bs-kpi strong { color:var(--tile-accent); }
@@ -87,14 +89,15 @@
 .bs-campus-directory [hidden] { display:none; }
 .bs-delta { align-self:flex-start;display:inline-block;border-radius:20px;padding:3px 8px;background:#eff4f3;color:#3e5b55;font-size:11px;font-weight:650; }
 .bs-delta { margin-top:auto; }
-.bs-delta[data-direction="up"] { background:#e5f5ec;color:#22664a; }
-.bs-delta[data-direction="down"] { background:#fff1dc;color:#895214; }
+.bs-delta[data-direction="up"] { background:#e7f1f7;color:#285f7c; }
+.bs-delta[data-direction="down"] { background:#f0eef8;color:#624d83; }
 .booking-snapshot meter { appearance:none;width:100%;height:9px;display:block;background:none; }
 .booking-snapshot meter::-webkit-meter-bar { background:#e6efec;border:0;border-radius:8px; }
 .booking-snapshot meter::-webkit-meter-optimum-value { background:var(--bs-meter,var(--bs-accent));border-radius:8px; }
 .booking-snapshot meter::-moz-meter-bar { background:var(--bs-meter,var(--bs-accent));border-radius:8px; }
 .bs-chart-row { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px; }
 .bs-campus-chart p { margin-top:4px; }
+.booking-snapshot .bs-chart-hint { margin-top:6px;color:#647580;font-size:11px;line-height:1.45; }
 .bs-campus-plot { --plot-height:160px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;margin:24px 0 0; }
 .bs-campus-axis { display:flex;flex-direction:column;justify-content:space-between;height:var(--plot-height);text-align:right;color:var(--bs-muted);font-size:11px; }
 .bs-campus-axis span { line-height:0; }
@@ -129,40 +132,45 @@
 .bs-room-chart-panel[data-room-chart-kind="true"] { --room-bar:#3267ad; }
 .bs-room-chart-panel[data-room-chart-kind="false"] { --room-bar:#7853a0; }
 .booking-snapshot .bs-maintenance-charts > p { margin-top:6px; }
-.bs-maintenance-filters { display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px; }
-.bs-maintenance-filters button { display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#fff;color:var(--bs-ink);border:1px solid var(--bs-border);border-radius:7px;font:inherit;font-size:12px;cursor:pointer; }
-.bs-maintenance-filters button[aria-pressed="true"] { border-color:#595959;background:#f3f4f5; }
-.bs-maintenance-filters button[data-empty] { color:#606873; }
-.bs-maintenance-filters button[data-empty] > span { background:#a0a7af; }
-.bs-maintenance-filters button > span { width:9px;height:9px;border-radius:50%;background:var(--room-bar,#59636f); }
-.bs-maintenance-charts [data-maintenance-campus="BLR"] { --room-bar:#3267ad; }
-.bs-maintenance-charts [data-maintenance-campus="HYD"] { --room-bar:#ae591d; }
-.bs-maintenance-charts [data-maintenance-campus="VSP"] { --room-bar:#7853a0; }
+.bs-maintenance-charts { scroll-margin-top:80px; }
+.bs-maintenance-campuses { display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px; }
+.bs-maintenance-campuses button { padding:6px 10px;background:#fff;color:var(--bs-ink);border:1px solid var(--bs-border);border-radius:7px;font:inherit;font-size:12px;cursor:pointer; }
+.bs-maintenance-campuses button[aria-pressed="true"] { border-color:#595959;background:#f3f4f5;font-weight:650; }
+.bs-maintenance-charts [data-status="Ongoing"] { --maintenance-status:#16A34A;--maintenance-tint:#eaf8ef;--maintenance-text:#17623b; }
+.bs-maintenance-charts [data-status="Upcoming"] { --maintenance-status:#2563EB;--maintenance-tint:#eaf1ff;--maintenance-text:#204ba2; }
+.bs-maintenance-charts [data-status="Completed"] { --maintenance-status:#64748B;--maintenance-tint:#eef2f6;--maintenance-text:#475569; }
+.bs-maintenance-charts [data-status="Overdue"] { --maintenance-status:#DC2626;--maintenance-tint:#fff0f0;--maintenance-text:#9f2828; }
+.bs-maintenance-charts [data-type-colour="civil"] { --maintenance-type:#8B5CF6; }
+.bs-maintenance-charts [data-type-colour="electrical"] { --maintenance-type:#E89A24; }
+.bs-maintenance-charts [data-type-colour="plumbing"] { --maintenance-type:#0891B2; }
+.bs-maintenance-charts [data-type-colour="hvac"] { --maintenance-type:#0D9488; }
+.bs-maintenance-charts [data-type-colour="furniture"] { --maintenance-type:#C06A3D; }
+.bs-maintenance-charts [data-type-colour="other"] { --maintenance-type:#64748B; }
 .bs-maintenance-totals { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 18px; }
-.bs-maintenance-totals > div { padding:10px 12px;border:1px solid var(--bs-border);border-radius:9px; }
+.bs-maintenance-totals > div { padding:10px 12px;border:1px solid var(--bs-border);border-inline-start:3px solid var(--maintenance-status);border-radius:9px; }
 .bs-maintenance-totals dt { color:var(--bs-muted);font-size:12px; }
-.bs-maintenance-totals dd { margin:2px 0 0;font-size:21px;font-weight:650; }
-.bs-maintenance-totals .bs-maintenance-alert { border-color:#e8a5a5; }
-.bs-maintenance-alert dd { color:#9b2828; }
-.bs-maintenance-breakdown ul,.bs-maintenance-groups,.bs-maintenance-timeline ul { list-style:none;padding:0; }
+.bs-maintenance-totals dd { margin:2px 0 0;font-size:21px;font-weight:650;color:var(--maintenance-text); }
+.bs-maintenance-breakdown ul,.bs-maintenance-timeline ul { list-style:none;padding:0; }
 .booking-snapshot .bs-maintenance-breakdown ul { margin:8px 0 16px; }
-.bs-maintenance-breakdown li { display:grid;grid-template-columns:minmax(64px,1fr) minmax(60px,3fr) minmax(120px,2fr);align-items:center;gap:8px;padding:5px 0; }
+.bs-maintenance-breakdown li { display:grid;grid-template-columns:minmax(100px,1fr) minmax(60px,2fr) minmax(120px,3fr);align-items:center;gap:8px;padding:7px 0; }
+.bs-maintenance-breakdown small { display:block;color:var(--bs-muted); }
 .bs-maintenance-stack { display:flex;min-width:0;height:12px;border-radius:4px;background:#eef0f2;overflow:hidden; }
-.bs-maintenance-stack > span { background:var(--room-bar,#59636f);border-inline-end:1px solid #fff; }
-.bs-maintenance-stack [data-status="Upcoming"] { opacity:.55; }
-.bs-maintenance-stack [data-status="Ongoing"] { opacity:.8; }
-.bs-maintenance-counts { display:flex;flex-wrap:wrap;gap:4px; }
-.bs-maintenance-badge,.bs-maintenance-location { display:inline-block;padding:2px 7px;border-radius:6px;font-size:11px;font-weight:650;white-space:nowrap; }
-.bs-maintenance-location { color:var(--room-bar,#59636f);border:1px solid currentColor; }
-.bs-maintenance-badge[data-status="Ongoing"] { color:#774700;background:#fff1d5; }
-.bs-maintenance-badge[data-status="Upcoming"] { color:#235487;background:#e8f1ff; }
-.bs-maintenance-badge[data-status="Overdue"] { color:#9b2828;background:#ffe8e8; }
-.bs-maintenance-badge[data-status="Catalog-only"] { color:#505964;background:#eef0f2; }
-.booking-snapshot .bs-maintenance-groups { margin:0 0 16px; }
-.bs-maintenance-groups li { padding:4px 0;color:var(--bs-muted);overflow-wrap:anywhere; }
+.bs-maintenance-stack > span { background:var(--maintenance-status);border-inline-end:1px solid #fff; }
+.bs-maintenance-counts,.bs-maintenance-types { display:flex;flex-wrap:wrap;gap:4px 8px; }
+.bs-maintenance-pair { display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 5px;border:1px solid var(--bs-border);border-radius:6px; }
+.bs-maintenance-type { display:inline-flex;align-items:baseline;gap:5px;font-size:11px; }
+.bs-maintenance-type[data-type-colour]:not([data-type-colour=""])::before { content:"";width:7px;height:7px;flex:none;border-radius:50%;background:var(--maintenance-type); }
+.bs-maintenance-badge { display:inline-block;padding:2px 7px;border-radius:6px;font-size:11px;font-weight:650;white-space:nowrap;color:var(--maintenance-text,#475569);background:var(--maintenance-tint,#eef2f6); }
 .bs-maintenance-tools { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:12px 0 8px; }
 .bs-maintenance-tools button,.bs-maintenance-charts [data-maintenance-more] { padding:5px 9px;background:#fff;border:1px solid var(--bs-border);border-radius:6px;color:var(--bs-ink);font:inherit;font-size:12px;cursor:pointer; }
 .bs-maintenance-tools button[aria-pressed="true"] { border-color:#595959;background:#f3f4f5; }
+.bs-maintenance-details { margin-top:12px;border-top:1px solid var(--bs-border); }
+.bs-maintenance-details > summary { display:flex;align-items:center;justify-content:space-between;gap:8px 16px;padding:13px 2px 4px;cursor:pointer;list-style:none; }
+.bs-maintenance-details > summary::-webkit-details-marker { display:none; }
+.bs-maintenance-details > summary::before { content:"›";flex:none;color:var(--bs-accent);font-size:22px;line-height:1;transition:transform .15s; }
+.bs-maintenance-details[open] > summary::before { transform:rotate(90deg); }
+.bs-maintenance-details > summary span { flex:1;font-weight:650; }
+.bs-maintenance-details > summary small { color:var(--bs-muted);font-size:11px;font-weight:400;text-align:right; }
 .bs-maintenance-table { width:100%;border-collapse:collapse;text-align:left;font-size:12px; }
 .bs-maintenance-table :is(th,td) { padding:8px;border-bottom:1px solid var(--bs-border);vertical-align:top;overflow-wrap:anywhere; }
 .bs-maintenance-table th button { border:0;padding:0;background:none;color:inherit;font:inherit;font-weight:650;text-align:left;cursor:pointer; }
@@ -172,11 +180,11 @@
 .bs-maintenance-table td small,.bs-maintenance-timeline small { display:block;color:var(--bs-muted); }
 .bs-maintenance-charts [data-maintenance-more] { margin-top:12px; }
 .bs-maintenance-timeline { max-height:420px;overflow:auto; }
-.bs-maintenance-timeline-axis,.bs-maintenance-timeline li { display:grid;grid-template-columns:minmax(84px,1fr) minmax(0,4fr);align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bs-border); }
+.bs-maintenance-timeline-axis,.bs-maintenance-timeline li { display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,4fr);align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bs-border); }
 .bs-maintenance-timeline-axis { font-size:12px;color:var(--bs-muted); }
 .bs-maintenance-timeline-axis > div { display:flex;justify-content:space-between;gap:8px; }
 .bs-maintenance-track { position:relative;height:18px;border-radius:3px;background:repeating-linear-gradient(to right,#eef0f2 0,#eef0f2 calc(25% - 1px),#d5d9df calc(25% - 1px),#d5d9df 25%); }
-.bs-maintenance-track > span { position:absolute;inset-block:3px;min-width:2px;max-width:100%;background:var(--room-bar,#59636f);border-radius:2px; }
+.bs-maintenance-track > span { position:absolute;inset-block:3px;min-width:2px;max-width:100%;background:var(--maintenance-status);border-radius:2px; }
 .bs-maintenance-empty { padding:14px 0; }
 .bs-maintenance-empty i { margin-right:4px; }
 .bs-room-chart-panel h3 { color:var(--room-bar); }
@@ -195,6 +203,10 @@
 .bs-vertical-label small { display:block;color:var(--bs-muted);font-size:10px; }
 .bs-notice { color:var(--bs-muted); }
 @media(max-width:650px) { .booking-snapshot { gap:20px; } }
+@media(max-width:700px) {
+  .bs-maintenance-details > summary { align-items:flex-start;flex-wrap:wrap; }
+  .bs-maintenance-details > summary small { flex-basis:100%;padding-inline-start:30px;text-align:left; }
+}
 @media(max-width:760px) {
   .bs-chart-row { grid-template-columns:minmax(0,1fr); }
   .bs-room-ranking-card .bs-room-chart-panel + .bs-room-chart-panel { border-inline-start:0;border-top:1px solid var(--bs-border);padding-inline-start:0;padding-top:16px; }
@@ -209,5 +221,7 @@
   .bs-maintenance-table td { display:grid;grid-template-columns:minmax(84px,1fr) minmax(0,2fr);gap:8px;padding:4px 0;border:0; }
   .bs-maintenance-table td::before { content:attr(data-label);font-weight:650;color:var(--bs-muted); }
   .bs-maintenance-table td > small { grid-column:2; }
-  .bs-maintenance-table :is(.bs-maintenance-badge,.bs-maintenance-location) { justify-self:start; }
+  .bs-maintenance-table .bs-maintenance-badge { justify-self:start; }
 }
+
+.bs-maintenance-timeline .bs-maintenance-types { margin:4px 0; }

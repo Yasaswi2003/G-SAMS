@@ -1583,7 +1583,7 @@ class BookingWorkflowTests(TestCase):
             return result.json()['id']
         record_id=save(payload)
         active = self.client.get(reverse('classroom_maintenance'), {'status': 'active'})
-        self.assertEqual(active.context['records'][record_id]['status'], 'Active')
+        self.assertEqual(active.context['records'][record_id]['status'], 'Upcoming')
         self.assertContains(active, '<th>Rq ID</th>')
         self.assertContains(active, 'data-cm-finish="complete"')
         self.assertNotContains(active, 'data-cm-finish="cancel"')
@@ -1594,7 +1594,7 @@ class BookingWorkflowTests(TestCase):
         with patch('workspace.classroom_maintenance.local_now',return_value=current):
             self.assertTrue(maintenance_blocks(self.payload['room_key'],self.day,time(12),time(13)))
             active = self.client.get(reverse('classroom_maintenance'), {'status': 'active'})
-            self.assertEqual(active.context['records'][record_id]['status'], 'Active')
+            self.assertEqual(active.context['records'][record_id]['status'], 'Overdue')
         before_start = timezone.make_aware(datetime.combine(self.day,time(9)))
         with patch('workspace.classroom_maintenance.local_now',return_value=before_start):
             finish=reverse('finish_classroom_maintenance',args=[record_id])
@@ -1950,12 +1950,13 @@ class BookingWorkflowTests(TestCase):
         self.assertNotContains(dashboard, 'Classroom Utilization Heatmap')
         self.assertNotContains(dashboard, '<table')
 
-    def test_booking_snapshot_reports_open_maintenance_in_selected_rooms(self):
+    def test_booking_snapshot_reports_open_and_completed_maintenance(self):
         from .models import ClassroomMaintenance, ClassroomMaintenanceRoom, ClassroomMaintenanceWindow
+
         self.login('ADMIN')
         record = ClassroomMaintenance.objects.create(
             scope='room', campus='VSP', building_key='VSP|ICT', building_name='ICT Block',
-            start_date=self.day, end_date=self.day, duration='short',
+            start_date=self.day, end_date=self.day, duration='short', reasons=['Civil Maintenance'],
         )
         ClassroomMaintenanceRoom.objects.create(maintenance=record, room_key=self.payload['room_key'])
         ClassroomMaintenanceWindow.objects.create(
@@ -1964,57 +1965,76 @@ class BookingWorkflowTests(TestCase):
         params = {'start': self.day.isoformat(), 'end': self.day.isoformat(), 'util_campus': 'VSP'}
         response = self.client.get(reverse('booking_analytics'), params)
         view = response.context['maintenance_views'][0]
-        self.assertEqual(view['scheduled'], 1)
-        self.assertEqual(view['duration'], '2 h')
+        self.assertEqual(view['rows'][0]['duration'], '2 h')
         self.assertEqual(view['rows'][0]['status'], 'Upcoming')
         self.assertEqual(view['breakdown'][0]['label'], 'ICT Block')
-        self.assertContains(response, 'data-maintenance-campus="VSP"')
-        self.assertContains(response, 'ICT Block · VSP')
+        self.assertContains(response, 'data-maintenance-campus="" aria-pressed="true">All campuses', count=1)
+        self.assertContains(response, 'data-maintenance-campus="VSP" aria-pressed="false">VSP', count=1)
+        self.assertContains(response, 'data-maintenance-view=""', count=1)
+        self.assertContains(response, 'data-maintenance-view="VSP" hidden', count=1)
+        self.assertNotContains(response, 'name="maintenance_status"')
+        self.assertContains(response, 'data-type-colour="civil">Civil Maintenance')
+        self.assertContains(response, f'?reference={record.pk}')
+        self.assertContains(response, 'data-status="Upcoming" style="left:')
+        self.assertContains(response, 'Room-level maintenance details')
+        self.assertNotContains(response, '1 room record')
+        self.assertNotContains(response, 'Scheduled rooms by building')
+        self.assertEqual(response.context['maintenance_start'], self.day.isoformat())
+        self.assertEqual(response.context['maintenance_end'], self.day.isoformat())
+        self.assertContains(response, '<details class="bs-maintenance-details">')
         record.state = 'completed'
         record.save(update_fields=['state'])
         response = self.client.get(reverse('booking_analytics'), params)
         view = response.context['maintenance_views'][0]
-        self.assertEqual(view['scheduled'], 0)
-        self.assertEqual(view['breakdown'], [])
-        self.assertContains(response, 'No classrooms under maintenance for these dates')
+        self.assertEqual(view['rows'][0]['status'], 'Completed')
+        self.assertEqual(view['totals'][2], {'status': 'Completed', 'count': 1})
+        self.assertContains(response, 'data-status="Completed" style="left:')
 
-    def test_booking_snapshot_groups_maintenance_statuses_and_matching_durations(self):
+    def test_booking_snapshot_formats_full_day_maintenance_duration(self):
+        from .booking_analytics import _maintenance_duration
+
+        self.assertEqual(_maintenance_duration(1440), '1 day')
+        self.assertEqual(_maintenance_duration(1560), '1 day 2 h')
+        self.assertEqual(_maintenance_duration(2880), '2 days')
+
+    def test_booking_snapshot_counts_schedules_and_preserves_room_statuses(self):
         from datetime import datetime
         from .booking_analytics import _maintenance_views
         from .models import ClassroomMaintenance, ClassroomMaintenanceRoom, ClassroomMaintenanceWindow
 
-        start = date(2026, 11, 1)
-        today = start + timedelta(days=2)
+        today = date(2026, 11, 3)
+        yesterday = today - timedelta(days=1)
         tomorrow = today + timedelta(days=1)
-        rooms = {}
-        for code in ('101', '102', '103', '104', '105'):
-            rooms[code] = {'room_code': code, 'building': 'ICT Block', 'campus': 'VSP',
-                           'maintenance': code == '105'}
-        for codes, days, window_start, window_end in (
-            (('101', '102'), [start, start + timedelta(days=1)], time(0), time(23, 59)),
-            (('103',), [today], time(9), time(11)),
-            (('104',), [tomorrow], time(9), time(11)),
+        rooms = {
+            '101': {'room_code': '101', 'building': 'ICT Block', 'campus': 'VSP', 'floor_code': '1'},
+            '201': {'room_code': '201', 'building': 'ICT Block', 'campus': 'VSP', 'floor_code': '2'},
+        }
+        for codes, day, reason in (
+            (('101', '201'), yesterday, 'Electrical Issue'),
+            (('101',), today, 'Civil Maintenance'),
+            (('101',), tomorrow, 'Civil Maintenance'),
         ):
             record = ClassroomMaintenance.objects.create(
                 scope='room', campus='VSP', building_key='VSP|ICT', building_name='ICT Block',
-                start_date=days[0], end_date=days[-1], duration='short', reasons=['Electrical Issue'],
+                start_date=day, end_date=day, duration='short', reasons=[reason],
             )
             ClassroomMaintenanceRoom.objects.bulk_create([
                 ClassroomMaintenanceRoom(maintenance=record, room_key=code) for code in codes
             ])
-            ClassroomMaintenanceWindow.objects.bulk_create([
-                ClassroomMaintenanceWindow(maintenance=record, date=day, start=window_start, end=window_end)
-                for day in days
-            ])
-        overall, blr, hyd, vsp = _maintenance_views(start, tomorrow, rooms, datetime.combine(today, time(10)))
-        self.assertEqual([row['status'] for row in overall['rows']],
-                         ['Overdue', 'Overdue', 'Ongoing', 'Upcoming', 'Catalog-only'])
-        self.assertEqual((overall['now'], overall['scheduled'], overall['overdue']), (2, 4, 2))
-        self.assertIn(('2d 0h', '101, 102'),
-                      [(group['duration'], group['rooms']) for group in overall['groups']])
-        self.assertEqual(overall['rows'][0]['reason'], 'Electrical Issue')
-        self.assertFalse(blr['rows'] or hyd['rows'])
-        self.assertEqual(vsp['breakdown'][0]['count'], 4)
+            ClassroomMaintenanceWindow.objects.create(maintenance=record, date=day, start=time(9), end=time(11))
+        now = datetime.combine(today, time(10))
+        view, campus = _maintenance_views(yesterday, tomorrow, rooms, now)
+        self.assertEqual(view['campus'], '')
+        self.assertEqual(campus['campus'], 'VSP')
+        self.assertEqual(view['rows'], campus['rows'])
+        self.assertEqual([(row['floor'], row['room'], row['status']) for row in campus['rows']], [
+            ('1', '101', 'Overdue'), ('1', '101', 'Ongoing'), ('1', '101', 'Upcoming'),
+            ('2', '201', 'Overdue'),
+        ])
+        self.assertEqual([total['count'] for total in view['totals']], [1, 1, 0, 1])
+        self.assertEqual(view['breakdown'][0]['count'], 2)
+        self.assertIn({'name': 'Electrical Issue', 'colour': 'electrical', 'status': 'Overdue', 'count': 2},
+                      campus['breakdown'][0]['types'])
 
     def test_compact_table_and_feedback_modal(self):
         b=self.booking()

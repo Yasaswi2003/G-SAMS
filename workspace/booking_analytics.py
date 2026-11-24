@@ -132,129 +132,118 @@ def _space_rate(minutes, capacity):
     return round(minutes / capacity * 100, 1) if capacity else None
 
 
+MAINTENANCE_TYPES = {
+    'Civil Maintenance': 'civil',
+    'Electrical Issue': 'electrical',
+    'Plumbing Issue': 'plumbing',
+    'Air Conditioning Not Working': 'hvac',
+    'Benches / Furniture Not Available': 'furniture',
+}
+MAINTENANCE_STATUSES = ('Ongoing', 'Upcoming', 'Completed', 'Overdue')
+
+
 def _maintenance_duration(minutes):
-    if not minutes:
-        return ''
-    if minutes < 60:
-        return f'{minutes} min'
-    hours = (minutes + 30) // 60
-    days, remainder = divmod(hours, 24)
-    return f'{days}d {remainder}h' if days else f'{hours} h'
+    days, remainder = divmod(minutes, 1440)
+    hours, remainder = divmod(remainder, 60)
+    return ' '.join(part for part in (
+        f'{days} day' if days == 1 else f'{days} days' if days else '',
+        f'{hours} h' if hours else '',
+        f'{remainder} min' if remainder else '',
+    ) if part)
 
 
 def _maintenance_views(start, end, rooms, now):
     from .class_utilization import _minutes
-    from .classroom_maintenance import window_map
-    from .utilization_summary import occupied_minutes
+    from .classroom_maintenance import maintenance_status
+    from .models import ClassroomMaintenance, ClassroomMaintenanceRoom, ClassroomMaintenanceWindow
 
-    local_now = timezone.localtime(now).replace(tzinfo=None) if timezone.is_aware(now) else now
     range_minutes = ((end - start).days + 1) * 1440
-    by_room = defaultdict(list)
-    for (key, _), windows in window_map(start, end, rooms).items():
-        by_room[key].extend(windows)
-
-    priority = {'Overdue': 0, 'Ongoing': 1, 'Upcoming': 2, 'Catalog-only': 3}
+    assignments = ClassroomMaintenanceRoom.objects.filter(room_key__in=rooms)
+    overlapping_windows = ClassroomMaintenanceWindow.objects.filter(date__range=(start, end))
+    records = ClassroomMaintenance.objects.exclude(state='cancelled').filter(
+        pk__in=assignments.values('maintenance_id'),
+    ).filter(pk__in=overlapping_windows.values('maintenance_id')).prefetch_related('rooms', 'windows')
     rows = []
-    for key, room in rooms.items():
-        windows = by_room.get(key, ())
-        catalog = bool(room.get('maintenance'))
-        if not windows and not catalog:
-            continue
-
-        records = {}
-        spans_by_day = defaultdict(list)
-        active_now = False
+    scheduled_rooms = set()
+    for record in records:
+        status = maintenance_status(record, now)
+        types = [{'name': reason, 'colour': MAINTENANCE_TYPES.get(reason, 'other')}
+                 for reason in sorted(set(filter(None, record.reasons)), key=str.casefold)]
+        windows = [window for window in record.windows.all() if start <= window.date <= end]
+        timeline = []
         for window in windows:
-            records.setdefault(window.maintenance_id, []).append(window)
-            spans_by_day[window.date].append((_minutes(window.start), _minutes(window.end)))
-            active_now |= (
-                datetime.combine(window.date, window.start) <= local_now
-                < datetime.combine(window.date, window.end)
-            )
-        statuses = []
-        reasons = set()
-        starts, ends = [], []
-        for record_windows in records.values():
-            record = record_windows[0].maintenance
-            starts.append(record.start_date)
-            ends.append(record.end_date)
-            reasons.update(reason for reason in record.reasons if reason)
-            last_day_windows = [window.end for window in record_windows if window.date == record.end_date]
-            deadline = record.expected_completion
-            if deadline and timezone.is_aware(deadline):
-                deadline = timezone.localtime(deadline).replace(tzinfo=None)
-            deadline = deadline or datetime.combine(record.end_date, max(last_day_windows, default=time.max))
-            first_day_windows = [window.start for window in record_windows if window.date == record.start_date]
-            first_start = datetime.combine(record.start_date, min(first_day_windows, default=time.min))
-            overdue = record.end_date < local_now.date() or deadline <= local_now
-            statuses.append('Overdue' if overdue else 'Upcoming' if local_now < first_start else 'Ongoing')
-
-        minutes = sum(occupied_minutes(spans, 0, 1440) for spans in spans_by_day.values())
-        timeline = [
-            {'left': (((day - start).days * 1440 + first) / range_minutes) * 100,
-             'width': (last - first) / range_minutes * 100,
-             'label': f'{day:%d %b %Y}, {first // 60:02d}:{first % 60:02d} to {last // 60:02d}:{last % 60:02d}'}
-            for day, spans in sorted(spans_by_day.items()) for first, last in sorted(set(spans))
-        ]
-        rows.append({
-            'room': room['room_code'] or room['room_name'], 'building': room['building'], 'campus': room['campus'],
-            'floor': room.get('floor_code') or '',
-            'status': min(statuses, key=priority.get) if statuses else 'Catalog-only',
-            'start': min(starts, default=None), 'end': max(ends, default=None),
-            'minutes': minutes, 'duration': _maintenance_duration(minutes),
-            'reason': ', '.join(sorted(reasons)), 'catalog': catalog, 'now': active_now or catalog,
-            'timeline': timeline,
-        })
-
-    rows.sort(key=lambda row: (
-        row['status'] != 'Overdue', row['end'] or date.max, row['campus'], row['building'], row['room'],
-    ))
-    views = []
-    for campus in ('', 'BLR', 'HYD', 'VSP'):
-        scoped = [row for row in rows if not campus or row['campus'] == campus]
-        scheduled = [row for row in scoped if row['timeline']]
-        one_campus = len({row['campus'] for row in scheduled}) == 1
-        group_by_floor = (
-            one_campus and len({row['building'] for row in scheduled}) == 1
-            and len({row['floor'] for row in scheduled}) > 1
-        )
-        buckets = defaultdict(Counter)
-        identical = defaultdict(list)
-        for row in scheduled:
-            label = row['building'] if one_campus else row['campus']
-            if group_by_floor:
-                floor = row['floor']
-                label += f' · {floor}' if floor else ' · Floor unrecorded'
-            buckets[row['campus'], label][row['status']] += 1
-            identical[row['campus'], row['building'], row['duration']].append(row['room'])
-        maximum = max((sum(counts.values()) for counts in buckets.values()), default=1)
-        groups = []
-        for (location, building, duration), codes in sorted(identical.items()):
-            count = len(codes)
-            if count < 2:
+            first, last = _minutes(window.start), _minutes(window.end)
+            timeline.append({
+                'left': ((window.date - start).days * 1440 + first) / range_minutes * 100,
+                'width': (last - first) / range_minutes * 100,
+                'label': f'{window.date:%d %b %Y}, {window.start:%H:%M} to {window.end:%H:%M}',
+            })
+        minutes = sum(_minutes(window.end) - _minutes(window.start) for window in record.windows.all())
+        for assignment in record.rooms.all():
+            key = assignment.room_key
+            if key not in rooms:
                 continue
-            if all(code.isdecimal() and code.isascii() for code in codes):
-                codes = sorted(codes, key=int)
-                if len(codes) > 2 and int(codes[-1]) - int(codes[0]) == len(codes) - 1 and len(set(map(int, codes))) == len(codes):
-                    codes = [f'{codes[0]}?{codes[-1]}']
-            groups.append({'count': count, 'duration': duration,
-                           'rooms': ', '.join(codes), 'building': building, 'campus': location})
-        views.append({
-            'campus': campus, 'label': campus or 'All', 'rows': scoped,
-            'now': sum(row['now'] for row in scoped), 'scheduled': len(scheduled),
-            'duration': _maintenance_duration(sum(row['minutes'] for row in scheduled)) or '0 h',
-            'overdue': sum(row['status'] == 'Overdue' for row in scoped),
-            'breakdown_label': 'By floor' if group_by_floor else 'By building' if one_campus else 'By campus',
-            'breakdown': [
-                {'campus': location, 'label': label, 'count': sum(counts.values()), 'segments': [
-                    {'status': status, 'count': counts[status], 'width': counts[status] / maximum * 100}
-                    for status in ('Ongoing', 'Upcoming', 'Overdue') if counts[status]
-                ]}
-                for (location, label), counts in sorted(buckets.items())
-            ],
-            'groups': groups,
+            scheduled_rooms.add(key)
+            room = rooms[key]
+            rows.append({
+                'id': record.pk, 'room_key': key, 'room': room.get('room_code') or room.get('room_name'),
+                'building': room['building'], 'campus': room['campus'], 'floor': room.get('floor_code') or '',
+                'status': status, 'start': record.start_date, 'end': record.end_date, 'minutes': minutes,
+                'duration': _maintenance_duration(minutes), 'types': types,
+                'reason': ', '.join(item['name'] for item in types), 'timeline': timeline,
+            })
+
+    for key, room in rooms.items():
+        if room.get('maintenance') and key not in scheduled_rooms:
+            rows.append({
+                'room_key': key, 'room': room.get('room_code') or room.get('room_name'),
+                'building': room['building'], 'campus': room['campus'], 'floor': room.get('floor_code') or '',
+                'status': 'Catalog-only', 'minutes': 0,
+            })
+
+    def natural(value):
+        return tuple(int(part) if index % 2 else part.casefold()
+                     for index, part in enumerate(re.split(r'([0-9]+)', value or '')))
+
+    rows.sort(key=lambda row: (natural(row['building']), row['campus'], not row['floor'],
+                               natural(row['floor']), natural(row['room']), row.get('start') or date.max))
+    campuses = sorted({room['campus'] for room in rooms.values() if room['campus']})
+    return [_maintenance_view(rows, '')] + [
+        _maintenance_view([row for row in rows if row['campus'] == campus], campus)
+        for campus in campuses
+    ]
+
+
+def _maintenance_view(rows, campus_filter):
+    schedule_statuses = {row['id']: row['status'] for row in rows if row.get('id')}
+    counts = Counter(schedule_statuses.values())
+
+    buildings = defaultdict(list)
+    for row in rows:
+        if row.get('id'):
+            buildings[row['campus'], row['building']].append(row)
+    breakdown = []
+    for (campus, building), building_rows in sorted(buildings.items()):
+        rooms_by_status = defaultdict(set)
+        rooms_by_type_status = defaultdict(set)
+        for row in building_rows:
+            rooms_by_status[row['status']].add(row['room_key'])
+            for item in row['types']:
+                rooms_by_type_status[item['name'], item['colour'], row['status']].add(row['room_key'])
+            if not row['types']:
+                rooms_by_type_status['Type not recorded', '', row['status']].add(row['room_key'])
+        total = sum(map(len, rooms_by_status.values()))
+        breakdown.append({
+            'campus': campus, 'label': building, 'count': len({row['room_key'] for row in building_rows}),
+            'segments': [{'status': status, 'count': len(keys), 'width': 100 * len(keys) / total}
+                         for status, keys in rooms_by_status.items()],
+            'types': [{'name': name, 'colour': colour, 'status': status, 'count': len(keys)}
+                      for (name, colour, status), keys in sorted(rooms_by_type_status.items())],
         })
-    return views
+    return {
+        'campus': campus_filter, 'rows': rows, 'scheduled': bool(buildings), 'breakdown': breakdown,
+        'totals': [{'status': status, 'count': counts[status]} for status in MAINTENANCE_STATUSES],
+    }
 
 
 def _scoped_bookings(start, end, filters, catalog):
@@ -399,6 +388,15 @@ def analytics_page(request):
     query['start'], query['end'], query['download'] = start.isoformat(), end.isoformat(), 'xlsx'
     context['download_url'] = '?' + query.urlencode()
     summary = current['utilization_summary']
+    context['period_label'] = (
+        start.strftime('%d %b %Y') if start == end
+        else f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}"
+    )
+    context['period_days'] = duration
+    context['comparison_period'] = (
+        f"{previous_start.strftime('%d %b %Y')} – {previous_end.strftime('%d %b %Y')}"
+        if previous_end else None
+    )
     campus_totals = defaultdict(lambda: [0, 0])
     campus_room_counts = Counter()
     for room in campus_snapshot['utilization_summary']['room_usage']:
@@ -426,7 +424,8 @@ def analytics_page(request):
             return None
         delta = round(value - previous_value, 1)
         display = f'{abs(delta):g}' + unit
-        return {'text': ('↑ ' if delta > 0 else '↓ ') + display if delta else 'No change',
+        return {'text': (('↑ ' if delta > 0 else '↓ ') + display if delta else 'No change')
+                        + ' vs prior period',
                 'direction': 'up' if delta > 0 else 'down' if delta < 0 else 'steady'}
 
     previous_rate = None
@@ -491,6 +490,8 @@ def analytics_page(request):
     ]
     if catalog_available:
         try:
+            context['maintenance_start'] = start.isoformat()
+            context['maintenance_end'] = end.isoformat()
             context['maintenance_views'] = _maintenance_views(start, end, catalog_rooms, now)
         except DatabaseError:
             context['maintenance_unavailable'] = True

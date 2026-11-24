@@ -12,9 +12,7 @@
       .map(([, name]) => name))].sort((a, b) => a.localeCompare(b));
     building.replaceChildren(new Option('All buildings', ''), ...names.map(name => new Option(name, name)));
     if (names.includes(selected)) building.value = selected;
-    filters.requestSubmit();
   });
-  building.addEventListener('change', () => filters.requestSubmit());
   const buildingCampusFilter = page.querySelector('#bs-building-campus-filter');
   buildingCampusFilter?.querySelector('select').addEventListener('change', () => buildingCampusFilter.requestSubmit());
 
@@ -27,17 +25,12 @@
 
   const maintenance = page.querySelector('.bs-maintenance-charts');
   if (maintenance) {
-    const buttons = maintenance.querySelectorAll('button[data-maintenance-campus]');
+    const campusButtons = maintenance.querySelectorAll('[data-maintenance-campus]');
     const views = maintenance.querySelectorAll('[data-maintenance-view]');
-    for (const button of buttons) {
+    for (const button of campusButtons) {
       button.addEventListener('click', () => {
-        const selected = button.dataset.maintenanceCampus;
-        for (const choice of buttons) {
-          choice.setAttribute('aria-pressed', String(choice === button));
-        }
-        for (const view of views) {
-          view.hidden = view.dataset.maintenanceView !== selected;
-        }
+        for (const choice of campusButtons) choice.setAttribute('aria-pressed', String(choice === button));
+        for (const view of views) view.hidden = view.dataset.maintenanceView !== button.dataset.maintenanceCampus;
       });
     }
     for (const view of views) {
@@ -46,7 +39,7 @@
       const more = view.querySelector('[data-maintenance-more]');
       const headings = view.querySelectorAll('[data-maintenance-sort]');
       const original = [...body.rows];
-      const statusOrder = ['Overdue', 'Ongoing', 'Upcoming', 'Catalog-only'];
+      const statusOrder = ['Overdue', 'Ongoing', 'Upcoming', 'Completed', 'Catalog-only'];
       const collator = new Intl.Collator(undefined, {numeric: true});
       let rows = original;
       let sortKey = '';
@@ -66,7 +59,7 @@
           rows = [...original].sort((first, second) => {
             const a = first.dataset[key];
             const b = second.dataset[key];
-            if (key === 'end' && (!a || !b)) return Number(!a) - Number(!b);
+            if (key === 'start' && (!a || !b)) return Number(!a) - Number(!b);
             const difference = key === 'status' ? statusOrder.indexOf(a) - statusOrder.indexOf(b)
               : key === 'minutes' ? Number(a) - Number(b) : collator.compare(a, b);
             return difference * direction;

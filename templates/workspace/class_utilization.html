@@ -1386,16 +1386,11 @@
             }
             clearRoom();
             validateRequiredFields();
-            if (!campusSelect.required) filterForm.requestSubmit();
         });
         buildingSelect.addEventListener('change', () => {
             clearRoom();
             validateRequiredFields();
-            if (!buildingSelect.required) filterForm.requestSubmit();
         });
-        if (!campusSelect.required) {
-            document.getElementById('cuDate').addEventListener('change', () => filterForm.requestSubmit());
-        }
     }
     const submitScheduleOptions = () => BookingLoading.navigate(() => filterForm.submit());
     document.getElementById('cuSchedulePeriod')?.addEventListener('change', submitScheduleOptions);

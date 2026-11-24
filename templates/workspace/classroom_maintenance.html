@@ -1,10 +1,11 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-31">
+<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-32">
 <main class="cm-manage">
     <header class="cm-dialog-head"><h1>Manage Classroom Maintenance</h1><a class="cm-primary" href="{% url 'class_utilization' %}">Select a classroom to schedule maintenance</a></header>
     <form class="cm-filters" method="get" aria-label="Maintenance filters">
+        {% if request.GET.reference %}<input type="hidden" name="reference" value="{{ request.GET.reference }}">{% endif %}
         <label>Search<input name="q" value="{{ filters.q }}" placeholder="Reference, reason or classroom"></label>
         <label>Campus<input name="campus" value="{{ filters.campus }}"></label>
         <label>Building<select name="building" data-cm-filter="building"></select></label>
@@ -12,7 +13,7 @@
         <label>Classroom<select name="room" data-cm-filter="room"></select></label>
         <label>Status<select name="status">
             <option value="">All statuses</option>
-            <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Active</option>
+            <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Open schedules</option>
             <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>Completed</option>
             <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
         </select></label>

@@ -1,0 +1,3 @@
+<div class="bs-maintenance-types">
+  {% for type in row.types %}<span class="bs-maintenance-type" data-type-colour="{{ type.colour }}">{{ type.name }}</span>{% empty %}<span>Type not recorded</span>{% endfor %}
+</div>

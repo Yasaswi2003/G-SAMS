@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static l10n %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/booking_dashboard.css' %}?v=snapshot-32">
+<link rel="stylesheet" href="{% static 'user/css/booking_dashboard.css' %}?v=snapshot-35">
 <main class="booking-snapshot" id="booking-analytics">
   <div class="bs-header">
     <div>
@@ -41,7 +41,7 @@
           <span class="bs-kpi-note">{{ kpi.note }}</span>
           {% if kpi.meter != None and kpi.meter_label %}<meter min="0" max="100" value="{{ kpi.meter|unlocalize }}" aria-label="{{ kpi.meter_label }}">{{ kpi.meter }}%</meter>{% endif %}
           <span class="bs-kpi-footer">
-            {% if kpi.trend %}<span class="bs-delta" data-direction="{{ kpi.trend.direction }}">{{ kpi.trend.text }}</span>{% endif %}
+                {% if kpi.trend %}<span class="bs-delta" data-direction="{{ kpi.trend.direction }}">{{ kpi.trend.text }}</span>{% endif %}
             <span class="bs-kpi-details">Details <i class="bx bx-chevron-right" aria-hidden="true"></i></span>
           </span>
         </button>
@@ -70,6 +70,7 @@
       <p>Select a campus to view its utilization details.</p>
       {% endif %}
       {% if campus_utilization_incomplete %}<p>Some timetable data is missing. Percentages may be lower than actual use.</p>{% endif %}
+      <p class="bs-chart-hint">Weighted by each campus's available classroom hours, not by a simple average of room percentages.</p>
       <div class="bs-campus-plot">
         <div class="bs-campus-axis" aria-hidden="true">
           <span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span>
@@ -122,6 +123,7 @@
     <section class="bs-room-chart" aria-labelledby="bs-room-chart-title">
       <div class="bs-card bs-room-ranking-card">
         <h2 id="bs-room-chart-title">Classroom Utilization</h2>
+        <p class="bs-chart-hint">Compare the most and least used classrooms in the selected scope. “Bottom” identifies rooms with the lowest occupied share, including zero-use rooms.</p>
         <div class="bs-chart-row">
           {% for kind, title in room_utilization_charts|slice:":2" %}
           {% include 'workspace/booking_room_chart.html' %}
@@ -130,6 +132,7 @@
       </div>
       <div class="bs-card bs-room-ranking-card">
         <h2>Classroom Utilization by Timetable Status</h2>
+        <p class="bs-chart-hint">Separate published-timetable coverage from rooms that currently rely only on bookings or have no recorded use.</p>
         <div class="bs-chart-row">
           {% for kind, title in room_utilization_charts|slice:"2:" %}
           {% include 'workspace/booking_room_chart.html' %}
@@ -151,5 +154,5 @@
   {% endif %}
   {{ building_options|json_script:"bs-building-data" }}
 </main>
-<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-27" defer></script>
+<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-30" defer></script>
 {% endblock %}

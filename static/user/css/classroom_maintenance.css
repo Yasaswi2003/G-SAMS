@@ -69,8 +69,10 @@ html:has(.cm-dialog[open]){overflow:hidden}
 .cm-schedule-scroll{max-height:12rem;overflow:auto}
 .cm-manage-schedule{margin-top:4px}
 .cm-status{display:inline-block;padding:3px 8px;border-radius:6px;background:#eef2f5;color:#475569;font-weight:600;white-space:nowrap}
-.cm-status-active{background:#dcf5e6;color:#17623b}
-.cm-status-completed{background:#fce4e7;color:#9f303b}
+.cm-status-ongoing{background:#eaf8ef;color:#17623b}
+.cm-status-upcoming{background:#eaf1ff;color:#204ba2}
+.cm-status-overdue{background:#fff0f0;color:#9f2828}
+.cm-status-completed{background:#eef2f6;color:#475569}
 .cm-schedule-slots{display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0;list-style:none}
 .cm-schedule-slots li{padding:2px 5px;border-radius:4px;background:#eef6f2;color:#193f39;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cm-dialog-edit{box-sizing:border-box;width:min(810px,calc(100vw - 28px));max-height:85dvh;color:#182633;box-shadow:0 12px 36px #18263325}

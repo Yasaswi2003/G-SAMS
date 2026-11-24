@@ -87,6 +87,25 @@ def available_reasons():
     return [*DEFAULT_REASONS, *ClassroomMaintenanceReason.objects.order_by('name').values_list('name', flat=True)]
 
 
+def maintenance_status(record, now):
+    if record.state != 'open':
+        return record.get_state_display()
+
+    def local_naive(value):
+        return timezone.localtime(value).replace(tzinfo=None) if timezone.is_aware(value) else value
+
+    now = local_naive(now)
+    windows = list(record.windows.all())
+    first = min((datetime.combine(slot.date, slot.start) for slot in windows),
+                default=datetime.combine(record.start_date, time.min))
+    last = max((datetime.combine(slot.date, slot.end) for slot in windows),
+               default=datetime.combine(record.end_date, time.max))
+    deadline = local_naive(record.expected_completion) if record.expected_completion else last
+    if now.date() > record.end_date or now >= deadline:
+        return 'Overdue'
+    return 'Upcoming' if now < first else 'Ongoing'
+
+
 def display_window(window):
     record = window.maintenance
     return {'id': record.pk, 'scope': record.get_scope_display(), 'date': window.date,
@@ -708,6 +727,9 @@ def manage(request):
     rooms, rooms_by_key, _ = _load_room_catalog()
     filters={field:request.GET.get(field,'').strip() for field in ('campus','building','floor','room','status','date','q')}
     queryset=ClassroomMaintenance.objects.select_related('created_by','updated_by').prefetch_related('rooms', 'windows')
+    reference = request.GET.get('reference', '')
+    if reference:
+        queryset = queryset.filter(pk=reference) if reference.isascii() and reference.isdecimal() and len(reference) <= 18 else queryset.none()
     for field,query_field in {'campus':'campus__iexact','building':'building_key','room':'rooms__room_key'}.items():
         if filters[field]:
             queryset=queryset.filter(**{query_field:filters[field]})
@@ -740,7 +762,7 @@ def manage(request):
     ]
     records={}
     for record in page:
-        record.display_status = 'Active' if record.state == 'open' else record.get_state_display()
+        record.display_status = maintenance_status(record, now)
         floors = [record.floor] if record.floor else []
         if record.scope == 'floor' and not floors:
             floors = record.scope_targets
