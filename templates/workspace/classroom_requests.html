@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/classroom_requests.css' %}">
+<link rel="stylesheet" href="{% static 'user/css/classroom_requests.css' %}?v=backdrop-1">
 <main class="classroom-design bw{% if booking_role == 'TEACHER' %} bw-teacher{% endif %}">
 <div class="bw-hero"><div><h1>Classroom Booking Management</h1>
 <p>{% if booking_role == 'TEACHER' %}Track your booking requests and decisions. Book a classroom from the timetable.{% elif booking_role == 'HOD' %}Review requests from your department and campus. Your approval completes the booking decision.{% elif booking_role == 'HOI' %}Read-only monitoring for your assigned campus.{% elif booking_role == 'ADMIN' %}Manage requests, allocate rooms and confirm bookings across all campuses.{% else %}An active Teacher, HOD, HOI or Admin role is required.{% endif %}</p>
@@ -109,7 +109,7 @@
 {{ rooms|json_script:'bw-rooms' }}
 {{ revision_token|json_script:'bw-revision-token' }}
 </main>
-<script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script><script src="{% static 'js/booking_live.js' %}?v=2"></script>
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script><script src="{% static 'js/booking_live.js' %}?v=3"></script>
 <script>
 (() => {
 const rooms = JSON.parse(document.getElementById('bw-rooms').textContent);
@@ -229,7 +229,7 @@ ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:reloadReq
 })();
 </script>
 <link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
-<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-10">
+<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-11">
 <link rel="stylesheet" href="{% static 'user/css/booking_management.css' %}?v=management-9">
 <script src="{% static 'js/booking_management.js' %}?v=management-4"></script>
 {% endblock %}

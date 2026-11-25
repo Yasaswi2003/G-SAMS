@@ -497,11 +497,11 @@
     height: 30px;
     margin: 1px 0;
     padding: 0 8px 0 6px;
-    background: #e0f4e8;
-    border: 1px solid #8ac5a1;
-    border-left: 3px solid #2f9965;
+    background: #e0efff;
+    border: 1px solid #93bde6;
+    border-left: 3px solid #347bb9;
     border-radius: 5px;
-    color: #166534;
+    color: #1e3a5f;
     text-align: left;
     cursor: pointer;
     overflow: hidden;
@@ -510,9 +510,9 @@
 }
 .cu-slot-booked:hover {
     transform: translateY(-1px);
-    background: #d3eedf;
-    border-color: #2f9965;
-    box-shadow: 0 2px 8px #2f99652e;
+    background: #cfe4fa;
+    border-color: #347bb9;
+    box-shadow: 0 2px 8px #347bb92e;
 }
 .cu-slot-user-booking {
     background: #fffbeb;
@@ -530,7 +530,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #2f9965;
+    background: #347bb9;
 }
 .cu-slot-user-booking .cu-slot-dot { background: #f59e0b; }
 .cu-slot-code {
@@ -629,7 +629,7 @@
     border-radius: 50%;
     flex-shrink: 0;
 }
-.cu-legend-dot-booked { background: #2f9965; }
+.cu-legend-dot-booked { background: #347bb9; }
 .cu-legend-dot-pending { background: #f59e0b; }
 .cu-legend-dot-avail { background: #007367; }
 .cu-legend-dot-pending { background: #d97706; }
@@ -655,7 +655,6 @@
 .cu-dialog::backdrop {
     position: fixed !important;
     inset: 0 !important;
-    background: transparent !important;
     z-index: 99999 !important;
 }
 .cu-dialog-shell { padding: 26px 28px; max-height: 85vh; overflow-y: auto; }
@@ -821,7 +820,7 @@
 .cu-slot-dot{margin-top:5px}.cu-slot-view-hint{margin-top:3px;opacity:.6;color:inherit!important}
 .cu-grid .cu-slot-available{min-height:66px;height:auto;padding:14px 8px;border-radius:10px;background:#f2fbf7;border-color:#8cc8b5;color:#176d56;gap:8px}
 .cu-grid .cu-slot-available span{font-size:12px;letter-spacing:.03em}.cu-grid .cu-slot-available i{font-size:16px}
-.cu-status-hod_approved .cu-slot-dot,.cu-status-confirmed .cu-slot-dot{background:#2f9965}.cu-status-hod_rejected .cu-slot-dot,.cu-status-admin_rejected .cu-slot-dot{background:#cd5265}.cu-status-cancelled .cu-slot-dot{background:#88928b}
+.cu-status-hod_approved .cu-slot-dot,.cu-status-confirmed .cu-slot-dot{background:#347bb9}.cu-status-hod_rejected .cu-slot-dot,.cu-status-admin_rejected .cu-slot-dot{background:#cd5265}.cu-status-cancelled .cu-slot-dot{background:#88928b}
 .cu-grid .cu-no-availability{padding:20px 6px;line-height:1.6;white-space:normal}.cu-grid-legend{gap:16px;padding:16px 20px}
 @media(max-width:700px){.cu-grid-wrap{margin:0 10px 12px}.cu-grid{min-width:960px}.cu-grid td{padding:8px}.cu-grid thead th:first-child,.cu-grid tbody th{width:86px}}
 
@@ -1006,6 +1005,7 @@
     <!-- Stats Section -->
 
 {% if selected_booking %}<div class="cu-booking-focus" role="note"><i class="bx bx-calendar-check"></i><div><strong>Selected booking: {{ selected_booking.building_name }} / {{ selected_booking.room_code }}</strong><br>{{ selected_booking.booking_date|date:'d M Y' }} &middot; {{ selected_booking.from_time|time:'H:i' }} &ndash; {{ selected_booking.to_time|time:'H:i' }} &middot; {{ selected_booking.get_status_display }}<br><small>The outlined period is your selected booking. The full Monday-Friday timetable for that week is shown below.</small></div></div>{% endif %}
+{% if selected_maintenance %}<div class="cu-booking-focus" role="note"><i class="bx bx-wrench" aria-hidden="true"></i><div><strong>Selected maintenance period</strong><br>{{ selected_maintenance.date|date:'d M Y' }} &middot; {{ selected_maintenance.start|time:'H:i' }} &ndash; {{ selected_maintenance.end|time:'H:i' }} &middot; {{ selected_maintenance.maintenance.get_state_display }}<br><small>The outlined period is the selected maintenance schedule.</small></div></div>{% endif %}
     <!-- Panel for Weekly Timetable -->
     <section class="cu-panel" aria-label="Weekly timetable"{% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %} data-cm-region data-cm-mode="timetable" data-campus="{{ selected_campus }}" data-building="{{ selected_building }}" data-building-label="{{ maintenance_building_label }}" data-floor="{{ selected_floor }}" data-room="{{ selected_room_key }}" data-room-label="{{ maintenance_room.room_name }}" data-date="{{ selected_date }}" data-today="{{ today_iso }}"{% endif %}>
         <div class="cu-panel-head">
@@ -1093,7 +1093,7 @@
                             </div>
                         </th>
                         {% for cell in row.cells %}
-                        <td data-day="{{ cell.day }}"{% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %} data-cm-date="{{ cell.booking_date }}"{% endif %} class="{% if cell.highlighted %}cu-selected-booking-period{% endif %} {% if cell.is_holiday %}cu-official-holiday{% endif %}{% if cell.has_maintenance %} cm-maintenance-cell{% endif %}" style="position:relative;">
+                        <td data-day="{{ cell.day }}"{% if cell.maintenance_focus_start %} id="maintenance-focus"{% endif %}{% if booking_role == 'ADMIN' and selected_room_key and not maintenance_picker %} data-cm-date="{{ cell.booking_date }}"{% endif %} class="{% if cell.highlighted or cell.maintenance_focused %}cu-selected-booking-period{% endif %} {% if cell.is_holiday %}cu-official-holiday{% endif %}{% if cell.has_maintenance %} cm-maintenance-cell{% endif %}" style="position:relative;">
                             {% if cell.holiday_message %}<div class="cu-holiday-message" role="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4m8-4v4M3 10h18M3 3l18 18M21 15V6a2 2 0 0 0-2-2H9M5 4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2"/></svg><span>Public Holiday &ndash; No classroom bookings available</span></div>{% endif %}
                             <div class="cu-cell-inner">
                             {% if cell.maintenance_available %}
@@ -1168,7 +1168,7 @@
                                 <span class="cu-no-availability">Passed</span>
                                 {% endif %}
                             {% elif cell.free_rooms %}
-                                {% if can_book %}
+                                {% if can_book and cell.booking_hours_visible %}
                                 <button type="button" class="cu-slot-available"
                                     data-free-room-indexes="{{ cell.free_room_indexes_json }}"
                                     data-day="{{ cell.day }}"
@@ -1198,7 +1198,7 @@
         <div class="cu-grid-legend" aria-label="Schedule legend">
             <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-avail" aria-hidden="true"></span><span>Available &mdash; Click to Book</span></span>
             <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-pending" aria-hidden="true"></span><span>Yellow &mdash; On Hold (Pending HOD Approval)</span></span>
-            <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-booked" aria-hidden="true"></span><span>Booked &mdash; HOD / Admin approved</span></span>
+            <span class="cu-legend-item"><span class="cu-legend-dot cu-legend-dot-booked" aria-hidden="true"></span><span>Blue &mdash; Booked or scheduled</span></span>
             <span class="cu-legend-item"><span class="cu-legend-dot" style="background:#cd5265" aria-hidden="true"></span><span>Rejected</span></span>
             <span class="cu-legend-item"><i class="bx bx-time" style="font-size:12px;color:#8aada8" aria-hidden="true"></i><span>Passed &mdash; Time elapsed</span></span>
             <span class="cu-legend-item"><span class="cu-legend-dot" style="background:#E4DCF5" aria-hidden="true"></span><span>Public Holiday</span></span>
@@ -1209,7 +1209,7 @@
 {% endif %}
 </main>
 {% if booking_role == 'ADMIN' and not maintenance_picker %}{% include 'workspace/maintenance_planner.html' %}{% endif %}
-<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-26">
+<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-29">
 
 {% if not timetable_popup and not revision_popup and classroom_cards and not selected_classroom %}
 <dialog class="cu-timetable-modal" id="cuTimetableModal" aria-label="Weekly Timetable">
@@ -1229,7 +1229,7 @@
 {{ booking_room_catalog_json|json_script:"cuBookingRoomCatalog" }}
 
 <script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script>
-<script src="{% static 'js/booking_live.js' %}?v=2"></script>
+<script src="{% static 'js/booking_live.js' %}?v=3"></script>
 <script>
 (function () {
     const filterForm = document.getElementById('cuFilterForm');
@@ -1472,6 +1472,6 @@
 })();
 </script>
 <link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
-<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-10">
-<link rel="stylesheet" href="{% static 'user/css/classroom_weekly.css' %}?v=weekly-27">
+<link rel="stylesheet" href="{% static 'user/css/booking_conflict.css' %}?v=revision-14">
+<link rel="stylesheet" href="{% static 'user/css/classroom_weekly.css' %}?v=weekly-28">
 {% endblock %}

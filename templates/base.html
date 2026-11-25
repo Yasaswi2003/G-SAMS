@@ -112,9 +112,17 @@
       display: none;
       background: transparent;
     }
-    .modal-backdrop, .swal2-container.swal2-backdrop-show, .swal2-container.swal2-backdrop-hide {
-      background: transparent !important;
+    :where(.modal-content, .swal2-popup:not(.swal2-toast), dialog:modal) {
+      background-color: #fff;
     }
+    :where(.modal-content, .swal2-popup:not(.swal2-toast)) {
+      box-shadow: 0 20px 60px rgba(15, 23, 42, .2);
+    }
+    .modal-backdrop { z-index: 1050; background-color: #0f172a; }
+    .modal { z-index: 1055; }
+    .modal-backdrop.show { opacity: .45; }
+    .swal2-container.swal2-backdrop-show { background: rgba(15, 23, 42, .45); }
+    dialog:modal::backdrop { background: rgba(15, 23, 42, .45); }
     .cv-spinner {
       height: 100%;
       display: flex;
@@ -139,7 +147,7 @@
     }
     .home-section > header {
         position: relative;
-        z-index: 10000;
+        z-index: 1000;
     }
    /* Dropdown Container */
 #subMenu.sub-menu-wrap {
@@ -374,7 +382,7 @@
             <li class="sidebar-divider" aria-hidden="true"></li>
             {% with page_name=request.resolver_match.url_name %}
             <li class="admin-booking-group">
-                <details class="admin-booking-disclosure"{% if page_name == 'class_utilization' or page_name == 'classroom_requests' or page_name == 'classroom_maintenance' %} open{% endif %}>
+                <details class="admin-booking-disclosure"{% if page_name == 'booking_analytics' or page_name == 'class_utilization' or page_name == 'classroom_requests' or page_name == 'classroom_maintenance' %} open{% endif %}>
                     <summary class="admin-booking-heading" aria-label="Toggle Booking Analytics pages">
                         <a href="{% url 'booking_analytics' %}" aria-label="Booking Analytics"><i class="bx bx-bar-chart-alt-2"></i><span class="link_name">Booking<br>Analytics</span></a>
                         <i class="bx bx-chevron-down admin-booking-chevron" aria-hidden="true"></i>

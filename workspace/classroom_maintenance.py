@@ -1,18 +1,20 @@
 """Maintenance schedules backed by the classroom catalog and booking mutex."""
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta
 from functools import wraps
 from hashlib import sha256
+from urllib.parse import urlencode
 from django.conf import settings
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.core.signing import BadSignature, SignatureExpired, dumps, loads
 from django.db import DatabaseError, IntegrityError, transaction
-from django.db.models import F, Q
+from django.db.models import F, Prefetch, Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -113,6 +115,28 @@ def display_window(window):
             'reasons': record.reasons, 'description': record.description,
             'duration': record.get_duration_display(), 'expected_completion': record.expected_completion,
             'recurring': record.recurrence}
+
+
+def timetable_link(record, rooms_by_key):
+    windows = list(record.windows.all())
+    day = windows[0].date if windows else record.start_date
+    params = {'campus': record.campus, 'building': record.building_key, 'date': day.isoformat()}
+    if day.weekday() >= 5:
+        params['include_weekends'] = '1'
+    if record.scope in ('floor', 'room'):
+        assignments = sorted(record.rooms.all(), key=lambda assignment: assignment.pk)
+        room = rooms_by_key.get(assignments[0].room_key) if assignments else None
+        if room is None or room['building_key'] != record.building_key:
+            return ''
+        params['floor'] = room.get('floor_code') or '__unrecorded__'
+        if record.scope == 'room':
+            params['room'] = room['key']
+            if windows:
+                params['maintenance_focus'] = record.pk
+    elif not any(room['building_key'] == record.building_key for room in rooms_by_key.values()):
+        return ''
+    url = reverse('class_utilization') + '?' + urlencode(params)
+    return url + '#maintenance-focus' if 'maintenance_focus' in params else url
 
 
 def covers_full_day(windows, start_hour, end_hour):
@@ -494,6 +518,8 @@ def schedule(request):
                 values['scope_targets'] = record.scope_targets or [record.floor]
             existing_keys = set(record.rooms.values_list('room_key', flat=True))
             added_rooms = [room for room in rooms if room['key'] not in existing_keys]
+            if extending and added_rooms:
+                raise ValueError('Only classrooms already in this schedule can be extended. Save added classrooms separately first.')
             existing_windows = list(record.windows.filter(
                 Q(date__gt=now.date()) | Q(date=now.date(), end__gt=now.time())
             ).values_list('date', 'start', 'end')) if added_rooms else []
@@ -737,10 +763,6 @@ def manage(request):
     if filters['floor']:
         floor_keys = [room['key'] for room in rooms if (room.get('floor_code') or '__unrecorded__') == filters['floor']]
         queryset=queryset.filter(Q(floor=filters['floor'])|Q(rooms__room_key__in=floor_keys))
-    if filters['status'] in ('completed','cancelled'):
-        queryset=queryset.filter(state=filters['status'])
-    elif filters['status'] == 'active':
-        queryset=queryset.filter(state='open')
     if filters['date']:
         try:
             queryset=queryset.filter(windows__date=date.fromisoformat(filters['date']))
@@ -752,8 +774,46 @@ def manage(request):
         if query.isdigit():
             conditions|=Q(pk=int(query))
         queryset=queryset.filter(conditions)
-    page=Paginator(queryset.distinct(),25).get_page(request.GET.get('page'))
+
     now = local_now()
+    status_records = queryset.select_related(None).prefetch_related(None).only(
+        'pk', 'state', 'start_date', 'end_date', 'expected_completion',
+    ).order_by().distinct().prefetch_related(Prefetch(
+        'windows', queryset=ClassroomMaintenanceWindow.objects.filter(
+            maintenance__state='open',
+        ).only('maintenance_id', 'date', 'start', 'end'),
+    ))
+    status_ids = defaultdict(list)
+    for record in status_records:
+        status_ids[maintenance_status(record, now).lower()].append(record.pk)
+    counts = Counter({key: len(ids) for key, ids in status_ids.items()})
+    counts['all'] = sum(counts.values())
+    counts['active'] = counts['upcoming'] + counts['ongoing'] + counts['overdue']
+    statuses = (
+        ('all', 'All Schedules'), ('active', 'Open'), ('upcoming', 'Upcoming'),
+        ('ongoing', 'Ongoing'), ('overdue', 'Overdue'), ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    )
+    selected_status = filters['status']
+    if selected_status in ('completed', 'cancelled'):
+        queryset = queryset.filter(state=selected_status)
+    elif selected_status == 'active':
+        queryset = queryset.filter(state='open')
+    elif selected_status in ('upcoming', 'ongoing', 'overdue'):
+        queryset = queryset.filter(pk__in=status_ids[selected_status])
+    page=Paginator(queryset.distinct(),25).get_page(request.GET.get('page'))
+    params = request.GET.copy()
+    params.pop('page', None)
+    params.pop('status', None)
+    summary = []
+    for key, label in statuses:
+        query = params.copy()
+        if key != 'all':
+            query['status'] = key
+        summary.append({'key': key, 'label': label, 'count': counts[key],
+                        'active': selected_status == ('' if key == 'all' else key),
+                        'url': '?' + query.urlencode() if query else request.path})
+
     active = window_map(now.date(), now.date(), rooms_by_key)
     rooms = [
         {**room, 'under_maintenance': bool(room['maintenance']) or any(
@@ -773,6 +833,7 @@ def manage(request):
         record.floor_labels = ['Not recorded' if floor == '__unrecorded__' else floor for floor in floors]
         records[record.pk]={**snapshot(record),'id':record.pk,'status':record.display_status,
                             'assigned_room_keys': [room.room_key for room in record.rooms.all()],
+                            'timetable_url': timetable_link(record, rooms_by_key),
                             'saved_windows': [
                                 {'date': window.date.isoformat(), 'start': window.start.strftime('%H:%M'),
                                  'end': window.end.strftime('%H:%M')} for window in record.windows.all()
@@ -782,4 +843,5 @@ def manage(request):
                             'created_by':str(record.created_by or ''),'updated_by':str(record.updated_by or '')}
     params=request.GET.copy();params.pop('page',None)
     return render(request,'workspace/classroom_maintenance.html',{'rooms':rooms,'maintenance_reasons':available_reasons(),
-        'page':page,'records':records,'filters':filters,'campuses':campuses,'filter_query':params.urlencode()})
+        'page':page,'records':records,'filters':filters,'campuses':campuses,'filter_query':params.urlencode(),
+        'maintenance_summary': summary})

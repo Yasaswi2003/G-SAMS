@@ -1,7 +1,8 @@
 import json
 import re
-from datetime import date, timedelta, time
+from datetime import date, datetime, timedelta, time
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import TestCase, Client
@@ -547,6 +548,41 @@ class BookingWorkflowTests(TestCase):
         self.assertEqual([card['value'] for card in outside.context['kpis']], [0, 0, 0, '—'])
         self.assertNotContains(outside, 'data-campus-choice="VSP"')
         self.assertNotContains(outside, 'data-building-name="ICT Block"')
+
+    def test_snapshot_unions_overlapping_timetables_and_bookings_across_dates(self):
+        from .booking_analytics import build_analytics
+        first = date(2026, 11, 2)
+        Booking.objects.create(booked_by=self.users['TEACHER'], campus_code='VSP', building_name='ICT Block',
+            room_code='101', room_key='VSP|ICT|101', booking_date=first, from_time=time(10), to_time=time(11),
+            title='Class', purpose='Class', teacher_name='Teacher', teacher_id='teacher',
+            requester_department='CSE', requester_campus='VSP', status='confirmed')
+        def slot(day, start, end):
+            return {'room_key': 'VSP|ICT|101', 'weekday': day, 'start_minutes': start,
+                    'end_minutes': end, 'dept_code': 'CSE'}
+        slots = [slot('Monday', 480, 600), slot('Monday', 510, 630), slot('Monday', 480, 600),
+                 slot('Tuesday', 540, 600)]
+        params = {'start': first.isoformat(), 'end': '2026-11-10'}
+        with patch('workspace.class_utilization._load_semester_choices', return_value=['2026-2027#ODD']), \
+             patch('workspace.class_utilization._load_timetable', return_value=slots), \
+             patch('workspace.holidays.closures_on',
+                   side_effect=lambda day, campus: ['closed'] if day == date(2026, 11, 9) else []):
+            fast = build_analytics(params, snapshot=True)['utilization_summary']
+            standard = build_analytics(params)['utilization_summary']
+        self.assertEqual(fast['occupied_minutes'], 300)
+        self.assertEqual(fast['capacity_minutes'], 2880)
+        for field in ('occupied_minutes', 'capacity_minutes', 'room_usage', 'daily_totals', 'daily', 'buildings', 'idle'):
+            self.assertEqual(fast[field], standard[field])
+
+    def test_snapshot_reuses_timetable_only_within_one_request(self):
+        self.login('ADMIN')
+        params = {'start': '2026-11-18', 'end': '2026-11-18',
+                  'util_campus': 'VSP', 'util_building': 'ICT Block'}
+        with patch('workspace.class_utilization._load_semester_choices', return_value=['2026-2027#ODD']), \
+             patch('workspace.class_utilization._load_timetable', return_value=[]) as timetable:
+            self.assertEqual(self.client.get(reverse('booking_analytics'), params).status_code, 200)
+            self.assertEqual(timetable.call_count, 1)
+            self.assertEqual(self.client.get(reverse('booking_analytics'), params).status_code, 200)
+            self.assertEqual(timetable.call_count, 2)
 
     def test_booking_snapshot_excludes_archived_bookings_and_personal_details(self):
         booking = self.booking()
@@ -1241,6 +1277,68 @@ class BookingWorkflowTests(TestCase):
             self.assertContains(unknown, '<option value="OTHER" selected>OTHER</option>', html=True)
             self.assertEqual(len(unknown.context['page']), 0)
 
+    def test_maintenance_status_tabs_count_filtered_records_before_pagination(self):
+        from .models import ClassroomMaintenance, ClassroomMaintenanceWindow
+        self.login('ADMIN')
+        day = date(2026, 11, 25)
+        now = datetime.combine(day, time(10))
+        common = {'scope': 'building', 'campus': 'VSP', 'building_key': 'VSP|ICT',
+                  'building_name': 'ICT Block', 'start_date': day, 'end_date': day, 'duration': 'short'}
+        for start, end, count in ((time(11), time(12), 26), (time(9), time(11), 1), (time(8), time(9), 1)):
+            for _ in range(count):
+                record = ClassroomMaintenance.objects.create(**common)
+                ClassroomMaintenanceWindow.objects.create(maintenance=record, date=day, start=start, end=end)
+        ClassroomMaintenance.objects.create(**common, state='completed')
+        ClassroomMaintenance.objects.create(**common, state='cancelled')
+        ClassroomMaintenance.objects.create(**{**common, 'campus': 'HYD'})
+
+        with patch('workspace.classroom_maintenance.local_now', return_value=now):
+            params = {'campus': 'VSP', 'q': 'ICT', 'page': '2'}
+            response = self.client.get(reverse('classroom_maintenance'), params)
+            tabs = {item['key']: item for item in response.context['maintenance_summary']}
+            self.assertEqual({key: tab['count'] for key, tab in tabs.items()},
+                             {'all': 30, 'active': 28, 'upcoming': 26, 'ongoing': 1,
+                              'overdue': 1, 'completed': 1, 'cancelled': 1})
+            self.assertTrue(tabs['all']['active'])
+            self.assertIn('campus=VSP', tabs['overdue']['url'])
+            self.assertIn('q=ICT', tabs['overdue']['url'])
+            self.assertNotIn('page=', tabs['overdue']['url'])
+            for status, expected in (('upcoming', 26), ('ongoing', 1), ('overdue', 1),
+                                     ('completed', 1), ('cancelled', 1), ('active', 28)):
+                filtered = self.client.get(reverse('classroom_maintenance'),
+                                           {'campus': 'VSP', 'q': 'ICT', 'status': status})
+                self.assertEqual(filtered.context['page'].paginator.count, expected)
+                self.assertTrue(next(item for item in filtered.context['maintenance_summary']
+                                     if item['key'] == status)['active'])
+                self.assertContains(filtered, f'<input type="hidden" name="status" value="{status}">', html=True)
+                self.assertNotContains(filtered, '<select name="status">')
+
+    def test_maintenance_status_tabs_handle_deadlines_and_multiple_windows(self):
+        from .models import ClassroomMaintenance, ClassroomMaintenanceWindow
+        self.login('ADMIN')
+        day = date(2026, 11, 25)
+        now = datetime.combine(day, time(10))
+        common = {'scope': 'building', 'campus': 'VSP', 'building_key': 'VSP|ICT',
+                  'building_name': 'ICT Block', 'start_date': day, 'end_date': day, 'duration': 'short'}
+        ongoing = ClassroomMaintenance.objects.create(**common)
+        for start, end in ((time(9), time(11)), (time(13), time(14))):
+            ClassroomMaintenanceWindow.objects.create(maintenance=ongoing, date=day, start=start, end=end)
+        overdue = ClassroomMaintenance.objects.create(
+            **common, expected_completion=datetime.combine(day, time(9, 30)))
+        ClassroomMaintenanceWindow.objects.create(maintenance=overdue, date=day, start=time(9), end=time(12))
+        ClassroomMaintenance.objects.create(**{**common, 'start_date': day + timedelta(days=1),
+                                                'end_date': day + timedelta(days=1)})
+
+        with patch('workspace.classroom_maintenance.local_now', return_value=now):
+            response = self.client.get(reverse('classroom_maintenance'), {'date': day.isoformat()})
+            tabs = {item['key']: item['count'] for item in response.context['maintenance_summary']}
+            self.assertEqual((tabs['all'], tabs['ongoing'], tabs['overdue']), (2, 1, 1))
+            filtered = self.client.get(reverse('classroom_maintenance'), {'date': day.isoformat(), 'status': 'ongoing'})
+            self.assertEqual([record.pk for record in filtered.context['page']], [ongoing.pk])
+            all_dates = self.client.get(reverse('classroom_maintenance'))
+            tabs = {item['key']: item['count'] for item in all_dates.context['maintenance_summary']}
+            self.assertEqual(tabs['upcoming'], 1)
+
     def test_maintenance_classroom_list_collapses_only_when_long(self):
         from .models import ClassroomMaintenance
         self.login('ADMIN')
@@ -1259,6 +1357,68 @@ class BookingWorkflowTests(TestCase):
                 self.assertContains(response, 'View less')
             else:
                 self.assertNotContains(response, 'class="cm-review-dropdown cm-manage-rooms"')
+
+    def test_maintenance_timetable_links_open_the_correct_location_and_period(self):
+        from .models import ClassroomMaintenance, ClassroomMaintenanceRoom, ClassroomMaintenanceWindow
+        self.login('ADMIN')
+        day = date(2026, 11, 28)
+        catalog = _build_room_catalog([
+            {'campus_code': 'VSP', 'building_code': 'ICT', 'room_code': '101', 'floor_code': '1'},
+            {'campus_code': 'VSP', 'building_code': 'ICT', 'room_code': '201', 'floor_code': '2'},
+        ])
+        common = {'campus': 'VSP', 'building_key': 'VSP|ICT', 'building_name': 'ICT Block',
+                  'start_date': day, 'end_date': day, 'duration': 'short'}
+        records = {}
+        for scope in ('building', 'floor', 'room'):
+            record = ClassroomMaintenance.objects.create(scope=scope, **common)
+            for key in ('VSP|ICT|101', 'VSP|ICT|201'):
+                ClassroomMaintenanceRoom.objects.create(maintenance=record, room_key=key)
+            ClassroomMaintenanceWindow.objects.create(maintenance=record, date=day, start=time(0), end=time(23, 59))
+            records[scope] = record
+        with patch('workspace.class_utilization._load_room_catalog', return_value=catalog):
+            management = self.client.get(reverse('classroom_maintenance'))
+            for scope, record in records.items():
+                url = management.context['records'][record.pk]['timetable_url']
+                query = parse_qs(urlsplit(url).query)
+                self.assertEqual(query['date'], [day.isoformat()])
+                self.assertEqual(query['include_weekends'], ['1'])
+                self.assertEqual(query['building'], ['VSP|ICT'])
+                if scope != 'building':
+                    self.assertEqual(query['floor'], ['1'])
+                if scope == 'room':
+                    self.assertEqual(query['room'], ['VSP|ICT|101'])
+                    self.assertEqual(query['maintenance_focus'], [str(record.pk)])
+                    timetable = self.client.get(url)
+                    self.assertEqual(timetable.status_code, 200)
+                    self.assertTrue(timetable.context['show_schedule'])
+                    self.assertEqual(timetable.context['selected_room_key'], 'VSP|ICT|101')
+                    self.assertEqual(timetable.context['grid_rows'][0]['start_time'], '00:00')
+                    self.assertEqual(timetable.context['grid_rows'][-1]['end_time'], '24:00')
+                    self.assertContains(timetable, 'id="maintenance-focus"', count=1)
+                    self.assertContains(timetable, 'Selected maintenance period')
+                    self.assertNotIn('maintenance_focus', timetable.context['next_week_url'])
+                    self.login('TEACHER')
+                    self.assertEqual(self.client.get(url).status_code, 403)
+                    self.login('ADMIN')
+                else:
+                    timetable = self.client.get(url)
+                    self.assertEqual(timetable.status_code, 200)
+                    self.assertEqual(timetable.context['selected_floor'], '1' if scope == 'floor' else '')
+
+            for record in records.values():
+                record.state = 'completed'
+                record.save(update_fields=['state'])
+            url = management.context['records'][records['room'].pk]['timetable_url']
+            historical = self.client.get(url)
+            self.assertContains(historical, 'Completed')
+            focused = [cell for row in historical.context['grid_rows'] for cell in row['cells']
+                       if cell['maintenance_focused']]
+            self.assertTrue(focused)
+            self.assertFalse(any(cell['has_maintenance'] for cell in focused))
+
+            records['room'].rooms.filter(room_key='VSP|ICT|101').update(room_key='VSP|ICT|missing')
+            missing = self.client.get(reverse('classroom_maintenance'))
+            self.assertEqual(missing.context['records'][records['room'].pk]['timetable_url'], '')
 
     def test_maintenance_review_blocks_only_affected_slots_and_cancellation_preserves_bookings(self):
         from .models import ClassroomMaintenance
@@ -1342,7 +1502,8 @@ class BookingWorkflowTests(TestCase):
             record_id = result.json()['id']
             management = self.client.get(reverse('classroom_maintenance'))
             self.assertContains(management, 'id="cm-inline-review"')
-            self.assertContains(management, 'id="cm-room-picker"')
+            self.assertNotContains(management, 'id="cm-room-picker"')
+            self.assertNotContains(management, 'id="cm-edit-rooms"')
             saved = management.context['records'][record_id]
             self.assertEqual(saved['targets'], ['1'])
             edited = {**payload, 'id': record_id, 'targets': saved['targets'],
@@ -1443,7 +1604,7 @@ class BookingWorkflowTests(TestCase):
             parse_schedule({**payload, 'recurrence': True, 'start_date': today.isoformat(), 'end_date': today.isoformat()},
                            self.catalog[0], now=now, editing=True)
 
-    def test_maintenance_release_and_extension_keep_floor_and_building_booking_availability(self):
+    def test_maintenance_release_keeps_floor_and_building_booking_availability(self):
         from .classroom_maintenance import maintenance_blocks
         from .models import ClassroomMaintenance
 
@@ -1454,7 +1615,6 @@ class BookingWorkflowTests(TestCase):
         endpoint = reverse('schedule_classroom_maintenance')
         availability = reverse('classroom_availability')
         day = self.day
-        end = day + timedelta(days=2)
         keys = ['VSP|ICT|101', 'VSP|ICT|102', 'VSP|ICT|103']
 
         def save(payload):
@@ -1496,30 +1656,24 @@ class BookingWorkflowTests(TestCase):
                         other_id = save({**base, 'scope': 'room', 'targets': [keys[0]]})
                         self.assertTrue(maintenance_blocks(keys[0], day, time(12), time(13)))
                         self.assertFalse(maintenance_blocks(keys[1], day, time(12), time(13)))
-                    save({'id': record_id, 'extend_until': end.isoformat()+'T15:00'})
                     record.refresh_from_db()
-                    self.assertEqual((record.scope, record.start_date, record.end_date), (scope, day, end))
+                    self.assertEqual((record.scope, record.start_date, record.end_date), (scope, day, day))
                     self.assertEqual(set(record.rooms.values_list('room_key', flat=True)), set(remaining))
-                    self.assertTrue(set(original_windows).issubset(record.windows.values_list('pk', flat=True)))
-                    self.assertEqual(record.history[-1]['extended_until'], end.isoformat()+'T15:00')
-                    self.assertEqual(record.history[-2]['released_rooms'], [keys[1]])
+                    self.assertEqual(original_windows, list(record.windows.values_list('pk', flat=True)))
+                    self.assertEqual(record.history[-1]['released_rooms'], [keys[1]])
                     first_release, second_release = record.history[1:3]
                     for entry, key in ((first_release, keys[0]), (second_release, keys[1])):
                         self.assertEqual(entry['room_releases'], [{'room_key': key, 'released_at': entry['at']}])
                     self.assertLess(first_release['at'], second_release['at'])
                     self.assertEqual(len(record.history[0]['added_rooms']), len(original))
                     self.assertEqual(record.history[0]['original_start'], day.isoformat()+'T08:00')
+                    self.login('ADMIN')
                     management = self.client.get(reverse('classroom_maintenance'))
-                    self.assertContains(management, 'Save Extension')
+                    self.assertContains(management, 'Extend Maintenance')
                     reopened = management.context['records'][record_id]
                     self.assertEqual(set(reopened['assigned_room_keys']), set(remaining))
-                    self.assertEqual(reopened['expected_completion'], end.isoformat()+'T15:00')
+                    self.assertEqual(reopened['expected_completion'], day.isoformat()+'T16:00')
                     self.assertEqual(reopened['history'][1:3], [first_release, second_release])
-                    for key in original[:2]:
-                        self.assertFalse(maintenance_blocks(key, end, time(12), time(13)))
-                    for key in remaining:
-                        self.assertTrue(maintenance_blocks(key, end, time(12), time(13)))
-                        self.assertFalse(maintenance_blocks(key, end, time(15), time(16)))
                     if scope == 'floor':
                         ClassroomMaintenance.objects.filter(pk=other_id).update(state='completed')
                     if scope == 'building':
@@ -1532,9 +1686,36 @@ class BookingWorkflowTests(TestCase):
                     record.state = 'completed'
                     record.save(update_fields=['state'])
 
-    def test_maintenance_recurrence_extension_keeps_weekdays(self):
+    def test_recurring_maintenance_extension_keeps_weekday_slots(self):
         from .classroom_maintenance import maintenance_blocks
-        from .models import ClassroomMaintenance
+
+        self.login('ADMIN')
+        endpoint = reverse('schedule_classroom_maintenance')
+        first, next_week = self.day, self.day + timedelta(days=7)
+        payload = {
+            'scope': 'room', 'campus': 'VSP', 'building': 'VSP|ICT', 'targets': [self.payload['room_key']],
+            'reasons': ['Electrical Issue'], 'recurrence': True, 'start_date': first.isoformat(),
+            'end_date': first.isoformat(), 'selections': [{'date': first.isoformat(), 'start': '09:00', 'end': '11:00'}],
+        }
+        preview = self.client.post(endpoint, {**payload, 'action': 'preview'}, content_type='application/json')
+        self.assertEqual(preview.status_code, 200, preview.content)
+        saved = self.client.post(endpoint, {**payload, 'action': 'save', 'token': preview.json()['token']},
+                                 content_type='application/json')
+        self.assertEqual(saved.status_code, 200, saved.content)
+        extension = {'id': saved.json()['id'], 'classroom_keys': [self.payload['room_key']],
+                     'extend_until': next_week.isoformat()+'T10:00'}
+        preview = self.client.post(endpoint, {**extension, 'action': 'preview'}, content_type='application/json')
+        self.assertEqual(preview.status_code, 200, preview.content)
+        saved = self.client.post(endpoint, {**extension, 'action': 'save', 'token': preview.json()['token']},
+                                 content_type='application/json')
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertFalse(maintenance_blocks(self.payload['room_key'], first + timedelta(days=1), time(9), time(10)))
+        self.assertTrue(maintenance_blocks(self.payload['room_key'], next_week, time(9), time(10)))
+        self.assertFalse(maintenance_blocks(self.payload['room_key'], next_week, time(10), time(11)))
+
+    def test_previously_extended_recurrence_can_still_be_edited(self):
+        from .classroom_maintenance import maintenance_blocks
+        from .models import ClassroomMaintenance, ClassroomMaintenanceWindow
 
         self.login('ADMIN')
         endpoint = reverse('schedule_classroom_maintenance')
@@ -1555,8 +1736,14 @@ class BookingWorkflowTests(TestCase):
             return response.json()['id']
 
         record_id = save(request_payload)
-        save({'id': record_id, 'extend_until': next_week.isoformat()+'T10:00'})
         record = ClassroomMaintenance.objects.get(pk=record_id)
+        record.end_date = next_week
+        record.expected_completion = datetime.combine(next_week, time(10))
+        if timezone.is_aware(timezone.now()):
+            record.expected_completion = timezone.make_aware(record.expected_completion)
+        record.history = [*record.history, {'extended_until': next_week.isoformat()+'T10:00'}]
+        record.save()
+        ClassroomMaintenanceWindow.objects.create(maintenance=record, date=next_week, start=time(9), end=time(10))
         self.assertEqual(record.selections, request_payload['selections'])
         self.assertEqual(record.start_date, first)
         self.assertFalse(maintenance_blocks(self.payload['room_key'], first + timedelta(days=1), time(9), time(10)))
@@ -1567,24 +1754,142 @@ class BookingWorkflowTests(TestCase):
         self.assertTrue(maintenance_blocks(self.payload['room_key'], next_week, time(9), time(10)))
         self.assertFalse(maintenance_blocks(self.payload['room_key'], next_week, time(10), time(11)))
 
-    def test_maintenance_extension_from_november_28_to_november_30(self):
-        from datetime import datetime
-        from .classroom_maintenance import extension_schedule
-        from .models import ClassroomMaintenance, ClassroomMaintenanceWindow
+    def test_maintenance_extension_releases_completed_rooms_only_on_confirmation(self):
+        from .classroom_maintenance import maintenance_blocks
+        from .models import ClassroomMaintenance, ClassroomMaintenanceRoom, ClassroomMaintenanceWindow
 
-        start, end = date(2026, 11, 23), date(2026, 11, 28)
+        self.login('ADMIN')
+        end = self.day + timedelta(days=(7 - self.day.weekday()) % 7 or 7)
+        start = end - timedelta(days=1)
+        keys = [f'VSP|ICT|{number}' for number in range(101, 131)]
+        catalog = _build_room_catalog([
+            {'campus_code': 'VSP', 'building_code': 'ICT', 'room_code': key.rsplit('|', 1)[-1],
+             'floor_code': '1'} for key in [*keys, 'VSP|ICT|131']
+        ])
+        record = ClassroomMaintenance.objects.create(
+            scope='floor', campus='VSP', building_key='VSP|ICT', building_name='ICT Block',
+            floor='1', scope_targets=['1'], room_codes=[key.rsplit('|', 1)[-1] for key in keys],
+            start_date=start, end_date=start, duration='long', reasons=['Electrical Issue'],
+            expected_completion=timezone.make_aware(datetime.combine(start, time(16))) if timezone.is_aware(timezone.now())
+                else datetime.combine(start, time(16)),
+            selections=[{'date': start.isoformat(), 'start': '08:00', 'end': '16:00'}],
+            history=[{'action': 'Scheduled'}],
+        )
+        ClassroomMaintenanceRoom.objects.bulk_create(
+            ClassroomMaintenanceRoom(maintenance=record, room_key=key) for key in keys
+        )
+        ClassroomMaintenanceWindow.objects.create(maintenance=record, date=start, start=time(8), end=time(16))
+        payload = {'id': record.pk, 'classroom_keys': keys[18:], 'extend_until': end.isoformat()+'T15:00'}
+        endpoint = reverse('schedule_classroom_maintenance')
+        with patch('workspace.class_utilization._load_room_catalog', return_value=catalog), \
+             patch('workspace.class_utilization._load_semester_choices',
+                   return_value=list({get_current_semester(day) for day in (self.day, start, end, end + timedelta(days=1))})), \
+             patch('workspace.holidays.closures_on', return_value=[]):
+            invalid = self.client.post(endpoint, {**payload, 'classroom_keys': [*keys[18:], 'VSP|ICT|131'],
+                                                  'action': 'preview'}, content_type='application/json')
+            self.assertEqual(invalid.status_code, 400)
+            self.assertIn('already in this schedule', invalid.json()['error'])
+            other = ClassroomMaintenance.objects.create(
+                scope='room', campus='VSP', building_key='VSP|ICT', building_name='ICT Block',
+                start_date=end, end_date=end, duration='short',
+            )
+            ClassroomMaintenanceRoom.objects.create(maintenance=other, room_key=keys[-1])
+            ClassroomMaintenanceWindow.objects.create(maintenance=other, date=end, start=time(10), end=time(12))
+            conflict = self.client.post(endpoint, {**payload, 'action': 'preview'}, content_type='application/json')
+            self.assertEqual(conflict.status_code, 400)
+            self.assertIn('already overlaps', conflict.json()['error'])
+            self.assertEqual(record.rooms.count(), 30)
+            other.state = 'cancelled'
+            other.save(update_fields=['state'])
+            preview = self.client.post(endpoint, {**payload, 'action': 'preview'}, content_type='application/json')
+            self.assertEqual(preview.status_code, 200, preview.content)
+            self.assertEqual(record.rooms.count(), 30)
+            self.assertEqual(record.windows.count(), 1)
+            tampered = self.client.post(endpoint, {**payload, 'classroom_keys': keys[19:], 'action': 'save',
+                                                    'token': preview.json()['token']}, content_type='application/json')
+            self.assertEqual(tampered.status_code, 400)
+            self.assertEqual(record.rooms.count(), 30)
+            self.login('TEACHER')
+            self.assertEqual(self.client.post(endpoint, {**payload, 'action': 'preview'},
+                                              content_type='application/json').status_code, 403)
+            self.login('ADMIN')
+            saved = self.client.post(endpoint, {**payload, 'action': 'save', 'token': preview.json()['token']},
+                                     content_type='application/json')
+            self.assertEqual(saved.status_code, 200, saved.content)
+            record.refresh_from_db()
+            self.assertEqual(set(record.rooms.values_list('room_key', flat=True)), set(keys[18:]))
+            self.assertEqual(record.history[-1]['released_rooms'], keys[:18])
+            self.assertEqual(record.history[-1]['previous']['room_codes'], [key.rsplit('|', 1)[-1] for key in keys])
+            self.assertEqual(record.history[-1]['extended_until'], payload['extend_until'])
+            for key in keys[:18]:
+                self.assertFalse(maintenance_blocks(key, end, time(12), time(13)))
+                self.assertFalse(maintenance_blocks(key, start, time(12), time(13)))
+            for key in keys[18:]:
+                self.assertTrue(maintenance_blocks(key, end, time(12), time(13)))
+                self.assertTrue(maintenance_blocks(key, start, time(12), time(13)))
+                self.assertFalse(maintenance_blocks(key, end, time(15), time(16)))
+                self.assertFalse(maintenance_blocks(key, end + timedelta(days=1), time(12), time(13)))
+            self.login('TEACHER')
+            for key, status in ((keys[0], 200), (keys[-1], 400)):
+                response = self.client.get(reverse('classroom_availability'), {
+                    **self.payload, 'room_key': key, 'booking_date': end.isoformat()})
+                self.assertEqual(response.status_code, status, response.content)
+            for day, start_time in ((end, '15:00'), (end + timedelta(days=1), '12:00')):
+                response = self.client.get(reverse('classroom_availability'), {
+                    **self.payload, 'room_key': keys[-1], 'booking_date': day.isoformat(),
+                    'from_time': start_time, 'to_time': '16:00' if start_time == '15:00' else '13:00'})
+                self.assertEqual(response.status_code, 200, response.content)
+
+            params = {'campus': 'VSP', 'building': 'VSP|ICT', 'floor': '1'}
+            active_day = self.client.get(reverse('class_utilization'), {**params, 'date': end.isoformat()})
+            selected = {card['key']: card for card in active_day.context['classroom_cards']}
+            self.assertEqual(selected[keys[-1]]['state'], 'partial-maintenance')
+            self.assertNotIn(selected[keys[0]]['state'], ('maintenance', 'partial-maintenance'))
+            next_day = self.client.get(reverse('class_utilization'), {
+                **params, 'date': (end + timedelta(days=1)).isoformat()})
+            selected = {card['key']: card for card in next_day.context['classroom_cards']}
+            self.assertNotIn(selected[keys[-1]]['state'], ('maintenance', 'partial-maintenance'))
+            floor = self.client.get(reverse('class_utilization'), {
+                'campus': 'VSP', 'building': 'VSP|ICT', 'date': (end + timedelta(days=1)).isoformat()})
+            self.assertNotIn(floor.context['floor_cards'][0].get('state'), ('maintenance', 'partial-maintenance'))
+            grid = self.client.get(reverse('class_utilization'), {
+                **params, 'room': keys[-1], 'date': end.isoformat(), 'include_weekends': '1'})
+            last_day_cells = [cell for row in grid.context['grid_rows'] for cell in row['cells']
+                              if cell['booking_date'] == end.isoformat()]
+            self.assertTrue(any(cell['has_maintenance'] for cell in last_day_cells))
+            for row in grid.context['grid_rows']:
+                cell = next(cell for cell in row['cells'] if cell['booking_date'] == end.isoformat())
+                self.assertEqual(cell['has_maintenance'], row['start_time'] < '15:00')
+            next_day_cells = [cell for row in grid.context['grid_rows'] for cell in row['cells']
+                              if cell['booking_date'] == (end + timedelta(days=1)).isoformat()]
+            self.assertTrue(next_day_cells)
+            self.assertFalse(any(cell['has_maintenance'] for cell in next_day_cells))
+
+    def test_room_card_ignores_today_maintenance_after_end_but_preserves_master_status(self):
+        from .classroom_selection import selection_context
+        from .models import ClassroomMaintenance, ClassroomMaintenanceWindow
+        from django.test import RequestFactory
+
+        day = date.today()
         record = ClassroomMaintenance.objects.create(
             scope='room', campus='VSP', building_key='VSP|ICT', building_name='ICT Block',
-            start_date=start, end_date=end, duration='long',
+            start_date=day, end_date=day, duration='short',
         )
-        ClassroomMaintenanceWindow.objects.create(maintenance=record, date=end, start=time(0), end=time(23, 59))
-        values, windows = extension_schedule(record, '2026-11-30T23:59', datetime(2026, 11, 27, 10))
-        self.assertNotIn('start_date', values)
-        self.assertEqual(values['end_date'], date(2026, 11, 30))
-        self.assertEqual(windows, [
-            (date(2026, 11, 29), time(0), time(23, 59)),
-            (date(2026, 11, 30), time(0), time(23, 59)),
-        ])
+        window = ClassroomMaintenanceWindow.objects.create(maintenance=record, date=day, start=time(9), end=time(12))
+        room = self.catalog[0][0]
+        filters = {'selected_campus': 'VSP', 'selected_building': 'VSP|ICT', 'selected_floor': '__unrecorded__',
+                   'selected_room_key': '', 'floor_choices': [], 'campuses': [], 'buildings': []}
+        request = RequestFactory().get('/workspace/class_utilization')
+        now = timezone.make_aware(datetime.combine(day, time(12))) if timezone.is_aware(timezone.now()) \
+            else datetime.combine(day, time(12))
+        windows = {(room['key'], day): [window]}
+        with patch('workspace.classroom_selection.timezone.now', return_value=now), \
+             patch('workspace.classroom_selection.closures_on', return_value=[]):
+            context = selection_context(request, [room], [], filters, day, maintenance_windows=windows)
+            self.assertEqual(context['classroom_cards'][0]['state'], 'available')
+            context = selection_context(request, [{**room, 'maintenance': True}], [], filters, day,
+                                        maintenance_windows=windows)
+            self.assertEqual(context['classroom_cards'][0]['state'], 'maintenance')
 
     def test_floor_maintenance_undo_releases_only_unchecked_classrooms(self):
         from .classroom_maintenance import maintenance_blocks
@@ -1952,6 +2257,15 @@ class BookingWorkflowTests(TestCase):
             else:
                 self.assertNotContains(response,'aria-label="Booking Analytics pages"')
                 self.assertNotContains(response, 'Manage Maintenance')
+
+    def test_booking_analytics_opens_admin_navigation(self):
+        self.login('ADMIN')
+        response = self.client.get(reverse('booking_analytics'))
+        self.assertContains(response, '<details class="admin-booking-disclosure" open>')
+        html = response.content.decode()
+        group = html.split('aria-label="Booking Analytics pages"', 1)[1].split('</ul>', 1)[0]
+        for page in ('class_utilization', 'classroom_requests', 'classroom_maintenance'):
+            self.assertIn(reverse(page), group)
 
     def test_utilization_summary_changes_with_campus_and_week_filters(self):
         self.login('ADMIN')

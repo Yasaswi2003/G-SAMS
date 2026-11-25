@@ -254,7 +254,7 @@ def _campus_filter_options(rooms, campus_codes, selected=''):
     return sorted(labels.values(), key=str.casefold)
 
 
-def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, room_key=None):
+def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, room_key=None, occupancy_only=False):
     rows = TimeTableMaster.objects.using(GITAM_DATABASE).annotate(
         semester_key=Upper(Trim("sem_flag")),
         status_key=Upper(Trim("status_flag")),
@@ -269,16 +269,31 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
         rows = rows.alias(campus_key=Upper(Trim('campus_code')), room_alias=Upper(Trim('room_number'))).filter(
             campus_key=campus, room_alias__in=room_numbers,
         )
-    rows = rows.values(
-        "id", "subject_code", "subject_name", "weekday", "from_time", "to_time",
-        "section", "semester", "batch", "branch_code", "course_code", "degree_code",
-        "dept_code", "college_code", "campus_code", "empid", "empname", "room_number",
-        "building_name",
-    ).iterator(chunk_size=2000)
+    if occupancy_only:
+        fields = ("weekday", "from_time", "to_time", "dept_code", "campus_code", "room_number", "building_name")
+    else:
+        fields = (
+            "id", "subject_code", "subject_name", "weekday", "from_time", "to_time",
+            "section", "semester", "batch", "branch_code", "course_code", "degree_code",
+            "dept_code", "college_code", "campus_code", "empid", "empname", "room_number",
+            "building_name",
+        )
+    rows = rows.values(*fields).iterator(chunk_size=2000)
 
     teacher_email_map = teacher_email_map or {}
     schedules = []
     seen = set()
+    resolved_rooms = {}
+    normalised_values = {}
+    formatted_times = {}
+
+    def signature_value(value):
+        if not isinstance(value, str):
+            return value
+        if value not in normalised_values:
+            normalised_values[value] = _normalise(value)
+        return normalised_values[value]
+
     for row in rows:
         day = DAY_LABELS.get(_normalise(row["weekday"]))
         start, end = row["from_time"], row["to_time"]
@@ -288,7 +303,17 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
         if start_minutes >= end_minutes:
             continue
 
-        room = _resolve_room(row, room_by_key, aliases)
+        location = (row["campus_code"], row["building_name"], row["room_number"])
+        if location not in resolved_rooms:
+            resolved_rooms[location] = _resolve_room(row, room_by_key, aliases)
+        room = resolved_rooms[location]
+        if occupancy_only:
+            if room:
+                schedules.append({
+                    "room_key": room["key"], "weekday": day, "start_minutes": start_minutes,
+                    "end_minutes": end_minutes, "dept_code": row["dept_code"],
+                })
+            continue
         campus = room["campus"] if room else str(row["campus_code"] or "").strip()
         building = room["building"] if room else str(row["building_name"] or "").strip()
         room_code = room["room_code"] if room else str(row["room_number"] or "").strip()
@@ -297,6 +322,9 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
 
         empid_str = str(row["empid"] or "").strip()
         empname_str = str(row["empname"] or "").strip()
+        for value in (start, end):
+            if value not in formatted_times:
+                formatted_times[value] = value.strftime("%H:%M")
         t_email = ""
         if empid_str:
             t_email = teacher_email_map.get(_normalise(empid_str), "")
@@ -330,12 +358,12 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
             "weekday": day,
             "start_minutes": start_minutes,
             "end_minutes": end_minutes,
-            "start_time": start.strftime("%H:%M"),
-            "end_time": end.strftime("%H:%M"),
+            "start_time": formatted_times[start],
+            "end_time": formatted_times[end],
             "duration_minutes": end_minutes - start_minutes,
         }
         signature = tuple(
-            _normalise(schedule[field]) if isinstance(schedule[field], str) else schedule[field]
+            signature_value(schedule[field])
             for field in (
                 "campus", "building", "room_code", "subject_code", "subject_name",
                 "course_code", "section", "semester", "batch", "branch_code",
@@ -348,6 +376,8 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
         seen.add(signature)
         schedules.append(schedule)
 
+    if occupancy_only:
+        return schedules
     schedules.sort(key=lambda row: (
         DAYS.index(row["weekday"]), row["start_minutes"], row["campus"],
         row["building"], row["room_name"], row["subject_code"],
@@ -559,7 +589,7 @@ def class_utilization(request):
         booking_id = request.GET['booking_id']
         if not booking_id.isdigit():
             raise Http404('Booking not found.')
-        selected_booking = get_object_or_404(visible(request.user), pk=int(booking_id))
+        selected_booking = get_object_or_404(visible(request.user, active_role), pk=int(booking_id))
         room = room_by_key.get(selected_booking.room_key)
         if room is None:
             room = _resolve_room({'campus_code':selected_booking.campus_code, 'building_name':selected_booking.building_name, 'room_number':selected_booking.room_code},room_by_key,room_aliases)
@@ -576,6 +606,32 @@ def class_utilization(request):
             selected_date = date.fromisoformat(request.GET['date'])
         except ValueError:
             return HttpResponseBadRequest('Choose a valid timetable date (YYYY-MM-DD).')
+
+    selected_maintenance = None
+    maintenance_focus = request.GET.get('maintenance_focus')
+    if maintenance_focus:
+        if active_role != 'ADMIN':
+            return HttpResponseForbidden('Only Admin can view maintenance details.')
+        if not maintenance_focus.isascii() or not maintenance_focus.isdecimal() or len(maintenance_focus) > 18:
+            raise Http404('Maintenance schedule not found.')
+        from .models import ClassroomMaintenance
+        record = get_object_or_404(
+            ClassroomMaintenance, pk=int(maintenance_focus), rooms__room_key=request.GET.get('room', ''),
+        )
+        focus_room = room_by_key.get(request.GET.get('room', ''))
+        if not focus_room or not selected_date:
+            raise Http404('Maintenance timetable location not found.')
+        selected_maintenance = record.windows.select_related('maintenance').filter(
+            date=selected_date,
+        ).order_by('start', 'end').first()
+        if selected_maintenance is None:
+            raise Http404('Maintenance period not found.')
+        query = request.GET.copy()
+        query.update({'campus': focus_room['campus_key'], 'building': focus_room['building_key'],
+                      'floor': focus_room.get('floor_code') or '__unrecorded__'})
+        if selected_date.weekday() >= 5:
+            query['include_weekends'] = '1'
+        request.GET = query
 
     now = timezone.now()
     if timezone.is_aware(now):
@@ -624,8 +680,11 @@ def class_utilization(request):
         except (DatabaseError, KeyError, TypeError, ValueError):
             card_schedules = []
             data_errors.append('Current room availability could not be fully checked.')
-    schedules = [row for row in schedules if not closures_on(
-        week_start + timedelta(days=DAYS.index(row['weekday'])), row.get('campus', ''))]
+    week_dates = {day: week_start + timedelta(days=index) for index, day in enumerate(DAYS)}
+    campuses = {room['campus'] for room in rooms} | {row.get('campus', '') for row in schedules}
+    closed_days = {(day, campus) for day, day_date in week_dates.items() for campus in campuses
+                   if closures_on(day_date, campus)}
+    schedules = [row for row in schedules if (row['weekday'], row.get('campus', '')) not in closed_days]
     filters = _filters(request, rooms, schedules, semesters, reference_date=selected_date)
     selected_semester = filters["selected_semester"]
     master_buildings = {room['building_key'] for room in rooms}
@@ -639,20 +698,23 @@ def class_utilization(request):
     candidate_room_keys = filters["room_matches"]
     if not search:
         candidate_room_keys = {room["key"] for room in filters["room_choices"]}
+    ordered_candidate_room_keys = sorted(candidate_room_keys)
 
     range_start, range_end = week_start, week_end
     room_by_key = {room["key"]: room for room in rooms}
 
     from .booking_workflow import role, visible
-    booking_role = role(request.user)
-    is_reviewer = role(request.user) in ('ADMIN', 'HOD')
+    booking_role = active_role
+    is_reviewer = booking_role in ('ADMIN', 'HOD')
     pending_requests_count = 0
 
     booking_events = []
     blocking_events = []
     if selected_semester:
         try:
-            bookings = visible(request.user).filter(
+            bookings = visible(request.user, booking_role).select_related(None).select_related(
+                'booked_by', 'reviewed_by',
+            ).prefetch_related(None).filter(
                 booking_date__range=(range_start, range_end),
                 is_active=True,
             ).exclude(status='withdrawn')
@@ -713,7 +775,10 @@ def class_utilization(request):
             data_errors.append("Classroom bookings could not be loaded from the application database.")
 
     try:
-        for held in ClassroomBooking.objects.filter(booking_date__range=(range_start, range_end), is_active=True, status__in=['pending','hod_approved','confirmed']):
+        for held in ClassroomBooking.objects.filter(
+            booking_date__range=(range_start, range_end), is_active=True,
+            status__in=['pending', 'hod_approved', 'confirmed'],
+        ).only('room_key', 'campus_code', 'building_name', 'room_code', 'booking_date', 'from_time', 'to_time', 'status'):
             room = room_by_key.get(held.room_key) or _resolve_room({'campus_code':held.campus_code,'building_name':held.building_name,'room_number':held.room_code},room_by_key,room_aliases)
             if room and room['key'] in candidate_room_keys:
                 blocking_events.append({'room_key':room['key'],'weekday':DAYS[held.booking_date.weekday()],'start_minutes':_minutes(held.from_time),'end_minutes':_minutes(held.to_time),'status':held.status})
@@ -763,12 +828,22 @@ def class_utilization(request):
         grid_start, grid_end = TIME_START_DEFAULT, effective_time_end
     if not include_after_hours:
         grid_start, grid_end = TIME_START_DEFAULT, TIME_END_DEFAULT
+    summary_grid_start, summary_grid_end = grid_start, grid_end
+    if selected_maintenance:
+        grid_start = min(grid_start, selected_maintenance.start.hour)
+        grid_end = max(grid_end, (_minutes(selected_maintenance.end) + 59) // 60)
     grid_end = max(grid_end, grid_start + 1)
 
     occupancy = defaultdict(list)
     for row in filters["occupancy_classes"]:
         if row["room_key"]:
             occupancy[(row["room_key"], row["weekday"])].append(row)
+    classes_by_day = defaultdict(list)
+    for row in filters["classes"]:
+        classes_by_day[row["weekday"]].append(row)
+    blocking_by_room_day = defaultdict(list)
+    for booking in blocking_events:
+        blocking_by_room_day[(booking["room_key"], booking["weekday"])].append(booking)
 
     available_room_keys = set()
     from .classroom_maintenance import available_reasons, floor_undo_token, window_map
@@ -779,7 +854,7 @@ def class_utilization(request):
         if room_by_key[room_key].get('maintenance'):
             continue
         for day in selected_days:
-            if closures_on(week_start + timedelta(days=DAYS.index(day)), room_by_key[room_key]['campus']):
+            if (day, room_by_key[room_key]['campus']) in closed_days:
                 continue
             day_events = occupancy.get((room_key, day), [])
             if any(not any(
@@ -794,8 +869,8 @@ def class_utilization(request):
                 and booking["weekday"] == day
                 and booking["start_minutes"] < (hour + 1) * 60
                 and booking["end_minutes"] > hour * 60
-                for booking in blocking_events
-            ) for hour in range(grid_start, grid_end)):
+                for booking in blocking_by_room_day.get((room_key, day), ())
+            ) for hour in range(summary_grid_start, summary_grid_end)):
                 available_room_keys.add(room_key)
                 break
 
@@ -804,6 +879,8 @@ def class_utilization(request):
     rooms_with_booked_slots = set()
     maintenance_selection_days = set()
     grid_rows = []
+    campuses_in_view = {room_by_key[key]['campus'] for key in candidate_room_keys if key in room_by_key}
+    annotations = {day: day_annotations(week_dates[day], campuses_in_view) for day in visible_days}
     for hour in range(grid_start, grid_end):
         grid_row = {
             "label": f"{hour:02d}:00 - {hour + 1:02d}:00",
@@ -812,12 +889,11 @@ def class_utilization(request):
             "cells": [],
         }
         for day in visible_days:
-            booking_date = week_start + timedelta(days=DAYS.index(day))
+            booking_date = week_dates[day]
             # Collect all matching events for this hour/day slot
             raw_events = [
-                event for event in filters["classes"]
-                if event["weekday"] == day
-                and event["start_minutes"] < (hour + 1) * 60
+                event for event in classes_by_day[day]
+                if event["start_minutes"] < (hour + 1) * 60
                 and event["end_minutes"] > hour * 60
             ]
             # Deduplicate: same subject_code + instructor in same slot = same class
@@ -858,7 +934,7 @@ def class_utilization(request):
                     and booking['start_minutes'] < (hour + 1) * 60 and booking['end_minutes'] > hour * 60
                 }
                 rooms_with_booked_slots.update(
-                    key for key in booked_keys if not closures_on(booking_date, room_by_key[key]['campus'])
+                    key for key in booked_keys if (day, room_by_key[key]['campus']) not in closed_days
                 )
             busy_room_keys.update(booking['room_key'] for booking in cell_bookings if booking['status'] in ('pending','hod_approved','confirmed'))
             busy_room_keys.update(booking['room_key'] for booking in blocking_events if booking['weekday'] == day and booking['start_minutes'] < (hour+1)*60 and booking['end_minutes'] > hour*60)
@@ -869,16 +945,17 @@ def class_utilization(request):
             }
             busy_room_keys.update(maintenance_keys)
             free_rooms = [
-                room_by_key[key] for key in sorted(candidate_room_keys - busy_room_keys)
-                if key in room_by_key and not room_by_key[key].get('maintenance')
-                and not closures_on(booking_date, room_by_key[key]['campus'])
+                room_by_key[key] for key in ordered_candidate_room_keys
+                if key not in busy_room_keys and key in room_by_key and not room_by_key[key].get('maintenance')
+                and (day, room_by_key[key]['campus']) not in closed_days
             ]
             if classify_slot and (booking_date > today or hour * 60 >= current_minutes):
                 rooms_with_open_slots.update(room['key'] for room in free_rooms)
             elapsed_minutes = 24 * 60 if booking_date < today else current_minutes if booking_date == today else -1
-            day_info = day_annotations(booking_date, [room_by_key[key]['campus'] for key in candidate_room_keys if key in room_by_key])
+            day_info = annotations[day]
             maintenance_available = (
                 booking_role == 'ADMIN' and bool(filters['selected_room_key']) and not maintenance_picker
+                and (not selected_maintenance or TIME_START_DEFAULT <= hour < effective_time_end)
                 and not day_info['is_holiday'] and (booking_date > today or booking_date == today and hour*60 >= current_minutes)
                 and any(room['key'] == filters['selected_room_key'] for room in free_rooms)
             )
@@ -893,6 +970,11 @@ def class_utilization(request):
                 "day": day,
                 **day_info,
                 "highlighted": bool(selected_booking and day == DAYS[selected_booking.booking_date.weekday()] and _minutes(selected_booking.from_time) < (hour+1)*60 and _minutes(selected_booking.to_time) > hour*60),
+                "maintenance_focused": bool(selected_maintenance and booking_date == selected_maintenance.date
+                                            and _minutes(selected_maintenance.start) < (hour+1)*60
+                                            and _minutes(selected_maintenance.end) > hour*60),
+                "maintenance_focus_start": bool(selected_maintenance and booking_date == selected_maintenance.date
+                                                and hour == selected_maintenance.start.hour),
                 "events": [dict(event, elapsed=event['end_minutes'] <= elapsed_minutes) for event in events],
                 "bookings": display_bookings,
                 "free_rooms": free_rooms,
@@ -902,6 +984,7 @@ def class_utilization(request):
                 "has_maintenance": bool(maintenance_keys),
                 "elapsed": (hour+1)*60 <= elapsed_minutes,
                 "maintenance_available": maintenance_available,
+                "booking_hours_visible": not selected_maintenance or TIME_START_DEFAULT <= hour < effective_time_end,
                 "free_room_indexes_json": json.dumps([
                     room_indexes[room["key"]] for room in free_rooms
                 ]),
@@ -943,17 +1026,17 @@ def class_utilization(request):
     summary = None if timetable_popup or revision_popup else summarize_utilization(
         booking_room_catalog,
         [*filters['occupancy_classes'], *[event for event in blocking_events if event['status'] == 'confirmed']],
-        selected_days, grid_start, grid_end,
+        selected_days, summary_grid_start, summary_grid_end,
         closures={(room['key'], day) for room in booking_room_catalog for day in selected_days
-                  if closures_on(week_start + timedelta(days=DAYS.index(day)), room['campus'])},
+                  if (day, room['campus']) in closed_days},
     )
     headers = _day_headers(visible_days, today=reference_day)
-    campuses_in_view = [room_by_key[key]['campus'] for key in candidate_room_keys if key in room_by_key]
     for header in headers:
-        header.update(day_annotations(date.fromisoformat(header['iso_date']), campuses_in_view))
+        header.update(annotations[header['day']])
     def week_url(day):
         query = request.GET.copy()
         query.pop('booking_id', None)
+        query.pop('maintenance_focus', None)
         query.pop('export', None)
         query['date'] = day.isoformat()
         query['semester'] = selected_semester
@@ -967,7 +1050,8 @@ def class_utilization(request):
     else:
         selection = selection_context(request, rooms, card_schedules, filters, today,
                                       partially_booked=rooms_with_open_slots & rooms_with_booked_slots,
-                                      maintenance_windows=maintenance_windows,grid_hours=(grid_start,grid_end))
+                                      maintenance_windows=maintenance_windows, maintenance_date=reference_day,
+                                      grid_hours=(grid_start,grid_end))
         if booking_role == 'ADMIN' and selection['selection_step'] == 4 and selection['floor_undo_records']:
             selection['floor_undo_token'] = floor_undo_token(
                 request.user, filters['selected_campus'], filters['selected_building'],
@@ -990,6 +1074,7 @@ def class_utilization(request):
         "maintenance_selection_days": maintenance_selection_days,
         "selected_date": reference_day.isoformat(),
         "selected_booking": selected_booking,
+        "selected_maintenance": selected_maintenance,
         "time_range_label": f"{grid_start:02d}:00-{grid_end:02d}:00",
         "scheduled_hours": round(scheduled_hours, 1),
         "available_rooms": len(available_room_keys),

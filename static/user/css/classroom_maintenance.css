@@ -5,14 +5,30 @@
 .cm-dialog[open]{display:grid;grid-template-rows:auto minmax(0,1fr)}
 .cm-dialog > .cm-dialog-head{justify-content:center}
 html:has(.cm-dialog[open]){overflow:hidden}
-.cm-dialog::backdrop{background: transparent}
 .swal2-container.cm-alert-layer{z-index:1000010!important}
 .swal2-popup.cm-alert-popup{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain}
+.swal2-popup:is(.cm-finish-popup,.cm-success-popup){box-sizing:border-box;width:min(520px,calc(100vw - 32px));padding:24px;border:1px solid #dce8e2;border-radius:14px;background:#fff;color:#14212f;box-shadow:0 20px 60px #102e2940}
+.cm-finish-popup .swal2-title{padding:0;text-align:left;color:#14212f;font-size:22px;line-height:1.3;font-weight:650}
+.cm-finish-popup .swal2-html-container{margin:8px 0 0;text-align:left;color:#647180;font-size:14px;line-height:1.5}
+.cm-finish-popup .swal2-input-label{justify-content:flex-start;margin:22px 0 7px;color:#344454;font-size:13px;font-weight:600}
+.cm-finish-popup .swal2-textarea{box-sizing:border-box;width:100%;min-height:110px;margin:0;padding:10px 12px;border:1px solid #cbd9d3;border-radius:7px;color:#14212f;font-size:14px;resize:vertical}
+.cm-finish-popup .swal2-actions{justify-content:flex-end;gap:8px;width:100%;margin:22px 0 0}
+.cm-finish-popup .swal2-actions button{margin:0;padding:9px 14px;border:1px solid transparent;border-radius:6px;font-size:13px;font-weight:600}
+.cm-finish-popup .swal2-actions .swal2-confirm{background:#007367!important}
+.cm-finish-popup .swal2-actions .swal2-cancel{border-color:#bdd8cd;background:#fff!important;color:#005a51!important}
+.cm-finish-popup :is(button,textarea):focus-visible{outline:2px solid #007367;outline-offset:2px}
+.cm-success-popup .swal2-icon{margin:8px auto 16px}
+.cm-success-popup .swal2-title{padding:0;color:#14212f;font-size:22px;line-height:1.3;font-weight:650}
+.cm-success-popup .swal2-actions{margin:22px 0 0}
+.cm-success-popup .swal2-confirm{margin:0;padding:9px 22px;border-radius:6px;background:#007367!important;font-size:13px;font-weight:600}
+.cm-success-popup .swal2-confirm:focus-visible{outline:2px solid #007367;outline-offset:2px}
 .cm-request-popup .swal2-html-container{max-height:max(5rem,calc(100dvh - 12rem));overflow:auto;overscroll-behavior:contain}
 .cm-request-popup .swal2-title:focus{outline:none}
 .cm-request-popup .cm-review-list:has(> div > dd > details[open]){align-items:start}
-#cm-room-choices{max-height:14rem;overflow:auto;border:1px solid #bdd8cd;border-radius:6px}
-#cm-room-choices label{display:flex;align-items:center;gap:8px;padding:4px}
+.cm-details-popup .swal2-actions{gap:8px;flex-wrap:wrap}
+.cm-details-popup .swal2-actions .cm-view-timetable,.cm-details-popup .swal2-actions .swal2-confirm{display:inline-flex!important;align-items:center;justify-content:center;box-sizing:border-box;width:150px;height:36px;margin:0!important;padding:8px 12px!important;border:0;border-radius:6px;background:#007367;color:#fff;text-decoration:none;font-size:13px!important;font-weight:600!important;line-height:20px!important}
+.cm-details-popup .swal2-actions .cm-view-timetable:hover,.cm-details-popup .swal2-actions .swal2-confirm:hover{background:#005a51;color:#fff}
+.cm-details-popup .swal2-actions .cm-view-timetable:focus-visible,.cm-details-popup .swal2-actions .swal2-confirm:focus-visible{outline:2px solid #007367;outline-offset:2px}
 #cm-form{min-height:0;padding:16px;overflow:auto;overscroll-behavior:contain}
 .cm-dialog :is(label,legend),.cm-filters label{font-size:12px;font-weight:600}
 #cm-form > label,.cm-fields > label,.cm-day-row > label,.cm-filters label{display:grid;gap:4px}
@@ -56,6 +72,39 @@ html:has(.cm-dialog[open]){overflow:hidden}
 .cm-table small{display:block;margin-top:4px}
 .cm-actions button{margin:0 3px 5px 0;white-space:nowrap}
 .cm-pagination{display:flex;align-items:center;gap:12px;margin-top:12px}
+.classroom-design.cm-manage{min-width:0}
+.cm-manage-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.cm-manage-hero h1{margin:0 0 8px;color:#14212f;font-size:27px!important;line-height:1.25;font-weight:650;letter-spacing:-.6px}
+.cm-manage-hero p{margin:0;color:#647180;font-size:12px;line-height:1.6}
+.cm-manage-hero .cm-primary{padding:10px 14px;font-size:12px;font-weight:600}
+.cm-manage-card{min-width:0;padding:18px;background:#fff;border:1px solid #e9edf1;border-radius:10px;box-shadow:0 2px 7px #182b3c04}
+.cm-manage-card h2{margin:0 0 16px;color:#14212f;font-size:16px;font-weight:650}
+.cm-manage .cm-filters{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 0 18px;margin:0 0 16px;background:none;border:0;border-bottom:1px solid #edf0f3;border-radius:0}
+.cm-manage .cm-filters label{color:#344454;font-size:12px;font-weight:500;gap:6px}
+.cm-manage .cm-filters :is(input,select):not([type=hidden]){box-sizing:border-box;min-height:38px;padding:7px 10px;border-color:#dce2e8;color:#293746;font-size:13px}
+.cm-manage .cm-filters input::placeholder{color:#7b928a;opacity:1}
+.cm-manage .cm-filter-actions{grid-column:auto;align-items:end;flex-wrap:wrap}
+.cm-manage .cm-filter-actions :is(button,a){display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:7px 12px;font-size:12px;font-weight:600}
+.cm-status-tabs{display:flex;align-items:center;gap:5px;overflow-x:auto;scrollbar-width:thin;padding:6px;margin:0 0 16px;border:1px solid #deebe5;border-radius:8px;background:#f7faf8}
+.cm-status-tab{display:flex;align-items:center;justify-content:center;flex:1 0 auto;gap:7px;min-height:38px;padding:8px 11px;border:1px solid transparent;border-radius:6px;color:#647970;text-decoration:none;font-size:11px;white-space:nowrap}
+.cm-status-tab:hover{background:#edf6f0;color:#007566}
+.cm-status-tab.is-active{background:#fff;border-color:#a6d0be;color:#006c5a;box-shadow:0 2px 5px #19563d08;font-weight:600}
+.cm-status-tab span{min-width:21px;padding:3px 6px;border-radius:20px;background:#007367;color:#fff;text-align:center;font-size:10px;line-height:1.3;font-variant-numeric:tabular-nums}
+.cm-tab-upcoming span{background:#e0edff;color:#35649a}
+.cm-tab-ongoing span,.cm-tab-completed span{background:#d8efdf;color:#27704a}
+.cm-tab-overdue span{background:#ffe1e2;color:#a33d48}
+.cm-tab-cancelled span{background:#e7ecea;color:#708079}
+.cm-manage-card > .cm-table-wrap{border:1px solid #e3ece6;border-radius:7px;overflow-x:auto}
+.cm-manage-card > .cm-table-wrap > .cm-table{min-width:1000px}
+.cm-manage-card > .cm-table-wrap > .cm-table th{padding:12px 11px;background:#f3f7f4;color:#668071;font-size:10px;font-weight:600;letter-spacing:.035em;text-transform:uppercase;white-space:nowrap}
+.cm-manage-card > .cm-table-wrap > .cm-table td{padding:13px 11px;border-color:#e8eee9;color:#293745;font-size:11px;line-height:1.55;vertical-align:middle}
+.cm-manage-card > .cm-table-wrap > .cm-table tbody tr:last-child td{border-bottom:0}
+.cm-manage-card > .cm-table-wrap > .cm-table tbody tr:hover{background:#f9fcfb}
+.cm-manage-card .cm-table small{color:#83948a;font-size:10px;line-height:1.5}
+.cm-manage .cm-actions button{min-height:30px;padding:6px 9px;border-color:#c8dad0;color:#587266;font-size:10px;line-height:1.35}
+.cm-manage .cm-actions button:hover,.cm-manage .cm-clear:hover{background:#eaf6f1}
+@media(max-width:850px){.cm-manage .cm-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.cm-manage-card{padding:12px}.cm-manage-hero h1{font-size:23px!important}.cm-manage .cm-filters{grid-template-columns:1fr}}
 .cm-review-list{text-align:left;font-size:12px}
 .cm-review-list > div{min-width:0;padding:8px 10px;background:#f4f9f6;border-radius:6px}
 .cm-review-list dd{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -107,17 +156,10 @@ html:has(.cm-dialog[open]){overflow:hidden}
 .cm-dialog-edit #cm-more-chips{box-sizing:border-box;height:34px;padding:3px 7px;font-size:12px}
 .cm-room-chip{box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;height:34px;background:var(--cm-room-fill,#eef4fb);border:1px solid #dce6ed;padding:3px 8px;border-radius:6px;font-size:13px;font-weight:650;white-space:nowrap}
 .cm-dialog-edit .cm-room-chip button{border:0;padding:0 2px;line-height:1;background:none;font-size:15px}
-.cm-dialog-edit #cm-room-picker{display:grid;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #dfe5ea}
-.cm-dialog-edit #cm-room-choices{min-width:0;margin:0;padding:3px;max-height:220px;border-color:#dfe5ea}
-.cm-dialog-edit #cm-room-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:6px;align-content:start;padding:6px}
-.cm-dialog-edit #cm-room-choices label{padding:7px 8px;border:1px solid #dce6ed;border-radius:6px;background:var(--cm-room-fill,#fff)}
 [data-room-state="maintenance"]{--cm-room-fill:#fff0df}
 [data-room-state="available"]{--cm-room-fill:#eef8ef}
 [data-room-state="selected"]{--cm-room-fill:#eaf2ff}
 [data-room-state="released"]{--cm-room-fill:#edf0f3}
-.cm-dialog-edit #cm-room-choices small{display:block;color:#526171;font-weight:400}
-.cm-room-legend{display:flex;gap:5px;flex-wrap:wrap;list-style:none;margin:0;padding:0}
-.cm-room-legend li{background:var(--cm-room-fill);padding:2px 6px;border-radius:4px;font-size:11px}
 .cm-room-change{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;font-size:12px}
 .cm-room-tooltip{position:fixed;z-index:1;pointer-events:none;max-width:min(270px,calc(100vw - 16px));padding:7px 9px;font-size:12px;color:#182633;background:#f7f9fb;border:1px solid #d6dfe8;border-radius:6px;box-shadow:0 4px 12px #18263318;overflow-wrap:anywhere}
 .cm-dialog-edit #cm-extension-fields{margin-top:8px}
@@ -130,7 +172,6 @@ html:has(.cm-dialog[open]){overflow:hidden}
 .cm-dialog-edit #cm-edit-history-list{list-style:none;margin:6px 0 0;padding:0}
 .cm-dialog-edit #cm-edit-history-list li{padding:5px 0;border-top:1px solid #dfe5ea;font-size:12px}
 .cm-dialog-edit #cm-edit-history-list small{display:block;color:#526171}
-.cm-dialog-edit .cm-check-label{display:flex;align-items:center;gap:6px}
 .cm-dialog-edit .cm-schedule-review{margin:8px 0}
 .cm-dialog-edit .cm-schedule-review h3{margin-bottom:3px}
 .cm-dialog-edit .cm-schedule-counts{margin-bottom:5px;color:#526171;font-size:12px}

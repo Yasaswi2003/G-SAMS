@@ -1,25 +1,29 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-34">
-<main class="cm-manage">
-    <header class="cm-dialog-head"><h1>Manage Classroom Maintenance</h1><a class="cm-primary" href="{% url 'class_utilization' %}">Select a classroom to schedule maintenance</a></header>
+<link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
+<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=management-45">
+<main class="classroom-design cm-manage">
+    <div class="cm-manage-hero">
+        <div><h1>Manage Classroom Maintenance</h1><p>Manage classroom maintenance schedules across all campuses.</p></div>
+        <a class="cm-primary" href="{% url 'class_utilization' %}">Select a classroom to schedule maintenance</a>
+    </div>
+    <section class="cm-manage-card" aria-labelledby="cm-schedules-title">
+    <h2 id="cm-schedules-title">All Maintenance Schedules</h2>
     <form class="cm-filters" method="get" aria-label="Maintenance filters">
         {% if request.GET.reference %}<input type="hidden" name="reference" value="{{ request.GET.reference }}">{% endif %}
+        {% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
         <label>Search<input name="q" value="{{ filters.q }}" placeholder="Reference, reason or classroom"></label>
         <label>Campus<select name="campus"><option value="">All campuses</option>{% for campus in campuses %}<option value="{{ campus }}"{% if campus|lower == filters.campus|lower %} selected{% endif %}>{{ campus }}</option>{% endfor %}</select></label>
         <label>Building<select name="building" data-cm-filter="building"></select></label>
         <label>Floor<select name="floor" data-cm-filter="floor"></select></label>
         <label>Classroom<select name="room" data-cm-filter="room"></select></label>
-        <label>Status<select name="status">
-            <option value="">All statuses</option>
-            <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Open schedules</option>
-            <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>Completed</option>
-            <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
-        </select></label>
         <label>Date<input type="date" name="date" value="{{ filters.date }}"></label>
         <div class="cm-filter-actions"><button type="submit" class="cm-primary">Apply Filters</button><a href="{% url 'classroom_maintenance' %}" class="cm-clear">Clear</a></div>
     </form>
+    <nav class="cm-status-tabs" aria-label="Filter maintenance schedules by status">
+        {% for item in maintenance_summary %}<a href="{{ item.url }}" class="cm-status-tab cm-tab-{{ item.key }}{% if item.active %} is-active{% endif %}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }} <span>{{ item.count }}</span></a>{% endfor %}
+    </nav>
     <div class="cm-table-wrap"><table class="cm-table">
         <thead><tr><th>Rq ID</th><th>Campus / Building</th><th>Location</th><th>Date and time</th><th>Reasons</th><th>Expected completion</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
@@ -75,6 +79,7 @@
         </tbody>
     </table></div>
     {% if page.has_other_pages %}<nav class="cm-pagination" aria-label="Maintenance pages">{% if page.has_previous %}<a href="?{{ filter_query }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?{{ filter_query }}&page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+    </section>
     {{ records|json_script:"cm-records" }}
     {{ rooms|json_script:"cm-room-options" }}
     {{ filters|json_script:"cm-filter-values" }}

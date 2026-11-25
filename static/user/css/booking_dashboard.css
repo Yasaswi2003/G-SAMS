@@ -61,7 +61,6 @@
 .bs-kpi-note { font-size:12px;color:var(--bs-muted); }
 .booking-snapshot .bs-dialog { width:min(600px,calc(100% - 28px));max-height:calc(100dvh - 32px);color:var(--bs-ink); }
 .booking-snapshot .bs-dialog[open] { position:fixed;inset:0;margin:auto;height:fit-content;overflow:auto; }
-.bs-dialog::backdrop { background: transparent; }
 .bs-dialog .bs-dialog-value { display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-top:12px; }
 .bs-dialog-value strong { font-size:24px;color:var(--bs-accent);overflow-wrap:anywhere; }
 .bs-dialog-comparison { margin-top:6px!important;font-size:12px; }

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static l10n %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/booking_dashboard.css' %}?v=snapshot-35">
+<link rel="stylesheet" href="{% static 'user/css/booking_dashboard.css' %}?v=snapshot-36">
 <main class="booking-snapshot" id="booking-analytics">
   <div class="bs-header">
     <div>
@@ -153,5 +153,5 @@
   {% endif %}
   {{ building_options|json_script:"bs-building-data" }}
 </main>
-<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-31" defer></script>
+<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-32" defer></script>
 {% endblock %}

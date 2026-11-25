@@ -16,11 +16,13 @@ def maintenance_status(windows, full_day, *, details, full_day_label='Under Main
     return state, label, hint
 
 
-def selection_context(request, rooms, schedules, filters, today, *, partially_booked=(), maintenance_windows=None, grid_hours=(8,16)):
+def selection_context(request, rooms, schedules, filters, today, *, partially_booked=(), maintenance_windows=None,
+                      maintenance_date=None, grid_hours=(8,16)):
     from .classroom_maintenance import covers_full_day
     def link(**updates):
         query = request.GET.copy()
         query.pop('booking_id', None)
+        query.pop('maintenance_focus', None)
         query.pop('export', None)
         for key,value in updates.items():
             if value is None:query.pop(key,None)
@@ -37,19 +39,23 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
     now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
     minute = now.hour*60+now.minute
     by_room = defaultdict(list)
-    for (room_key, _), windows in (maintenance_windows or {}).items():
-        by_room[room_key].extend(window for window in windows
-                                 if window.date > today or window.date == today and window.end > now.time())
+    maintenance_date = maintenance_date or today
+    for (room_key, day), windows in (maintenance_windows or {}).items():
+        if day == maintenance_date:
+            by_room[room_key].extend(window for window in windows
+                                     if day != today or window.end > now.time())
     held = list(ClassroomBooking.objects.filter(is_active=True,booking_date=today,
         from_time__lte=now.time().replace(tzinfo=None),to_time__gt=now.time().replace(tzinfo=None),
         status__in=['pending','hod_approved','confirmed']).values('room_key','campus_code','building_name','room_code','status')) if candidates else []
+    weekday = today.strftime('%A')
+    occupied_now = {row['room_key'] for row in schedules
+                    if row['weekday'] == weekday and row['start_minutes'] <= minute < row['end_minutes']} if candidates else set()
     cards=[]
     for room in candidates:
         bookings=[b for b in held if b['room_key']==room['key'] or
                   (b['campus_code'].upper()==room['campus'].upper() and b['room_code']==room['room_code']
                    and b['building_name'] in (room['building'],room['building_code']))]
-        occupied=any(row['room_key']==room['key'] and row['weekday']==today.strftime('%A')
-                     and row['start_minutes']<=minute<row['end_minutes'] for row in schedules)
+        occupied = room['key'] in occupied_now
         if room.get('maintenance'):state,label='maintenance','Maintenance'
         elif closures_on(today,room['campus']):state,label='maintenance','Public holiday'
         elif occupied or any(b['status'] in ('hod_approved','confirmed') for b in bookings):state,label='occupied','Occupied now'
@@ -118,4 +124,5 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
             'classroom_cards':cards,'selected_classroom':selected,
             'back_to_classrooms_url':link(room='',booking_id=None),
             'selection_step':step,
+            'maintenance_date':maintenance_date,
             'availability_timestamp':now.strftime('%d %b %Y, %H:%M')}

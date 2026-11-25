@@ -13,39 +13,18 @@
         </section>
         <section id="cm-classroom-summary" class="cm-edit-section" hidden>
             <div class="cm-edit-section-heading">
-                <h3 id="cm-classroom-count">Selected Classrooms</h3>
-                <button type="button" id="cm-edit-rooms" aria-controls="cm-room-picker" aria-expanded="false">Edit Classrooms</button>
+                <h3 id="cm-classroom-count" tabindex="-1">Selected Classrooms</h3>
             </div>
             <div class="cm-room-chips" id="cm-room-chips">
                 <button type="button" id="cm-more-chips" aria-expanded="false" hidden>Show all classrooms</button>
             </div>
             <div class="cm-room-change" id="cm-room-change" hidden><span id="cm-room-change-text" role="status"></span><button type="button" id="cm-undo-rooms">Undo last removal</button></div>
-            <div id="cm-room-picker" hidden>
-                <div class="cm-edit-section-heading"><h4>Classroom Selection</h4><span id="cm-room-count" aria-live="polite"></span></div>
-                <label class="cm-stacked-field">Search classrooms<input id="cm-room-search" type="search" placeholder="Name, room number, or floor"></label>
-                <div class="cm-edit-section-heading">
-                    <label class="cm-check-label"><input type="checkbox" id="cm-select-all"> Select All</label>
-                    <button type="button" id="cm-clear-rooms">Clear Selection</button>
-                </div>
-                <fieldset id="cm-room-choices"><legend class="visually-hidden">Classrooms in this building</legend></fieldset>
-                <p id="cm-no-room-results" hidden>No classrooms match your search.</p>
-                <p id="cm-room-required" role="status" hidden>Please select at least one classroom.</p>
-                <div class="cm-room-change" id="cm-picker-change" hidden><span id="cm-picker-change-text" role="status"></span><button type="button" id="cm-undo-picker">Undo last removal</button></div>
-                <ul class="cm-room-legend" aria-label="Classroom selection legend">
-                    <li data-room-state="maintenance">Under maintenance</li><li data-room-state="available">Available</li>
-                    <li data-room-state="selected">Selected for maintenance</li><li data-room-state="released">Released / removed</li>
-                </ul>
-                <div class="cm-selection-actions cm-form-actions">
-                    <button type="button" id="cm-cancel-rooms">Cancel</button>
-                    <button type="button" class="cm-primary" id="cm-apply-rooms">Apply</button>
-                </div>
-            </div>
         </section>
         <section id="cm-maintenance-summary" hidden>
             <h3>Maintenance Summary</h3>
             <div id="cm-summary-values"></div>
         </section>
-        <section id="cm-extension" class="cm-edit-section" hidden>
+        <section id="cm-timing-section" class="cm-edit-section" hidden>
             <div class="cm-edit-section-heading cm-timing-heading">
                 <h3>Maintenance Timing</h3>
                 <button type="button" id="cm-extend-button" aria-expanded="false" aria-controls="cm-extension-fields">Extend Maintenance</button>
@@ -60,7 +39,7 @@
             <div id="cm-extension-fields" hidden>
                 <label class="cm-stacked-field">New expected completion date and time<input id="cm-extend-until" type="datetime-local"></label>
                 <p id="cm-extension-note"></p>
-                <button type="button" id="cm-save-extension" class="cm-primary">Save Extension</button>
+                <button type="button" id="cm-save-extension" class="cm-primary">Review Extension</button>
             </div>
         </section>
         <div id="cm-selected-schedule"></div>
@@ -112,4 +91,4 @@
         </footer>
     </form>
 </dialog>
-<script defer src="{% static 'js/classroom_maintenance.js' %}?v=selection-34"></script>
+<script defer src="{% static 'js/classroom_maintenance.js' %}?v=selection-44"></script>

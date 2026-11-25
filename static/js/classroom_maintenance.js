@@ -16,7 +16,7 @@
     ...options,
     customClass: {
       ...options.customClass,
-      container: 'cm-alert-layer',
+      container: ['cm-alert-layer', options.customClass?.container].filter(Boolean).join(' '),
       popup: ['cm-alert-popup', options.customClass?.popup].filter(Boolean).join(' '),
     },
   });
@@ -118,7 +118,7 @@
     const shortDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
     const weekdayFormat=new Intl.DateTimeFormat('en-GB',{weekday:'long',timeZone:'UTC'});
     if(!sorted.length&&compact)section.append(node('p','No complete time slots selected.'));
-    for(const [week,dates] of weeks){
+    for(const dates of weeks.values()){
       const wrap=node('div');wrap.className='cm-table-wrap';
       const table=node('table');table.className='cm-table';
       const header=table.createTHead().insertRow();
@@ -142,10 +142,12 @@
       }
       wrap.append(table);
       if(compact){section.append(wrap);continue;}
-      const monday=new Date(week+'T12:00:00Z'),end=new Date(monday);
-      const lastDay=new Date([...dates.keys()].at(-1)+'T12:00:00Z').getUTCDay();
-      end.setUTCDate(end.getUTCDate()+(lastDay===0?6:lastDay===6?5:4));
-      const group=expandable(dateFormat.format(monday)+' to '+dateFormat.format(end),wrap);
+      const selectedDates=[...dates.keys()];
+      const firstDate=dateFormat.format(new Date(selectedDates[0]+'T12:00:00Z'));
+      const lastDate=dateFormat.format(new Date(selectedDates.at(-1)+'T12:00:00Z'));
+      const label=selectedDates.length===1?'Selected date: '+firstDate
+        :'Selected date range: '+firstDate+' to '+lastDate+' ('+selectedDates.length+' selected dates)';
+      const group=expandable(label,wrap);
       group.open=true;
       section.append(group);
     }
@@ -227,8 +229,6 @@
       row.append(remove);container.append(row);
     }
   }
-  const roomInputs=() => [...$('cm-room-choices').querySelectorAll('input')];
-  const picker=$('cm-room-picker');
   const moreChips=$('cm-more-chips');
   const extension=$('cm-extension-fields'), extendUntil=$('cm-extend-until');
   const tooltip=node('div');tooltip.className='cm-room-tooltip';tooltip.hidden=true;
@@ -245,7 +245,7 @@
   function bindRoomTooltip(element,key) {
     function show() {
       const room=current.rooms.get(key)||{};
-      const selected=picker.hidden?current.roomKeys.includes(key):current.draftRooms.includes(key);
+      const selected=current.roomKeys.includes(key);
       const details=[
         ['Building',room.building||current.buildingLabel],['Room number',roomCode(key)],
         ['Floor',floorLabel(room.floor_code||'__unrecorded__')],['Campus',room.campus||current.target.campus],
@@ -279,32 +279,21 @@
   function restoreRoom(keys,key) {
     return [...keys,key].sort((first,second)=>current.roomOrder.get(first)-current.roomOrder.get(second));
   }
-  function updateUndo(prefix,history,message) {
-    const notice=$(prefix==='picker'?'cm-picker-change':'cm-room-change');
-    const button=$(prefix==='picker'?'cm-undo-picker':'cm-undo-rooms');
-    const text=$(prefix==='picker'?'cm-picker-change-text':'cm-room-change-text');
+  function updateUndo(history,message) {
+    const notice=$('cm-room-change'), button=$('cm-undo-rooms'), text=$('cm-room-change-text');
     if(message!==undefined)text.textContent=message;
     notice.hidden=!text.textContent&&!history.length;
     button.disabled=!history.length;
     if(history.length)button.setAttribute('aria-label','Undo removal of classroom '+roomCode(history.at(-1)));
     else button.removeAttribute('aria-label');
   }
-  function applyRoomSelection(next,draftHistory) {
+  function applyRoomSelection(next) {
     const previous=current.roomKeys;
-    if(sameRooms(previous,next)&&!draftHistory)return;
-    current.roomUndo=draftHistory||roomRemovalHistory(previous,next,current.roomUndo);
+    if(sameRooms(previous,next))return;
+    current.roomUndo=roomRemovalHistory(previous,next,current.roomUndo);
     current.roomKeys=next;
-    if(!sameRooms(previous,next))updateUndo('rooms',current.roomUndo,selectionMessage(previous,next));
+    updateUndo(current.roomUndo,selectionMessage(previous,next));
     renderRoomChips();
-  }
-  function changeDraftRooms() {
-    const next=roomInputs().filter(input=>input.checked).map(input=>input.value);
-    if(!sameRooms(current.draftRooms,next)){
-      current.pickerUndo=roomRemovalHistory(current.draftRooms,next,current.pickerUndo);
-      updateUndo('picker',current.pickerUndo,selectionMessage(current.draftRooms,next));
-      current.draftRooms=next;
-    }
-    updateRoomPicker();
   }
   function renderRoomChips() {
     tooltip.hidden=true;
@@ -322,9 +311,8 @@
         const remove=node('button','×');remove.type='button';
         remove.setAttribute('aria-label','Remove classroom '+room.code);
         remove.addEventListener('click',()=>{
-          if(!picker.hidden)return;
           applyRoomSelection(current.roomKeys.filter(key=>key!==room.key));
-          $('cm-edit-rooms').focus();
+          $('cm-undo-rooms').focus();
         });
         chip.append(remove);
       }else chip.tabIndex=0;
@@ -334,7 +322,7 @@
     moreChips.hidden=rooms.length<=previewLimit;
     moreChips.setAttribute('aria-expanded',String(current.showAllChips));
     moreChips.textContent=current.showAllChips?'Show fewer':'+'+(rooms.length-previewLimit)+' more';
-    updateUndo('rooms',current.roomUndo);
+    updateUndo(current.roomUndo);
     $('cm-classroom-count').textContent='Selected Classrooms ('+rooms.length+')';
     current.roomLabel=rooms.map(room=>room.code).join(', ');
     if(current.record.scope==='room'){
@@ -343,77 +331,13 @@
     }
     refreshSummary();
   }
-  function updateRoomPicker() {
-    const text=$('cm-room-search').value.trim().toLowerCase();
-    const inputs=roomInputs();
-    for(const input of inputs)input.parentElement.hidden=!input.parentElement.textContent.toLowerCase().includes(text);
-    for(const input of inputs){
-      const state=roomState(input.value,input.checked);
-      input.parentElement.dataset.roomState=state;
-      input.parentElement.querySelector('[data-room-state-label]').textContent=roomStateLabel[state];
-    }
-    const visible=inputs.filter(input=>!input.parentElement.hidden);
-    const selected=inputs.filter(input=>input.checked).length;
-    const checked=visible.filter(input=>input.checked).length;
-    const all=$('cm-select-all');
-    all.disabled=!visible.length;
-    all.checked=visible.length>0&&checked===visible.length;
-    all.indeterminate=checked>0&&checked<visible.length;
-    $('cm-room-count').textContent=selected+' selected';
-    $('cm-no-room-results').hidden=visible.length>0;
-    $('cm-room-required').hidden=selected>0;
-    $('cm-apply-rooms').disabled=!selected;
-    updateUndo('picker',current.pickerUndo);
-  }
-  function closeRoomPicker(focus=false) {
-    picker.hidden=true;
-    $('cm-edit-rooms').setAttribute('aria-expanded','false');
-    if(focus)$('cm-edit-rooms').focus();
-  }
-  $('cm-edit-rooms').addEventListener('click',()=>{
-    if(!picker.hidden){closeRoomPicker(true);return;}
-    $('cm-room-search').value='';
-    current.draftRooms=[...current.roomKeys];
-    current.pickerUndo=[...current.roomUndo];
-    updateUndo('picker',current.pickerUndo,current.pickerUndo.length
-      ?'Most recent removal: Classroom '+roomCode(current.pickerUndo.at(-1))+'.':'');
-    for(const input of roomInputs())input.checked=current.roomKeys.includes(input.value);
-    picker.hidden=false;
-    $('cm-edit-rooms').setAttribute('aria-expanded','true');
-    updateRoomPicker();
-    $('cm-room-search').focus();
-  });
-  $('cm-room-search').addEventListener('input',updateRoomPicker);
-  $('cm-select-all').addEventListener('change',event=>{
-    for(const input of roomInputs())if(!input.parentElement.hidden)input.checked=event.target.checked;
-    changeDraftRooms();
-  });
-  $('cm-clear-rooms').addEventListener('click',()=>{
-    for(const input of roomInputs())input.checked=false;
-    changeDraftRooms();
-  });
-  $('cm-cancel-rooms').addEventListener('click',()=>closeRoomPicker(true));
-  $('cm-apply-rooms').addEventListener('click',()=>{
-    closeRoomPicker(true);
-    applyRoomSelection(current.draftRooms,current.pickerUndo);
-  });
-  $('cm-undo-picker').addEventListener('click',()=>{
-    const key=current.pickerUndo.pop();
-    if(!key)return;
-    current.draftRooms=restoreRoom(current.draftRooms,key);
-    for(const input of roomInputs())input.checked=current.draftRooms.includes(input.value);
-    updateUndo('picker',current.pickerUndo,'Classroom '+roomCode(key)+' restored.');
-    updateRoomPicker();
-    if(!current.pickerUndo.length)$('cm-room-search').focus();
-  });
   $('cm-undo-rooms').addEventListener('click',()=>{
-    if(!picker.hidden)return;
     const key=current.roomUndo.pop();
     if(!key)return;
     current.roomKeys=restoreRoom(current.roomKeys,key);
-    updateUndo('rooms',current.roomUndo,'Classroom '+roomCode(key)+' restored.');
+    updateUndo(current.roomUndo,'Classroom '+roomCode(key)+' restored.');
     renderRoomChips();
-    if(!current.roomUndo.length)$('cm-edit-rooms').focus();
+    if(!current.roomUndo.length)$('cm-classroom-count').focus();
   });
   $('cm-more-chips').addEventListener('click',()=>{
     current.showAllChips=!current.showAllChips;
@@ -463,10 +387,9 @@
     $('cm-selected-schedule').hidden=Boolean(record);
     $('cm-schedule-details').hidden=!record;
     $('cm-schedule-details').open=false;
-    $('cm-edit-rooms').hidden=!record;
     $('cm-room-change').hidden=true;
     moreChips.hidden=true;
-    $('cm-extension').hidden=!record;
+    $('cm-timing-section').hidden=!record;
     $('cm-edit-history').hidden=true;
     extension.hidden=true;
     extendUntil.value='';
@@ -476,16 +399,13 @@
     else $('cm-edit-fields').insertBefore(bounds,$('cm-edit-history'));
     $('cm-inline-reason').hidden=true;
     leaveEditReview();
-    closeRoomPicker();
-    const choices=$('cm-room-choices');
-    choices.querySelectorAll('label').forEach(label=>label.remove());
     if(record){
       const allowedFloors=record.targets.length?record.targets:[record.floor];
       current.roomKeys=[...(record.assigned_room_keys||[])];
       current.savedRoomKeys=[...current.roomKeys];
       current.roomUndo=[];
       current.showAllChips=false;
-      updateUndo('rooms',current.roomUndo,'');
+      updateUndo(current.roomUndo,'');
       current.releasedKeys=new Set();
       const history=record.history||[];
       for(const entry of history){
@@ -503,21 +423,9 @@
       }
       current.roomOrder=new Map([...new Set([...current.savedRoomKeys,...current.rooms.keys()])]
         .map((key,index)=>[key,index]));
-      for(const room of current.rooms.values()){
-        const label=node('label'), input=node('input');
-        input.type='checkbox';
-        input.value=room.key;
-        input.addEventListener('change',changeDraftRooms);
-        const details=node('span');
-        const status=node('small');status.setAttribute('data-room-state-label','');
-        details.append(node('strong',room.room_code),node('small',(room.room_name||room.room_code)+' · Floor '+floorLabel(room.floor_code||'__unrecorded__')),status);
-        label.append(input,details);
-        bindRoomTooltip(label,room.key);
-        choices.append(label);
-      }
       $('cm-extension-note').textContent=record.recurrence
-        ?'The existing weekday pattern continues for the classrooms still selected.'
-        :'Maintenance continues for the classrooms still selected through the new completion time.';
+        ?'Remove completed classrooms first. Remaining classrooms follow the existing weekday pattern.'
+        :'Remove completed classrooms first. Maintenance continues for the remaining classrooms.';
       renderEditHistory(record);
     }
     fields.reason.value=record?.reasons[0]||'';
@@ -767,7 +675,6 @@
     if(saving||editReview)return;
     const operation=current;
     const data=new FormData(form),record=operation.record;
-    if(record&&!picker.hidden){error('Apply or cancel your classroom selection before saving.');return;}
     const reason=data.get('reason');
     const description=data.get('description');
     const target={...operation.target};
@@ -793,6 +700,9 @@
     if(extending&&(scheduleState()!==operation.savedSchedule||reason!==record.reasons[0]
       ||description!==(record.description||''))){
       error('Save date, time, or reason edits separately before extending maintenance.');return;
+    }
+    if(extending&&target.classroom_keys.some(key=>!operation.savedRoomKeys.includes(key))){
+      error('Only classrooms already in this schedule can be extended. Save added classrooms separately first.');return;
     }
     if(extending&&!expected){error('Enter the new expected completion date and time.');return;}
     if(!extending&&!classroomsOnly&&record&&completeWindows().length!==selections.length){
@@ -832,8 +742,23 @@
           :review.room_codes[0]],
         ['Start Date & Time',start.replace('T',' ')],['End Date & Time',expected.replace('T',' ')],
         ['Reason',reasons.join(', ')],
-      ]),scheduleReview(extending?[...editScheduleWindows(), ...review.extension_windows]
-        :record?editScheduleWindows():windows,record?review.room_codes.join(', '):operation.roomLabel,Boolean(record)));
+      ]));
+      if(extending){
+        const released=operation.savedRoomKeys.filter(key=>!operation.roomKeys.includes(key)).map(roomCode);
+        content.append(rows([
+          ['Classrooms to release', released.length?classroomSummary(released.join(', ')):'None'],
+          ['Classrooms to remain under maintenance',classroomSummary(review.room_codes.join(', '))],
+        ]),node('p','Released classrooms return to normal availability, subject to other schedules and bookings.'));
+      }
+      if(extending){
+        content.append(node('h3','Current schedule'),
+          scheduleReview(editScheduleWindows(),operation.savedRoomKeys.map(roomCode).join(', '),true),
+          node('h3','Extension for remaining classrooms'),
+          scheduleReview(review.extension_windows,review.room_codes.join(', '),true));
+      }else{
+        content.append(scheduleReview(record?editScheduleWindows():windows,
+          record?review.room_codes.join(', '):operation.roomLabel,Boolean(record)));
+      }
       const canAcknowledge=review.blocking&&!payload.timetable_selection&&!payload.booking_ids?.length;
       const acknowledgement=node('input');acknowledgement.type='checkbox';
       if(review.affected.length){
@@ -954,8 +879,8 @@
         :selectionText(record.selections)],
       ['Recurrence',record.recurrence?record.start_date+' to '+record.end_date:'One-time dates'],
       ['Reasons',record.reasons.join(', ')],['Description',record.description],
-      ['Expected completion',record.expected_completion],['Created',record.created_by+' · '+new Date(record.created_at).toLocaleString()],
-      ['Last modified',record.updated_by+' · '+new Date(record.updated_at).toLocaleString()]]));
+      ['Expected completion',record.expected_completion],['Created',new Date(record.created_at).toLocaleString()],
+      ['Last modified',new Date(record.updated_at).toLocaleString()]]));
     content.append(node('h3','History'));
     for(const [index,entry] of record.history.entries()){
       content.append(rows([[entry.action,entry.by+' · '+new Date(entry.at).toLocaleString()+(entry.reason?'\n'+entry.reason:'')]]));
@@ -977,9 +902,18 @@
         content.append(expandable('View changes',comparison));
       }
     }
-    maintenanceAlert({title:'Rq ID '+record.id,html:content,width:740,confirmButtonText:'Close',confirmButtonColor:'#007367',
-      customClass:{popup:'cm-request-popup'},focusConfirm:false,
+    if(!record.timetable_url){
+      content.append(node('p','The timetable location is not available in the room catalog.'));
+    }
+    maintenanceAlert({title:'Maintenance Details',html:content,width:740,confirmButtonText:'Close',confirmButtonColor:'#007367',
+      customClass:{popup:'cm-request-popup cm-details-popup'},focusConfirm:false,
       didOpen:popup=>{
+        if(record.timetable_url){
+          const link=node('a','View in Timetable');
+          link.href=record.timetable_url;
+          link.className='cm-view-timetable';
+          popup.querySelector('.swal2-actions').prepend(link);
+        }
         const heading=popup.querySelector('.swal2-title');
         heading.tabIndex=-1;
         heading.focus({preventScroll:true});
@@ -991,12 +925,14 @@
       ? `This releases ${rooms.length} unchecked ${rooms.length === 1 ? 'classroom' : 'classrooms'} for all remaining dates in these maintenance schedules.`
       : 'The schedule stays in history and its remaining time is released.';
     const result=await maintenanceAlert({title:label+' this maintenance?',text,
+      customClass:{container:'cm-finish-layer',popup:'cm-finish-popup'},
       input:'textarea',inputLabel:'Reason (optional)',inputAttributes:{maxlength:5000},showCancelButton:true,
       confirmButtonText:label+' maintenance',confirmButtonColor:'#007367',showLoaderOnConfirm:true,
       preConfirm:async reason=>{try{return await send(button.dataset.url,{action,reason,token:button.dataset.token,rooms});}catch(problem){Swal.showValidationMessage(problem.message);return false;}}});
     if(result.isConfirmed){
       if (action === 'undo') updates?.postMessage({type:'saved'});
-      await maintenanceAlert({icon:'success',title:result.value.message,confirmButtonColor:'#007367'});
+      await maintenanceAlert({icon:'success',title:result.value.message,confirmButtonColor:'#007367',
+        customClass:{container:'cm-finish-layer',popup:'cm-success-popup'}});
       reload();
     }
   }

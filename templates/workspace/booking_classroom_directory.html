@@ -1,4 +1,4 @@
-<div class="bs-campus-directory" data-classroom-directory data-selected-building="{{ filters.building }}">
+<div class="bs-campus-directory" data-classroom-directory data-directory-kind="{{ kpi.directory_kind }}" data-selected-building="{{ filters.building }}" data-show-timetable-status="{% if kpi.show_timetable_status %}true{% else %}false{% endif %}">
   <div class="bs-campus-controls">
     <label>Search classrooms
       <input type="search" data-classroom-search placeholder="Room name, code, or building">
@@ -28,15 +28,5 @@
   </p>
   {% endfor %}
   {% endif %}
-  <ul class="bs-dialog-records bs-classroom-results" aria-label="Classrooms">
-    {% for room in kpi.classrooms %}
-    <li data-classroom-key="{{ room.key }}" data-campus="{{ room.campus }}" data-building="{{ room.building }}" data-room-label="{{ room.room_name }} · {{ room.building }} · {{ room.campus }}" data-room-search="{{ room.room_name }} {{ room.room_code }} {{ room.building }} {{ room.campus }}">
-      <div>
-        <strong>{{ room.room_name }}</strong>
-        <span>{% if room.utilization != None %}{{ room.utilization|floatformat:"-1" }}% utilization{% else %}Utilization unavailable{% endif %}</span>
-      </div>
-      <p>{{ room.room_code }} · {{ room.building }} · {{ room.campus }}{% if kpi.show_timetable_status %} · {{ room.timetable_status }}{% endif %}</p>
-    </li>
-    {% endfor %}
-  </ul>
+  <ul class="bs-dialog-records bs-classroom-results" aria-label="Classrooms"></ul>
 </div>

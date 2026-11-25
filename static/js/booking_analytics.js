@@ -203,6 +203,32 @@
 
   const dialog = page.querySelector('#bs-kpi-dialog');
   function setupClassroomDirectory(directory) {
+    const records = JSON.parse(page.querySelector('#bs-room-chart-data').textContent);
+    const list = directory.querySelector('.bs-classroom-results');
+    const percent = new Intl.NumberFormat(undefined, {maximumFractionDigits: 1});
+    const kind = directory.dataset.directoryKind;
+    for (const room of records) {
+      if (kind === 'with' && room.timetable !== true || kind === 'without' && room.timetable !== false) continue;
+      const row = document.createElement('li');
+      row.dataset.classroomKey = room.key;
+      row.dataset.campus = room.campus;
+      row.dataset.building = room.building;
+      row.dataset.roomLabel = `${room.name} · ${room.building} · ${room.campus}`;
+      row.dataset.roomSearch = `${room.name} ${room.code} ${room.building} ${room.campus}`;
+      const heading = document.createElement('div');
+      const name = document.createElement('strong');
+      const utilization = document.createElement('span');
+      name.textContent = room.name;
+      utilization.textContent = room.rate === null ? 'Utilization unavailable' : `${percent.format(room.rate)}% utilization`;
+      heading.append(name, utilization);
+      const details = document.createElement('p');
+      const timetable = room.timetable === null ? 'Timetable status unavailable'
+        : room.timetable ? 'With timetable' : 'Without timetable';
+      details.textContent = `${room.code} · ${room.building} · ${room.campus}`
+        + (directory.dataset.showTimetableStatus === 'true' ? ` · ${timetable}` : '');
+      row.append(heading, details);
+      list.append(row);
+    }
     const search = directory.querySelector('[data-classroom-search]');
     const campus = directory.querySelector('[data-classroom-campus]');
     const building = directory.querySelector('[data-classroom-building]');

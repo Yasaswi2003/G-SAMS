@@ -122,6 +122,37 @@ class ClassUtilizationMasterDataTests(SimpleTestCase):
         self.assertEqual(match["building_code"], "ARB")
         self.assertEqual(match["room_name"], "Architecture 305")
 
+    def test_occupancy_timetable_matches_full_timetable_for_valid_rooms(self):
+        from .class_utilization import _load_timetable
+        from .models import TimeTableMaster
+        rooms, by_key, aliases = _build_room_catalog([
+            {'campus_code': 'VSP', 'building_code': 'ICT', 'room_code': '101'},
+        ])
+        base = {'id': 1, 'subject_code': 'CS', 'subject_name': 'Class', 'weekday': 'Monday',
+                'from_time': time(8), 'to_time': time(10), 'section': '', 'semester': 1,
+                'batch': '', 'branch_code': '', 'course_code': '', 'degree_code': '',
+                'dept_code': 'CSE', 'college_code': '', 'campus_code': 'VSP', 'empid': '',
+                'empname': '', 'room_number': '101', 'building_name': 'ICT'}
+        records = [base, {**base, 'id': 2}, {**base, 'id': 3, 'to_time': time(7)},
+                   {**base, 'id': 4, 'room_number': 'unknown'}]
+        query = Mock()
+        query.annotate.return_value = query
+        query.filter.return_value = query
+        query.values.return_value = query
+        query.iterator.side_effect = lambda **kwargs: iter(records)
+        with patch.object(TimeTableMaster.objects, 'using', return_value=query), \
+             patch('workspace.class_utilization._resolve_room', wraps=_resolve_room) as resolve:
+            full = _load_timetable('2026-2027#ODD', by_key, aliases)
+            self.assertEqual(resolve.call_count, 2)
+            resolve.reset_mock()
+            compact = _load_timetable('2026-2027#ODD', by_key, aliases, occupancy_only=True)
+            self.assertEqual(resolve.call_count, 2)
+        fields = ('room_key', 'weekday', 'start_minutes', 'end_minutes', 'dept_code')
+        project = lambda row: tuple(row[field] for field in fields)
+        self.assertEqual({project(row) for row in full if row['room_master_match']},
+                         {project(row) for row in compact})
+        self.assertEqual({row['room_key'] for row in compact}, {rooms[0]['key']})
+
     def test_day_filter_is_omitted_and_full_week_schedules_retained(self):
         # Day filter was removed per user requirement
         schedules = [
@@ -195,8 +226,12 @@ class ClassroomBookingTests(SimpleTestCase):
         request = RequestFactory().get("/workspace/class_utilization", {"campus": "VSP", "building": "VSP|ICT"})
         request.user = self.teacher
 
-        with patch("workspace.booking_workflow.visible", return_value=Mock(filter=Mock(return_value=Mock(exclude=Mock(return_value=[]))))), \
-                patch.object(ClassroomBooking.objects, "filter", return_value=[]), \
+        bookings = Mock()
+        bookings.select_related.return_value = bookings
+        bookings.prefetch_related.return_value = bookings
+        bookings.filter.return_value.exclude.return_value = []
+        with patch("workspace.booking_workflow.visible", return_value=bookings), \
+                patch.object(ClassroomBooking.objects, "filter", return_value=Mock(only=Mock(return_value=[]))), \
                 patch.object(ClassroomBooking.objects, "select_related", return_value=Mock(filter=Mock(return_value=Mock(filter=Mock(return_value=Mock(exclude=Mock(return_value=[]))))))), \
                 patch("workspace.classroom_maintenance.window_map", return_value={}), \
                 patch("workspace.class_utilization.render", return_value=HttpResponse()) as render_page:
@@ -226,8 +261,12 @@ class ClassroomBookingTests(SimpleTestCase):
         })
         request.user = self.teacher
 
-        with patch("workspace.booking_workflow.visible", return_value=Mock(filter=Mock(return_value=Mock(exclude=Mock(return_value=[]))))), \
-                patch.object(ClassroomBooking.objects, "filter", return_value=[]), \
+        bookings = Mock()
+        bookings.select_related.return_value = bookings
+        bookings.prefetch_related.return_value = bookings
+        bookings.filter.return_value.exclude.return_value = []
+        with patch("workspace.booking_workflow.visible", return_value=bookings), \
+                patch.object(ClassroomBooking.objects, "filter", return_value=Mock(only=Mock(return_value=[]))), \
                 patch.object(ClassroomBooking.objects, "select_related", return_value=Mock(filter=Mock(return_value=Mock(filter=Mock(return_value=Mock(exclude=Mock(return_value=[]))))))), \
                 patch("workspace.classroom_maintenance.window_map", return_value={}), \
                 patch("workspace.class_utilization.render", return_value=HttpResponse()) as render_page:
@@ -243,6 +282,64 @@ class ClassroomBookingTests(SimpleTestCase):
 
 
 class UtilizationSummaryRangeTests(SimpleTestCase):
+    def test_weekly_snapshot_matches_dated_unions_with_bookings_and_closures(self):
+        from .class_utilization import DAYS
+        from .utilization_summary import summarize_utilization, summarize_weekly_snapshot
+        rooms = [{'key': 'r1', 'campus': 'VSP', 'building': 'Main'},
+                 {'key': 'r2', 'campus': 'HYD', 'building': 'Main'},
+                 {'key': 'r3', 'campus': 'VSP', 'building': 'Annex'}]
+        dates = [date(2026, 11, day) for day in (2, 3, 9, 10, 11, 14, 16)]
+        semester = lambda day: 'first' if day.day < 9 else 'second' if day.day < 16 else 'missing'
+        terms = {
+            'first': {'Monday': [
+                {'room_key': 'r1', 'start_minutes': 450, 'end_minutes': 540},
+                {'room_key': 'r2', 'start_minutes': 510, 'end_minutes': 600},
+            ]},
+            'second': {'Monday': [
+                {'room_key': 'r1', 'start_minutes': 480, 'end_minutes': 540},
+                {'room_key': 'r1', 'start_minutes': 510, 'end_minutes': 570},
+                {'room_key': 'r3', 'start_minutes': 960, 'end_minutes': 1020},
+            ], 'Tuesday': [{'room_key': 'r2', 'start_minutes': 600, 'end_minutes': 660}]},
+        }
+        bookings = {(date(2026, 11, 9), 'r1'): [(540, 630), (600, 660)],
+                    (date(2026, 11, 10), 'r2'): [(480, 540)],
+                    (date(2026, 11, 3), 'r3'): [(480, 540)],
+                    (date(2026, 11, 11), 'r3'): [(480, 540)],
+                    (date(2026, 11, 16), 'r2'): [(480, 540)],
+                    (date(2026, 11, 14), 'r1'): [(480, 540)]}
+        closed_dates = {'VSP': ['2026-11-02', '2026-11-11'], 'HYD': ['2026-11-10', '2026-11-11']}
+        events = []
+        for day in dates:
+            weekday = DAYS[day.weekday()]
+            for row in terms.get(semester(day), {}).get(weekday, []):
+                events.append({**row, 'weekday': weekday, 'date': day.isoformat()})
+            for (booked_day, key), ranges in bookings.items():
+                if booked_day == day:
+                    events.extend({'room_key': key, 'weekday': weekday, 'date': day.isoformat(),
+                                   'start_minutes': start, 'end_minutes': end} for start, end in ranges)
+        closures = {(room['key'], day) for room in rooms for day in closed_dates[room['campus']]}
+        expected = summarize_utilization(rooms, events, DAYS[:5], 8, 16, dates=dates,
+                                         closures=closures, include_heatmap=False)
+        actual = summarize_weekly_snapshot(rooms, dates, terms, bookings, closed_dates, semester, DAYS, 8, 16)
+        self.assertEqual(actual, expected)
+
+    def test_heatmap_counts_empty_and_closed_room_periods(self):
+        from .utilization_summary import summarize_utilization
+        rooms = [{'key': 'r1', 'campus': 'VSP', 'building': 'Main'},
+                 {'key': 'r2', 'campus': 'HYD', 'building': 'Main'}]
+        events = [
+            {'room_key': 'r1', 'weekday': 'Monday', 'date': '2026-11-02', 'start_minutes': 480, 'end_minutes': 540},
+            {'room_key': 'r1', 'weekday': 'Monday', 'date': '2026-11-09', 'start_minutes': 510, 'end_minutes': 570},
+            {'room_key': 'r2', 'weekday': 'Monday', 'date': '2026-11-09', 'start_minutes': 540, 'end_minutes': 600},
+        ]
+        result = summarize_utilization(rooms, events, ('Monday',), 8, 16,
+                                       dates=[date(2026, 11, 2), date(2026, 11, 9)],
+                                       closures={('r2', '2026-11-09')})
+        self.assertEqual(result['occupied_minutes'], 120)
+        self.assertEqual(result['capacity_minutes'], 1440)
+        self.assertEqual([cell['value'] for cell in result['heatmap'][0]['cells'][:2]], [50, 17])
+        self.assertEqual(result['heatmap'][0]['cells'][0]['active_rooms'], 2)
+
     def test_weekday_average_uses_actual_dates_and_unions_overlaps(self):
         from .utilization_summary import summarize_utilization
         rooms=[{'key':'r1','campus':'VSP','building':'Main'}]

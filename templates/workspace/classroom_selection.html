@@ -3,7 +3,7 @@
 {% if selected_classroom %}
 <div class="cu-selected-classroom"><a class="cu-back-to-classrooms" href="{{ back_to_classrooms_url }}">Back to Classrooms</a></div>
 {% elif selection_step == 3 %}
-<div class="cu-classroom-selection-head"><div><h2>Choose a floor</h2><p class="cu-selection-note">Select a floor to view its classrooms.</p></div>
+<div class="cu-classroom-selection-head"><div><h2>Choose a floor</h2><p class="cu-selection-note">Select a floor to view its classrooms. Maintenance shown for {{ maintenance_date|date:'d M Y' }}.</p></div>
 {% if booking_role == 'ADMIN' and floor_cards %}{% include 'workspace/maintenance_start_button.html' %}{% endif %}</div>
 {% if booking_role == 'ADMIN' and floor_cards %}{% include 'workspace/maintenance_selection_bar.html' with date_range=True building_scope=True %}{% endif %}
 <div class="cu-classroom-cards">
@@ -19,7 +19,7 @@
 </div>
 {% elif selection_step == 4 %}
 <div class="cu-classroom-selection-head">
-    <div><h2>Choose a classroom</h2><p class="cu-selection-note">Availability now &middot; {{ availability_timestamp }}. Select any classroom to inspect its weekly timetable.</p></div>
+    <div><h2>Choose a classroom</h2><p class="cu-selection-note">Availability now &middot; {{ availability_timestamp }}. Maintenance shown for {{ maintenance_date|date:'d M Y' }}. Select any classroom to inspect its weekly timetable.</p></div>
     <div class="cm-selection-actions">
       <input type="search" class="cu-classroom-search" data-classroom-search aria-label="Search classrooms" placeholder="Search classrooms">
       {% if booking_role == 'ADMIN' and classroom_cards %}{% include 'workspace/maintenance_start_button.html' %}{% endif %}

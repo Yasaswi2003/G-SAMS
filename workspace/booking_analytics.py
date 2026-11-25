@@ -22,7 +22,25 @@ def series(qs, field):
     return [{'label': row[field] or 'Unassigned', 'value': row['total']} for row in qs.values(field).annotate(total=Count('id')).order_by('-total', field)]
 
 
-def build_analytics(params, *, snapshot=False, catalog=None):
+def _compact_timetable(grouped):
+    compact = defaultdict(list)
+    for day, rows in grouped.items():
+        rooms = defaultdict(list)
+        for row in rows:
+            rooms[row['room_key']].append((row['start_minutes'], row['end_minutes']))
+        for key, ranges in rooms.items():
+            merged = []
+            for start, end in sorted(ranges):
+                if merged and start <= merged[-1][1]:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+                else:
+                    merged.append((start, end))
+            compact[day].extend({'room_key': key, 'start_minutes': start, 'end_minutes': end}
+                                for start, end in merged)
+    return compact
+
+
+def build_analytics(params, *, snapshot=False, catalog=None, timetable_cache=None):
     from . import class_utilization as cu
     today = date.today()
     start = date.fromisoformat(params.get('start') or (today - timedelta(days=today.weekday())).isoformat())
@@ -47,13 +65,16 @@ def build_analytics(params, *, snapshot=False, catalog=None):
     def trend(counter):
         return [{'label':key,'value':counter[key]} for key in sorted(counter)]
     interval_map = defaultdict(list)
-    for b in qs.filter(status='confirmed'):
+    for b in qs.filter(status='confirmed').only(
+        'room_key', 'campus_code', 'building_name', 'room_code', 'booking_date', 'from_time', 'to_time',
+    ):
         room = by_key.get(b.room_key)
         if not room:
             room = cu._resolve_room({'campus_code':b.campus_code,'building_name':b.building_name,'room_number':b.room_code},by_key,aliases)
         if room and room['key'] in keys:
             interval_map[(b.booking_date,room['key'])].append((cu._minutes(b.from_time),cu._minutes(b.to_time)))
     terms, missing_terms, workdays = {}, set(), 0
+    fast_snapshot = snapshot and len(rooms) > 1
     day = start
     while day <= end:
         is_workday = day.weekday() < 5
@@ -63,32 +84,51 @@ def build_analytics(params, *, snapshot=False, catalog=None):
             if term not in terms:
                 grouped = defaultdict(list)
                 if term in cu._load_semester_choices():
-                    for row in cu._load_timetable(term,by_key,aliases):
+                    if snapshot and timetable_cache is not None and term in timetable_cache:
+                        timetable = timetable_cache[term]
+                    else:
+                        timetable = cu._load_timetable(term,by_key,aliases,occupancy_only=snapshot)
+                        if snapshot and timetable_cache is not None:
+                            timetable_cache[term] = timetable
+                    for row in timetable:
                         if row['room_key'] in keys and (not params.get('department') or cu._normalise(row['dept_code']) == cu._normalise(params['department'])):
                             grouped[row['weekday']].append(row)
                 elif not snapshot:
                     raise ValueError('Utilization cannot be calculated: timetable data is missing for '+term)
                 else:
                     missing_terms.add(term)
-                terms[term] = grouped
-            if is_workday:
+                terms[term] = _compact_timetable(grouped) if snapshot else grouped
+            if is_workday and not fast_snapshot:
                 for row in terms[term][cu.DAYS[day.weekday()]]:
                     interval_map[(day,row['room_key'])].append((row['start_minutes'],row['end_minutes']))
         day += timedelta(days=1)
-    from .utilization_summary import summarize_utilization
+    from .utilization_summary import summarize_utilization, summarize_weekly_snapshot
     dates = [start + timedelta(days=index) for index in range((end-start).days+1)]
-    events = [{'room_key':key,'weekday':cu.DAYS[day.weekday()],'date':day.isoformat(),
-               'start_minutes':a,'end_minutes':b}
-              for (day,key),spans in interval_map.items() for a,b in spans]
     from .holidays import closures_on
     closed_dates = {
         campus: [day.isoformat() for day in dates if day.weekday() < 5 and closures_on(day, campus)]
         for campus in {room['campus'] for room in rooms}
     }
-    closed = {(room['key'], day) for room in rooms for day in closed_dates[room['campus']]}
-    utilization_summary = summarize_utilization(
-        rooms, events, cu.DEFAULT_DAYS, 8, 16, dates=dates, closures=closed, include_heatmap=not snapshot,
-    )
+    if fast_snapshot:
+        utilization_summary = summarize_weekly_snapshot(
+            rooms, dates, terms, interval_map, closed_dates, cu.get_current_semester, cu.DAYS, 8, 16,
+        )
+    else:
+        closed = {(room['key'], day) for room in rooms for day in closed_dates[room['campus']]}
+        if snapshot:
+            date_strings = {day: day.isoformat() for day in dates}
+            period_intervals = {(key, date_strings[day]): spans for (day, key), spans in interval_map.items()
+                                if day.weekday() < 5 and (key, date_strings[day]) not in closed}
+            events = ()
+        else:
+            period_intervals = None
+            events = [{'room_key':key,'weekday':cu.DAYS[day.weekday()],'date':day.isoformat(),
+                       'start_minutes':a,'end_minutes':b}
+                      for (day,key),spans in interval_map.items() for a,b in spans]
+        utilization_summary = summarize_utilization(
+            rooms, events, cu.DEFAULT_DAYS, 8, 16, dates=dates, closures=closed,
+            include_heatmap=not snapshot, period_intervals=period_intervals,
+        )
     if snapshot:
         return {
             'utilization_summary': utilization_summary,
@@ -339,9 +379,10 @@ def analytics_page(request):
     duration = (end - start).days + 1
     previous_start = start - timedelta(days=min(duration, start.toordinal() - 1))
     previous_end = start - timedelta(days=1) if previous_start < start else None
+    timetable_cache = {}
     def snapshot(first, last, location):
         return build_analytics({'start': first.isoformat(), 'end': last.isoformat(), **location},
-                               snapshot=True, catalog=catalog)
+                               snapshot=True, catalog=catalog, timetable_cache=timetable_cache)
 
     try:
         try:
@@ -482,7 +523,7 @@ def analytics_page(request):
     context['selected_campus_buildings'] = utilization_buildings
     context['room_chart_data'] = [
         {
-            'code': room['room_code'], 'name': room['room_name'], 'campus': room['campus'],
+            'key': room['key'], 'code': room['room_code'], 'name': room['room_name'], 'campus': room['campus'],
             'building': room['building'], 'rate': room['utilization'],
             'timetable': (room['key'] in timetable_room_keys) if timetable_available else None,
         }
@@ -511,14 +552,14 @@ def analytics_page(request):
          'campus_directory': True},
         {'label': 'Active Classrooms With Timetables', 'value': with_timetable if timetable_available else '—',
          'icon': 'bx-calendar-check', 'note': timetable_note,
-         'classroom_directory': timetable_available, 'classrooms': classroom_lists[True]},
+         'classroom_directory': timetable_available, 'directory_kind': 'with', 'classrooms': classroom_lists[True]},
         {'label': 'Classrooms Without Timetables', 'value': without_timetable if timetable_available else '—',
          'icon': 'bx-door-open', 'note': timetable_note,
-         'classroom_directory': timetable_available, 'classrooms': classroom_lists[False]},
+         'classroom_directory': timetable_available, 'directory_kind': 'without', 'classrooms': classroom_lists[False]},
         {'label': 'Average Utilization', 'value': f'{rate:g}%' if rate is not None else '—', 'icon': 'bx-bar-chart-alt-2',
          'note': utilisation_note, 'meter': rate,
          'meter_label': 'Classroom utilisation', 'trend': change(rate, previous_rate, ' pp'),
-         'classroom_directory': catalog_available, 'classrooms': utilization_rooms,
+         'classroom_directory': catalog_available, 'directory_kind': 'all', 'classrooms': utilization_rooms,
          'utilization_buildings': utilization_buildings, 'show_timetable_status': True},
     ]
     return render(request, 'workspace/booking_analytics.html', context)
