@@ -47,6 +47,8 @@ html:has(.cm-dialog[open]){overflow:hidden}
 [data-cm-region] input[type=checkbox]{accent-color:#007367}
 .cm-dialog button.swal2-confirm,.cm-dialog button.swal2-deny,.cm-dialog button.swal2-cancel{color:#fff}
 .cm-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;align-items:end;padding:16px;margin:16px 0;background:#fff;border:1px solid #d5e8e0;border-radius:8px}
+.cm-filter-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+.cm-filter-actions .cm-clear{display:inline-flex;align-items:center;padding:6px 10px;border:1px solid #bdd8cd;border-radius:6px;color:#005a51;background:#fff;text-decoration:none}
 .cm-table-wrap{overflow:auto;max-width:100%}
 .cm-table{width:100%;border-collapse:collapse;background:#fff;text-align:left;font-size:12px}
 .cm-table :is(th,td){padding:8px 10px;border-bottom:1px solid #d5e8e0;vertical-align:top}
@@ -68,6 +70,11 @@ html:has(.cm-dialog[open]){overflow:hidden}
 .cm-schedule-review .cm-table :is(.cm-schedule-date,.cm-schedule-weekday){white-space:nowrap}
 .cm-schedule-scroll{max-height:12rem;overflow:auto}
 .cm-manage-schedule{margin-top:4px}
+.cm-manage-floors{margin-top:4px}
+.cm-manage-floors summary{font-size:11px}
+.cm-manage-rooms{margin-top:4px}
+.cm-manage-rooms summary{font-size:11px}
+.cm-manage-rooms:not([open]) .cm-less-label,.cm-manage-rooms[open] .cm-more-label{display:none}
 .cm-status{display:inline-block;padding:3px 8px;border-radius:6px;background:#eef2f5;color:#475569;font-weight:600;white-space:nowrap}
 .cm-status-ongoing{background:#eaf8ef;color:#17623b}
 .cm-status-upcoming{background:#eaf1ff;color:#204ba2}

@@ -11,13 +11,15 @@
     margin: 0;
     padding: 0;
     border: 0;
-    background: transparent;
+    background: rgb(247 250 249 / 96%);
+    backdrop-filter: blur(2px);
     opacity: 0;
     transition: opacity 140ms ease;
     cursor: wait;
 }
 
 #booking-loading.is-visible { opacity: 1; }
+#booking-loading.is-immediate { transition: none; }
 #booking-loading.is-leaving { pointer-events: none; }
 
 .booking-loading-mark {
@@ -59,7 +61,7 @@
 @keyframes booking-loading-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-    #booking-loading:not([hidden]) { transition: none; }
+    #booking-loading:not([hidden]) { transition: none;backdrop-filter:none; }
     .booking-loading-ring { animation: none; }
 }
 

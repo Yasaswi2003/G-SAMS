@@ -23,7 +23,7 @@
     <div class="cm-selection-actions">
       <input type="search" class="cu-classroom-search" data-classroom-search aria-label="Search classrooms" placeholder="Search classrooms">
       {% if booking_role == 'ADMIN' and classroom_cards %}{% include 'workspace/maintenance_start_button.html' %}{% endif %}
-      <a class="cu-button cu-button-primary" href="{{ back_to_floors_url }}"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to Floors</a>
+      <a class="cu-button cu-button-primary" href="{{ back_to_floors_url }}">Back to Floors</a>
     </div>
 </div>
 {% if booking_role == 'ADMIN' and classroom_cards %}{% include 'workspace/maintenance_selection_bar.html' with date_range=True undo_token=floor_undo_token %}{% endif %}

@@ -11,16 +11,11 @@
 <form method="get" class="bw-grid bw-filters">
 {% if filters.status_group %}<input type="hidden" name="status_group" value="{{ filters.status_group }}">{% endif %}
 <label>Search<input name="q" value="{{ filters.q }}" placeholder="Faculty name, employee ID, classroom or building"></label>
-<label>Campus<input name="campus" value="{{ filters.campus }}" placeholder="All campuses"></label>
+<label>Campus<select name="campus"><option value="">All campuses</option>{% for campus in campuses %}<option value="{{ campus }}"{% if campus|lower == filters.campus|lower %} selected{% endif %}>{{ campus }}</option>{% endfor %}</select></label>
 <label>Booking date<input type="date" name="date" value="{{ filters.date }}"></label>
 <div class="bw-filter-actions"><button type="submit">Apply Filters</button><a class="bw-clear-button" href="{% url 'classroom_requests' %}">Clear</a></div>
-<details class="bw-advanced-filters" {% if filters.campus or filters.building or filters.room or filters.department or filters.teacher %}open{% endif %}><summary>More filters</summary><div class="bw-grid">
-<label>Building<input name="building" value="{{ filters.building }}"></label>
-<label>Room<input name="room" value="{{ filters.room }}"></label>
-<label>Department<input name="department" value="{{ filters.department }}"></label>
-<label>Teacher<input name="teacher" value="{{ filters.teacher }}"></label>
-</div></details>
 </form>
+{% if room_error %}<p class="bw-notice bw-error" role="status">{{ room_error }}</p>{% endif %}
 {% include 'workspace/request_overview.html' %}
 <div class="bw-table"><table><thead><tr><th>Faculty</th><th>Classroom</th><th>Schedule</th><th>Purpose</th><th>Booking Status</th><th>Actions</th></tr></thead><tbody>
 {% for b in bookings %}

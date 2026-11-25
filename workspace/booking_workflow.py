@@ -386,7 +386,7 @@ def review_classroom_booking(request):
 @login_required
 @require_GET
 def classroom_requests(request):
-    from .class_utilization import _load_room_catalog
+    from .class_utilization import _campus_filter_options, _load_room_catalog
     r = role(request.user)
     revision_token = request.GET.get('revision')
     if revision_token:
@@ -396,6 +396,7 @@ def classroom_requests(request):
         except RevisionError as error:
             return error.response()
     qs = visible(request.user, r).order_by('-created_at')
+    campus_codes = list(qs.order_by().values_list('campus_code', flat=True).distinct())
     if request.GET.get('booking_id'):
         qs=qs.filter(pk=request.GET['booking_id']) if request.GET['booking_id'].isdigit() else qs.none()
     for field, lookup in [('campus','campus_code__iexact'), ('building','building_name__icontains'), ('room','room_code__icontains'), ('department','requester_department__iexact'), ('teacher','teacher_name__icontains')]:
@@ -436,12 +437,14 @@ def classroom_requests(request):
         qs = qs.filter(status__in=('withdrawn','cancelled'))
     elif selected_group and selected_group != 'all':
         qs = qs.filter(status__in=next((values for key, label, values in groups if key == selected_group), ()))
-    rooms, error = [], ''
-    if r in ('TEACHER', 'ADMIN'):
-        try:
-            rooms = _load_room_catalog()[0]
-        except DatabaseError:
-            error = 'Room master is unavailable.'
+    rooms, catalog_rooms, error = [], [], ''
+    try:
+        catalog_rooms = _load_room_catalog()[0]
+        if r in ('TEACHER', 'ADMIN'):
+            rooms = catalog_rooms
+    except DatabaseError:
+        error = 'Room master is unavailable. Some campus options may be missing.'
+    campuses = _campus_filter_options(catalog_rooms, campus_codes, request.GET.get('campus', ''))
     assigned_hods = {}
     assignments = UserGroups.objects.filter(group__name='HOD', is_block=False,
                                            user__is_active=True).select_related('user')
@@ -453,7 +456,7 @@ def classroom_requests(request):
     for booking in qs:
         scope = (booking.requester_campus.strip().casefold(), booking.requester_department.strip().casefold())
         booking.assigned_hod_names = ', '.join(sorted(assigned_hods.get(scope, ()))) or 'Not Assigned'
-    return render(request, 'workspace/classroom_requests.html', {'bookings': qs, 'revision_token':revision_token, 'request_summary': summary, 'request_total': total, 'booking_role': r, 'rooms': rooms, 'room_error': error, 'statuses': Booking.STATUS_CHOICES, 'filters': request.GET})
+    return render(request, 'workspace/classroom_requests.html', {'bookings': qs, 'revision_token':revision_token, 'request_summary': summary, 'request_total': total, 'booking_role': r, 'rooms': rooms, 'room_error': error, 'campuses': campuses, 'statuses': Booking.STATUS_CHOICES, 'filters': request.GET})
 
 
 @login_required

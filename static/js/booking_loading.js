@@ -2,7 +2,9 @@
     const overlay = document.getElementById('booking-loading');
     const status = overlay.querySelector('[role="status"]');
     const paths = new Set(document.body.dataset.bookingPaths?.split(' '));
+    const immediatePaths = new Set(document.body.dataset.bookingImmediatePaths?.split(' '));
     const bookingPage = paths.has(location.pathname);
+    const immediatePage = immediatePaths.has(location.pathname);
     if (bookingPage) document.body.dataset.bookingPage = '';
 
     const pending = new Set();
@@ -20,10 +22,11 @@
         return dialogs[dialogs.length - 1] || document.body;
     }
 
-    function show() {
+    function show(immediate = false) {
         const host = overlayHost();
         if (overlay.parentElement !== host) host.append(overlay);
         overlay.classList.remove('is-leaving');
+        overlay.classList.toggle('is-immediate', immediate);
         overlay.hidden = false;
         overlay.showPopover?.();
         // Commit the initial opacity before starting the transition.
@@ -32,7 +35,7 @@
         status.textContent = 'Loading…';
     }
 
-    function begin() {
+    function begin(immediate = false) {
         let finishParent;
         try {
             if (window.parent !== window) finishParent = window.parent.BookingLoading?.begin();
@@ -44,15 +47,20 @@
             if (pending.size) return;
             clearTimeout(showTimer);
             if (overlay.hidden) return;
+            overlay.classList.remove('is-immediate');
             overlay.classList.remove('is-visible');
             overlay.classList.add('is-leaving');
             hideTimer = setTimeout(hide, 140);
         };
         if (!pending.size && !finishParent) {
             clearTimeout(hideTimer);
-            if (overlay.hidden) showTimer = setTimeout(show, 160);
-            else if (overlay.parentElement !== overlayHost()) show();
+            if (overlay.hidden) {
+                if (immediate) show(true);
+                else showTimer = setTimeout(show, 160);
+            }
+            else if (overlay.parentElement !== overlayHost()) show(immediate);
             else {
+                overlay.classList.toggle('is-immediate', immediate);
                 overlay.classList.remove('is-leaving');
                 overlay.classList.add('is-visible');
             }
@@ -62,28 +70,42 @@
     }
 
     async function run(operation) {
-        const finish = begin();
+        const finish = begin(immediatePage);
         try { return await operation(); }
         finally { finish(); }
     }
 
-    function startNavigation() {
+    function startNavigation(immediate = false) {
         if (navigation) return;
-        const finish = begin();
+        const finish = begin(immediate);
         navigation = () => {
             navigation = null;
             finish();
         };
     }
 
-    function navigate(action) {
+    function navigate(action, immediate = immediatePage) {
         if (pending.size) return;
-        startNavigation();
-        try { action(); }
-        catch (error) {
-            navigation?.();
-            throw error;
-        }
+        startNavigation(immediate);
+        const currentNavigation = navigation;
+        const perform = () => {
+            try { action(); }
+            catch (error) {
+                navigation?.();
+                throw error;
+            }
+        };
+        if (!immediate) return perform();
+        let performed = false;
+        const afterPaint = () => {
+            if (performed) return;
+            performed = true;
+            clearTimeout(fallback);
+            if (navigation !== currentNavigation) return;
+            perform();
+        };
+        const fallback = setTimeout(afterPaint, 150);
+        requestAnimationFrame(() => requestAnimationFrame(afterPaint));
     }
 
     function loadFrame(frame, url) {
@@ -132,7 +154,12 @@
         if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
         const url = new URL(link.href, location.href);
         if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
-        if ((url.protocol === 'http:' || url.protocol === 'https:') && isPageNavigation(url)) startNavigation();
+        if ((url.protocol === 'http:' || url.protocol === 'https:') && isPageNavigation(url)) {
+            if (immediatePage || immediatePaths.has(url.pathname)) {
+                event.preventDefault();
+                navigate(() => location.assign(url.href), true);
+            } else startNavigation();
+        }
     });
     window.addEventListener('submit', event => {
         if (event.defaultPrevented) return;
@@ -142,7 +169,12 @@
         const target = submitter?.getAttribute('formtarget') || form.target;
         if (method.toLowerCase() === 'dialog' || (target && target !== '_self')) return;
         const url = new URL(submitter?.getAttribute('formaction') || form.action, location.href);
-        if (isPageNavigation(url)) startNavigation();
+        if (isPageNavigation(url)) {
+            if (immediatePage && form.matches('.cm-filters, .bw-filters')) {
+                event.preventDefault();
+                navigate(() => HTMLFormElement.prototype.submit.call(form), true);
+            } else startNavigation();
+        }
     });
 
     function reset() {
@@ -150,10 +182,9 @@
         for (const finish of pending) finish();
         clearTimeout(showTimer);
         clearTimeout(hideTimer);
-        overlay.classList.remove('is-visible', 'is-leaving');
+        overlay.classList.remove('is-visible', 'is-leaving', 'is-immediate');
         hide();
     }
-    window.addEventListener('pagehide', reset);
     window.addEventListener('pageshow', event => { if (event.persisted) reset(); });
     window.addEventListener('popstate', () => navigation?.());
     window.navigation?.addEventListener('navigateerror', () => navigation?.());

@@ -21,8 +21,7 @@
       <option value="">All buildings</option>
       {% for building in buildings %}<option value="{{ building }}"{% if building == filters.building %} selected{% endif %}>{{ building }}</option>{% endfor %}
     </select></label>
-    <label>From<input type="date" name="start" value="{{ start }}" required></label>
-    <label>To<input type="date" name="end" value="{{ end }}" required></label>
+    <label>Academic semester<input type="text" value="{{ current_semester }}" readonly aria-label="Current academic semester" title="Analytics cover the current semester to date"></label>
     <div class="bs-actions"><button type="submit">Apply filters</button><a href="{% url 'booking_analytics' %}">Reset</a></div>
   </form>
 
@@ -154,5 +153,5 @@
   {% endif %}
   {{ building_options|json_script:"bs-building-data" }}
 </main>
-<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-30" defer></script>
+<script src="{% static 'js/booking_analytics.js' %}?v=snapshot-31" defer></script>
 {% endblock %}

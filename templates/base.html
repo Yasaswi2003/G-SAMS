@@ -73,6 +73,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
 
       <style>
+          :where(input, select, textarea):is(:focus, :focus-visible) {
+              outline: none !important;
+              box-shadow: none !important;
+              border-color: #007367 !important;
+          }
           .sidebar .nav-links li a{
               margin-left: 20px;
                   margin-right: 20px;
@@ -234,7 +239,7 @@
 		<span class="spinner"></span>
 	</div>
 </div>
-  <body id="page-top" data-booking-paths="{% url 'class_utilization' %} {% url 'classroom_requests' %} {% url 'booking_analytics' %} {% url 'classroom_maintenance' %} {% url 'booking_activity' %}"{% if request.resolver_match.url_name == 'class_utilization' or request.resolver_match.url_name == 'classroom_requests' or request.resolver_match.url_name == 'booking_analytics' %} class="classroom-workspace"{% endif %}>
+  <body id="page-top" data-booking-paths="{% url 'class_utilization' %} {% url 'classroom_requests' %} {% url 'booking_analytics' %} {% url 'classroom_maintenance' %} {% url 'booking_activity' %}" data-booking-immediate-paths="{% url 'classroom_requests' %} {% url 'classroom_maintenance' %}"{% if request.resolver_match.url_name == 'class_utilization' or request.resolver_match.url_name == 'classroom_requests' or request.resolver_match.url_name == 'booking_analytics' %} class="classroom-workspace"{% endif %}>
     {% include 'workspace/loading_indicator.html' %}
     <div id="wrapper">
       <!-- sider bar -->

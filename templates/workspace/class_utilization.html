@@ -965,9 +965,9 @@
             
             <div class="cu-filter-field"><label for="cuSemester">Academic Semester</label><input id="cuSemester" value="{{ current_semester }}" readonly aria-label="Academic semester, automatically selected from the timetable date" title="Updates automatically for the selected date: July?December ODD; January?June EVEN"></div>
             <div class="cu-filter-field">
-                <label for="cuCampus">Campus</label>
-                <select id="cuCampus" name="campus"{% if revision_context %} aria-describedby="cuCampusError" required{% endif %}>
-                    <option value="">{% if revision_context %}Select campus{% else %}All campuses{% endif %}</option>
+                <label for="cuCampus">Campus <span aria-hidden="true">*</span></label>
+                <select id="cuCampus" name="campus" aria-describedby="cuCampusError" required>
+                    <option value="">Select campus</option>
                     {% for campus in campuses %}
                     <option value="{{ campus.key }}" {% if selected_campus == campus.key %}selected{% endif %}>{{ campus.label }}</option>
                     {% endfor %}
@@ -976,9 +976,9 @@
             </div>
 
             <div class="cu-filter-field">
-                <label for="cuBuilding">Building</label>
-                <select id="cuBuilding" name="building"{% if revision_context %} aria-describedby="cuBuildingError" required{% endif %}>
-                    <option value="">{% if revision_context %}Select building{% else %}All buildings{% endif %}</option>
+                <label for="cuBuilding">Building <span aria-hidden="true">*</span></label>
+                <select id="cuBuilding" name="building" aria-describedby="cuBuildingError" required>
+                    <option value="">Select building</option>
                     {% for building in buildings %}
                     <option value="{{ building.key }}" {% if selected_building == building.key %}selected{% endif %}>{% if not selected_campus and building.campus_key %}{{ building.campus_key }} - {% endif %}{{ building.label }}</option>
                     {% endfor %}

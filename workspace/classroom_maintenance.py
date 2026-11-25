@@ -723,9 +723,10 @@ def undo_floor(request):
 @admin_only
 @require_GET
 def manage(request):
-    from .class_utilization import _load_room_catalog
+    from .class_utilization import _campus_filter_options, _load_room_catalog
     rooms, rooms_by_key, _ = _load_room_catalog()
     filters={field:request.GET.get(field,'').strip() for field in ('campus','building','floor','room','status','date','q')}
+    campuses = _campus_filter_options(rooms, ClassroomMaintenance.objects.order_by().values_list('campus', flat=True).distinct(), filters['campus'])
     queryset=ClassroomMaintenance.objects.select_related('created_by','updated_by').prefetch_related('rooms', 'windows')
     reference = request.GET.get('reference', '')
     if reference:
@@ -781,4 +782,4 @@ def manage(request):
                             'created_by':str(record.created_by or ''),'updated_by':str(record.updated_by or '')}
     params=request.GET.copy();params.pop('page',None)
     return render(request,'workspace/classroom_maintenance.html',{'rooms':rooms,'maintenance_reasons':available_reasons(),
-        'page':page,'records':records,'filters':filters,'filter_query':params.urlencode()})
+        'page':page,'records':records,'filters':filters,'campuses':campuses,'filter_query':params.urlencode()})

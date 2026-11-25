@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block body %}
-<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-32">
+<link rel="stylesheet" href="{% static 'user/css/classroom_maintenance.css' %}?v=selection-34">
 <main class="cm-manage">
     <header class="cm-dialog-head"><h1>Manage Classroom Maintenance</h1><a class="cm-primary" href="{% url 'class_utilization' %}">Select a classroom to schedule maintenance</a></header>
     <form class="cm-filters" method="get" aria-label="Maintenance filters">
         {% if request.GET.reference %}<input type="hidden" name="reference" value="{{ request.GET.reference }}">{% endif %}
         <label>Search<input name="q" value="{{ filters.q }}" placeholder="Reference, reason or classroom"></label>
-        <label>Campus<input name="campus" value="{{ filters.campus }}"></label>
+        <label>Campus<select name="campus"><option value="">All campuses</option>{% for campus in campuses %}<option value="{{ campus }}"{% if campus|lower == filters.campus|lower %} selected{% endif %}>{{ campus }}</option>{% endfor %}</select></label>
         <label>Building<select name="building" data-cm-filter="building"></select></label>
         <label>Floor<select name="floor" data-cm-filter="floor"></select></label>
         <label>Classroom<select name="room" data-cm-filter="room"></select></label>
@@ -18,7 +18,7 @@
             <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
         </select></label>
         <label>Date<input type="date" name="date" value="{{ filters.date }}"></label>
-        <button type="submit" class="cm-primary">Apply Filters</button>
+        <div class="cm-filter-actions"><button type="submit" class="cm-primary">Apply Filters</button><a href="{% url 'classroom_maintenance' %}" class="cm-clear">Clear</a></div>
     </form>
     <div class="cm-table-wrap"><table class="cm-table">
         <thead><tr><th>Rq ID</th><th>Campus / Building</th><th>Location</th><th>Date and time</th><th>Reasons</th><th>Expected completion</th><th>Status</th><th>Actions</th></tr></thead>
@@ -29,8 +29,24 @@
             <td>{{ record.campus }} / {{ record.building_name }}</td>
             <td>
                 {% if record.scope == 'building' %}Entire building
+                {% elif record.floor_labels|length > 3 %}
+                    Floors {{ record.floor_labels|slice:":3"|join:', ' }}
+                    <details class="cm-review-dropdown cm-manage-floors">
+                        <summary>View more</summary>
+                        <div class="cm-schedule-scroll">
+                            {% for floor in record.floor_labels %}<small>Floor {{ floor }}</small>{% endfor %}
+                        </div>
+                    </details>
                 {% else %}Floor{{ record.floor_labels|pluralize }} {{ record.floor_labels|join:', '|default:'Not recorded' }}{% endif %}
-                {% if record.scope == 'room' %}<small>Classroom {{ record.room_codes|join:', ' }}</small>{% endif %}
+                {% if record.scope == 'room' %}
+                    {% if record.room_codes|length > 5 %}
+                        <small>Classroom {{ record.room_codes|slice:":5"|join:', ' }}</small>
+                        <details class="cm-review-dropdown cm-manage-rooms">
+                            <summary><span class="cm-more-label">View more</span><span class="cm-less-label">View less</span></summary>
+                            <div class="cm-schedule-scroll"><small>{{ record.room_codes|slice:"5:"|join:', ' }}</small></div>
+                        </details>
+                    {% else %}<small>Classroom {{ record.room_codes|join:', ' }}</small>{% endif %}
+                {% endif %}
             </td>
             <td>
                 {{ record.start_date|date:'d M Y' }}{% if record.end_date != record.start_date %} – {{ record.end_date|date:'d M Y' }}{% endif %}

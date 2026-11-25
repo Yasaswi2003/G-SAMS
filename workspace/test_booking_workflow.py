@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group
 from django.db import connection
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.utils import timezone
 from usermanagement.models import User, UserGroups
 from .models import ClassroomBooking as Booking, ClassroomBookingHistory, ClassroomBookingLock, ClassroomBookingChangeRequest, ClassroomBookingNotification
 from .class_utilization import _build_room_catalog, get_current_semester
@@ -524,6 +525,10 @@ class BookingWorkflowTests(TestCase):
         self.assertContains(response, 'data-campus-buildings="VSP" aria-label="VSP buildings">')
         self.assertContains(response, 'data-selected-building="ICT Block"')
         self.assertContains(response, 'Average Utilization by Campus')
+        self.assertContains(response, 'Academic semester')
+        self.assertContains(response, 'aria-label="Current academic semester"')
+        self.assertNotContains(response, 'type="date" name="start"')
+        self.assertNotContains(response, 'type="date" name="end"')
         self.assertContains(response, 'Filter building utilization by campus')
         self.assertEqual([row['name'] for row in response.context['selected_campus_buildings']], ['ICT Block'])
         self.assertEqual([entry['name'] for entry in response.context['campus_utilization']], ['VSP'])
@@ -570,6 +575,15 @@ class BookingWorkflowTests(TestCase):
                 'start': self.day.isoformat(), 'end': self.day.isoformat()})
         self.assertContains(response, 'room catalogue is unavailable')
 
+    def test_booking_analytics_defaults_to_current_semester_to_date(self):
+        self.login('ADMIN')
+        response = self.client.get(reverse('booking_analytics'))
+        today = timezone.localdate() if timezone.is_aware(timezone.now()) else timezone.now().date()
+        expected_start = date(today.year, 7, 1) if today.month >= 7 else date(today.year, 1, 1)
+        self.assertEqual(response.context['start'], expected_start.isoformat())
+        self.assertEqual(response.context['end'], today.isoformat())
+        self.assertEqual(response.context['current_semester'], get_current_semester(today))
+
     def test_management_tabs_counts_scope_and_search_are_real(self):
         first=self.booking()
         for status in ('pending','changes_requested','confirmed','hod_rejected','withdrawn'):
@@ -595,6 +609,37 @@ class BookingWorkflowTests(TestCase):
         self.assertIn('Approval Timeline',response.content.decode())
         self.client.force_login(self.other)
         self.assertEqual(self.client.get(reverse('classroom_requests')).context['request_total'],0)
+
+    def test_management_campus_dropdown_filters_and_retains_options(self):
+        self.booking()
+        Booking.objects.create(booked_by=self.users['TEACHER'], campus_code='BLR', building_name='Block',
+            room_code='201', room_key='BLR|B|201', booking_date=self.day, from_time=time(9), to_time=time(10),
+            title='Other campus', purpose='Other campus', teacher_name='Teacher', teacher_id='teacher',
+            requester_department='CSE', requester_campus='VSP', status='pending')
+        catalog = _build_room_catalog([
+            {'campus_code': campus, 'building_code': 'B', 'room_code': '101'}
+            for campus in ('VSP', 'HYD')
+        ])
+        self.login('ADMIN')
+        with patch('workspace.class_utilization._load_room_catalog', return_value=catalog):
+            response = self.client.get(reverse('classroom_requests'), {'campus': 'blr'})
+            self.assertEqual(response.context['campuses'], ['BLR', 'HYD', 'VSP'])
+            self.assertContains(response, '<option value="BLR" selected>BLR</option>', html=True)
+            self.assertEqual([booking.campus_code for booking in response.context['bookings']], ['BLR'])
+            self.assertIn('campus=blr', response.context['request_summary'][1]['url'])
+            unknown = self.client.get(reverse('classroom_requests'), {'campus': 'OLD'})
+            self.assertContains(unknown, '<option value="OLD" selected>OLD</option>', html=True)
+            self.assertEqual(unknown.context['request_total'], 0)
+            self.login('HOD')
+            hod_response = self.client.get(reverse('classroom_requests'))
+            self.assertEqual(hod_response.context['rooms'], [])
+            self.assertEqual(hod_response.context['campuses'], ['BLR', 'HYD', 'VSP'])
+
+        from django.db import DatabaseError
+        with patch('workspace.class_utilization._load_room_catalog', side_effect=DatabaseError):
+            unavailable = self.client.get(reverse('classroom_requests'))
+            self.assertContains(unavailable, 'Some campus options may be missing.')
+            self.assertEqual(unavailable.context['campuses'], ['BLR', 'VSP'])
 
     def test_management_actions_order_and_final_decision_visibility(self):
         booking=self.booking()
@@ -1174,6 +1219,46 @@ class BookingWorkflowTests(TestCase):
         params['date']=(self.day+timedelta(days=7)).isoformat()
         open_week=self.client.get(reverse('class_utilization'),params)
         self.assertEqual(open_week.context['classroom_cards'][0]['state'],'available')
+
+    def test_maintenance_campus_dropdown_and_clear_filters(self):
+        from .models import ClassroomMaintenance
+        self.login('ADMIN')
+        common = {'scope': 'building', 'building_key': 'VSP|ICT', 'building_name': 'ICT Block',
+                  'start_date': self.day, 'end_date': self.day, 'duration': 'short'}
+        ClassroomMaintenance.objects.create(**common, campus='VSP')
+        ClassroomMaintenance.objects.create(**common, campus='OLD')
+        catalog = _build_room_catalog([
+            {'campus_code': campus, 'building_code': 'B', 'room_code': '101'}
+            for campus in ('VSP', 'HYD')
+        ])
+        with patch('workspace.class_utilization._load_room_catalog', return_value=catalog):
+            response = self.client.get(reverse('classroom_maintenance'), {'campus': 'vsp', 'q': 'ICT'})
+            self.assertEqual(response.context['campuses'], ['HYD', 'OLD', 'VSP'])
+            self.assertContains(response, '<option value="VSP" selected>VSP</option>', html=True)
+            self.assertEqual([record.campus for record in response.context['page']], ['VSP'])
+            self.assertContains(response, f'<a href="{reverse("classroom_maintenance")}" class="cm-clear">Clear</a>', html=True)
+            unknown = self.client.get(reverse('classroom_maintenance'), {'campus': 'OTHER'})
+            self.assertContains(unknown, '<option value="OTHER" selected>OTHER</option>', html=True)
+            self.assertEqual(len(unknown.context['page']), 0)
+
+    def test_maintenance_classroom_list_collapses_only_when_long(self):
+        from .models import ClassroomMaintenance
+        self.login('ADMIN')
+        common = {'scope': 'room', 'campus': 'VSP', 'building_key': 'VSP|ICT',
+                  'building_name': 'ICT Block', 'floor': '1', 'start_date': self.day,
+                  'end_date': self.day, 'duration': 'short'}
+        short = ClassroomMaintenance.objects.create(**common, room_codes=['101', '102', '103', '104', '105'])
+        long = ClassroomMaintenance.objects.create(**common, room_codes=['201', '202', '203', '204', '205', '206', '207'])
+
+        for record, has_more in ((short, False), (long, True)):
+            response = self.client.get(reverse('classroom_maintenance'), {'reference': record.pk})
+            self.assertContains(response, 'Classroom ' + ', '.join(record.room_codes[:5]))
+            if has_more:
+                self.assertContains(response, 'class="cm-review-dropdown cm-manage-rooms"')
+                self.assertContains(response, '<small>206, 207</small>', html=True)
+                self.assertContains(response, 'View less')
+            else:
+                self.assertNotContains(response, 'class="cm-review-dropdown cm-manage-rooms"')
 
     def test_maintenance_review_blocks_only_affected_slots_and_cancellation_preserves_bookings(self):
         from .models import ClassroomMaintenance

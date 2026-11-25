@@ -243,6 +243,17 @@ def _load_room_catalog():
     return _build_room_catalog(records)
 
 
+def _campus_filter_options(rooms, campus_codes, selected=''):
+    labels = {}
+    for campus in [*campus_codes, *(room['campus'] for room in rooms)]:
+        campus = campus.strip()
+        if campus:
+            labels.setdefault(campus.casefold(), campus)
+    if selected:
+        labels.setdefault(selected.casefold(), selected)
+    return sorted(labels.values(), key=str.casefold)
+
+
 def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, room_key=None):
     rows = TimeTableMaster.objects.using(GITAM_DATABASE).annotate(
         semester_key=Upper(Trim("sem_flag")),

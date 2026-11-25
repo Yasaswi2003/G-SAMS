@@ -306,6 +306,10 @@ def _booking_workbook(bookings):
     return output.getvalue()
 
 
+def _semester_to_date_range(day):
+    return date(day.year, 7, 1) if day.month >= 7 else date(day.year, 1, 1), day
+
+
 @login_required
 @require_GET
 def analytics_page(request):
@@ -314,10 +318,12 @@ def analytics_page(request):
     from . import class_utilization as cu
     now = timezone.now()
     today = timezone.localdate(now) if timezone.is_aware(now) else now.date()
-    default_start = today - timedelta(days=29)
+    default_start, default_end = _semester_to_date_range(today)
     context = {
         'start': request.GET.get('start') or default_start.isoformat(),
-        'end': request.GET.get('end') or today.isoformat(),
+        'end': request.GET.get('end') or default_end.isoformat(),
+        'current_semester': cu.get_current_semester(today),
+        'reporting_period': 'Semester to date',
         'scope': 'All buildings',
         'filters': {key: request.GET.get('util_' + key, '').strip() for key in ('campus', 'building')},
     }

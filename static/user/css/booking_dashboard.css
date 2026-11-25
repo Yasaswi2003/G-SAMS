@@ -33,6 +33,7 @@
   font:inherit;padding:7px 10px;
 }
 .bs-filters :is(select,input) { width:100%;min-width:0; }
+.bs-filters input[readonly] { background:#f3f7f5;color:var(--bs-muted);cursor:default; }
 .bs-filters button { background:var(--bs-accent);border-color:var(--bs-accent);color:#fff;font-weight:650;white-space:nowrap; }
 .bs-actions { display:flex;align-items:center;gap:12px; }
 .booking-snapshot .bs-secondary { display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border:1px solid #dbe2e7;border-radius:10px;background:#fff;color:#00786f;font-size:13px;font-weight:650;text-decoration:none; }
@@ -109,8 +110,13 @@
 .bs-campus-value { position:absolute;bottom:calc(var(--campus-rate) + 5px);left:50%;transform:translateX(-50%);font-size:12px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap; }
 .bs-campus-bar:is(:hover,[aria-current="true"]) .bs-campus-fill { background:#004f47; }
 .bs-campus-bar:is(:hover,[aria-current="true"]) strong { text-decoration:underline;text-underline-offset:3px; }
-.bs-chart-tooltip { position:fixed;z-index:10900;max-width:min(310px,calc(100vw - 24px));padding:8px 10px;border-radius:7px;background:#263238;color:#fff;font:12px/1.45 Inter,"Segoe UI",sans-serif;overflow-wrap:anywhere;pointer-events:none; }
+.bs-chart-tooltip { --tooltip-accent:#007367;position:fixed;z-index:10900;max-width:min(330px,calc(100vw - 24px));display:grid;gap:3px;padding:10px 13px 10px 15px;border:1px solid color-mix(in srgb,var(--tooltip-accent) 65%,#fff);border-radius:9px;background:linear-gradient(115deg,var(--tooltip-accent),color-mix(in srgb,var(--tooltip-accent) 72%,#17252c));color:#fff;box-shadow:0 10px 28px #14282438;font:12px/1.4 Inter,"Segoe UI",sans-serif;overflow-wrap:anywhere;pointer-events:none;animation:bs-tooltip-in .13s ease-out; }
+.bs-chart-tooltip::before { content:"";position:absolute;inset:7px auto 7px 5px;width:3px;border-radius:3px;background:#fff9; }
+.bs-chart-tooltip-heading { font-size:12px;font-weight:700;letter-spacing:.01em; }
+.bs-chart-tooltip-details { color:#ffffffe6;font-size:11px; }
 .bs-chart-tooltip[hidden] { display:none; }
+@keyframes bs-tooltip-in { from { opacity:0;transform:translateY(4px) scale(.97); } to { opacity:1;transform:translateY(0) scale(1); } }
+@media(prefers-reduced-motion:reduce) { .bs-chart-tooltip { animation:none; } }
 .bs-maintenance-stack [data-chart-details]:focus-visible { outline-offset:-2px; }
 .bs-maintenance-stack [data-chart-details]:hover,.bs-maintenance-track [data-chart-details]:hover { filter:brightness(.8); }
 .bs-vertical-chart li[data-chart-details] { cursor:default; }

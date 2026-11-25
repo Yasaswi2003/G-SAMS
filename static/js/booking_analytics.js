@@ -101,7 +101,21 @@
   }
 
   function showTooltip(bar, x, y) {
-    chartTooltip.textContent = bar.dataset.chartDetails;
+    const parts = bar.dataset.chartDetails.split(' · ').map(part => part.trim()).filter(Boolean);
+    const computed = getComputedStyle(bar);
+    const accent = computed.getPropertyValue('--room-bar').trim()
+      || computed.getPropertyValue('--maintenance-status').trim()
+      || computed.getPropertyValue('--bs-accent').trim()
+      || '#007367';
+    const heading = document.createElement('strong');
+    heading.className = 'bs-chart-tooltip-heading';
+    heading.textContent = parts.shift() || bar.getAttribute('aria-label') || 'Chart details';
+    const details = document.createElement('span');
+    details.className = 'bs-chart-tooltip-details';
+    details.textContent = parts.join('  ·  ');
+    chartTooltip.replaceChildren(heading);
+    if (parts.length) chartTooltip.append(details);
+    chartTooltip.style.setProperty('--tooltip-accent', accent);
     chartTooltip.hidden = false;
     positionTooltip(x, y);
   }
