@@ -129,7 +129,8 @@ def slot(data, existing=None, reserve_pending=True):
     # Do not silently fall back to a different term when checking availability.
     if semester not in cu._load_semester_choices():
         raise ValueError('Timetable data for this academic term is unavailable.')
-    schedules = cu._load_timetable(semester, by_key, aliases)
+    schedules = cu._load_timetable(
+        semester, by_key, aliases, room_key=room['key'], occupancy_only=True)
     for row in schedules:
         matching = row['room_key'] == room['key']
         # Unresolved master rows are conservatively treated as occupied if their room alias matches.
@@ -203,7 +204,10 @@ def book_classroom(request):
         return JsonResponse({'error': str(exc), **({'code':'slot_unavailable'} if str(exc).startswith(('Classroom unavailable!','This campus is closed for ','You already have an overlapping classroom')) else {})}, status=400)
     except DatabaseError:
         return JsonResponse({'error': 'Booking data could not be verified or is busy. Please retry.'}, status=503)
-    return JsonResponse({'message': booking.get_status_display(), 'booking_id': booking.pk, 'status': booking.status}, status=201)
+    return JsonResponse({
+        'message': booking.get_status_display(), 'booking_id': booking.pk, 'status': booking.status,
+        'booking': {**booking_snapshot(booking), 'title': booking.title},
+    }, status=201)
 
 
 @login_required

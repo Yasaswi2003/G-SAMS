@@ -109,7 +109,7 @@
 {{ rooms|json_script:'bw-rooms' }}
 {{ revision_token|json_script:'bw-revision-token' }}
 </main>
-<script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script><script src="{% static 'js/booking_live.js' %}?v=3"></script>
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-12"></script><script src="{% static 'js/booking_live.js' %}?v=4"></script>
 <script>
 (() => {
 const rooms = JSON.parse(document.getElementById('bw-rooms').textContent);

@@ -36,6 +36,7 @@
     }
 
     function begin(immediate = false) {
+        const modalActive = Boolean(window.Swal?.isVisible());
         let finishParent;
         try {
             if (window.parent !== window) finishParent = window.parent.BookingLoading?.begin();
@@ -52,11 +53,13 @@
             overlay.classList.add('is-leaving');
             hideTimer = setTimeout(hide, 140);
         };
-        if (!pending.size && !finishParent) {
+        if (!pending.size && !finishParent && !modalActive) {
             clearTimeout(hideTimer);
             if (overlay.hidden) {
                 if (immediate) show(true);
-                else showTimer = setTimeout(show, 160);
+                else showTimer = setTimeout(() => {
+                    if (!window.Swal?.isVisible()) show();
+                }, 160);
             }
             else if (overlay.parentElement !== overlayHost()) show(immediate);
             else {

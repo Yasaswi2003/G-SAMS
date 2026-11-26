@@ -22,6 +22,12 @@
   });
   let current, selections, onCancel, saving = false, editReview;
 
+  async function requestWithTimeout(url,options) {
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+    try{return await fetch(url,{...options,signal:controller.signal});}
+    catch(problem){if(problem.name==='AbortError')throw new Error('The maintenance request is taking too long. Refresh and check its status before retrying.');throw problem;}
+    finally{clearTimeout(timer);}
+  }
   function node(tag,text) {
     const item=document.createElement(tag);
     if(text!=null)item.textContent=text;
@@ -29,7 +35,7 @@
   }
   const send = (url,payload,quiet=false) => {
     const request=async () => {
-      const response=await fetch(url,{method:'POST',headers:{
+      const response=await requestWithTimeout(url,{method:'POST',headers:{
         'Content-Type':'application/json','X-CSRFToken':fields.csrfmiddlewaretoken.value,
       },body:JSON.stringify(payload)});
       let data;
@@ -661,7 +667,7 @@
     dialog.close();
     updates?.postMessage({type:'saved'});
     await maintenanceAlert({icon:'success',title:payload.extend_until?'Maintenance extended':'Maintenance changes saved',
-      text:payload.extend_until?dateTimeLabel(payload.extend_until):undefined,showConfirmButton:false,timer:1600});
+      text:payload.extend_until?dateTimeLabel(payload.extend_until):undefined,showConfirmButton:false,timer:900});
     reload();
   });
   form.addEventListener('invalid',event=>{
@@ -804,7 +810,7 @@
       if(result.isConfirmed){
         operation.clearDraft?.();
         updates?.postMessage({type:'saved'});
-        await maintenanceAlert({icon:'success',title:'Maintenance saved',showConfirmButton:false,timer:2000});
+        await maintenanceAlert({icon:'success',title:'Maintenance saved',showConfirmButton:false,timer:900});
         reload();
       }else if(current===operation&&!dialog.open){
         dialog.showModal();

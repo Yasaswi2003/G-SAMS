@@ -64,6 +64,3 @@
     #booking-loading:not([hidden]) { transition: none;backdrop-filter:none; }
     .booking-loading-ring { animation: none; }
 }
-
-/* SweetAlert retains its pending state and button locking during requests. */
-[data-booking-page] .swal2-loader { visibility: hidden; }

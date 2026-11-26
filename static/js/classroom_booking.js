@@ -1,7 +1,13 @@
 (() => {
 const color='#007367';
+async function request(url,options,timeoutMessage){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+ try{return await fetch(url,{...options,signal:controller.signal});}
+ catch(error){if(error.name==='AbortError')throw new Error(timeoutMessage);throw error;}
+ finally{clearTimeout(timer);}
+}
 function post(url,data){return BookingLoading.run(async()=>{
- const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:data});
+ const response=await request(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:data},'Booking is taking too long to save. Check your requests before retrying to avoid a duplicate.');
  let result;try{result=await response.json();}catch(e){throw new Error('The server could not process the request. Please refresh and retry.');}
  if(!response.ok){const error=new Error(result.error||'Request failed.');error.payload=result;throw error;}
  return result;
@@ -11,7 +17,7 @@ function isConflict(error){return error?.payload?.code==='booking_conflict'&&['h
 function checkAvailability(payload,options){
  if(!options.availabilityUrl)return;
  return BookingLoading.run(async()=>{
-  const response=await fetch(options.availabilityUrl+'?'+new URLSearchParams(payload),{credentials:'same-origin',cache:'no-store'});
+  const response=await request(options.availabilityUrl+'?'+new URLSearchParams(payload),{credentials:'same-origin',cache:'no-store'},'Availability is taking too long to check. Please retry.');
   let result;try{result=await response.json();}catch(e){throw new Error('Availability could not be checked. Please retry.');}
   if(!response.ok||result.available!==true){const error=new Error(result.error||'Availability could not be verified.');error.payload=result;throw error;}
  });
@@ -71,7 +77,7 @@ function prepare(form,options){
  const collect=()=>{recalculate();if(!form.checkValidity()){const invalid=form.querySelector(':invalid');throw new Error(invalid?invalid.validationMessage:'Complete all required booking fields.');}return new FormData(form);};
  return {collect,applySelection};
 }
-async function success(result,options){announce();await Swal.fire({icon:'success',title:options.respond?'Booking Resubmitted Successfully!':options.mode==='edit'?'Request updated':options.mode==='request_amendment'?'Amendment requested':options.role==='ADMIN'?'Booking confirmed':'Request submitted',text:options.respond?'Your revised classroom booking request has been submitted successfully and is awaiting the required approval.':result.message,confirmButtonText:'OK',confirmButtonColor:color});if(options.onSuccess)await options.onSuccess();}
+async function success(result,options){announce();await Swal.fire({icon:'success',title:options.respond?'Booking Resubmitted Successfully!':options.mode==='edit'?'Request updated':options.mode==='request_amendment'?'Amendment requested':options.role==='ADMIN'?'Booking confirmed':'Request submitted',text:options.respond?'Your revised classroom booking request has been submitted successfully and is awaiting the required approval.':result.message,confirmButtonText:'OK',confirmButtonColor:color});if(options.onSuccess)await options.onSuccess(result);}
 function bind(form,options){
  const {collect}=prepare(form,options);
  form.addEventListener('submit',async event=>{
@@ -174,7 +180,7 @@ async function open(options){
   });
   form.prepend(link);
  }
- const result=await Swal.fire({title:options.selectOnly?'Select a replacement slot':options.respond?'Booking Revision':options.mode==='edit'?'Edit & Resubmit Booking':options.mode==='request_amendment'?'Request Booking Amendment':options.role==='ADMIN'?'Admin Direct Booking':'Book a Classroom',html:form,width:options.respond&&!options.selectOnly?840:760,customClass:options.respond&&!options.selectOnly?{popup:'cb-revision-popup'}:{},showCancelButton:true,cancelButtonText:options.onBackToForm?'Back to Form':'Cancel',confirmButtonText:options.selectOnly?'Use this slot':options.mode==='edit'?'Save & Resubmit':options.mode==='request_amendment'?'Submit Amendment':options.role==='ADMIN'?'Confirm Booking':'Submit to HOD',confirmButtonColor:color,showLoaderOnConfirm:true,allowOutsideClick:()=>!Swal.isLoading(),preConfirm:async()=>{try{const payload=collect();if(options.mode){payload.set('action',options.mode);payload.set('booking_id',options.bookingId);if(options.revision)payload.set('expected_revision',options.revision);}if(options.revisionToken)payload.set('revision_token',options.revisionToken);if(options.respond&&!options.selectOnly)return {revisionPayload:payload};return await BookingLoading.run(async()=>{if(!options.selectOnly)await checkAvailability(payload,options);return await post(options.submitUrl,payload);});}catch(error){if(isConflict(error)){await showConflict(error,()=>form.elements.room_key.focus());if(options.respond&&!options.selectOnly)form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}Swal.showValidationMessage(error.message);if(options.respond&&!options.selectOnly&&error.payload?.code==='slot_unavailable')form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}}});
+ const result=await Swal.fire({title:options.selectOnly?'Select a replacement slot':options.respond?'Booking Revision':options.mode==='edit'?'Edit & Resubmit Booking':options.mode==='request_amendment'?'Request Booking Amendment':options.role==='ADMIN'?'Admin Direct Booking':'Book a Classroom',html:form,width:options.respond&&!options.selectOnly?840:760,customClass:options.respond&&!options.selectOnly?{popup:'cb-revision-popup'}:{},showCancelButton:true,cancelButtonText:options.onBackToForm?'Back to Form':'Cancel',confirmButtonText:options.selectOnly?'Use this slot':options.mode==='edit'?'Save & Resubmit':options.mode==='request_amendment'?'Submit Amendment':options.role==='ADMIN'?'Confirm Booking':'Submit to HOD',confirmButtonColor:color,showLoaderOnConfirm:true,allowOutsideClick:()=>!Swal.isLoading(),preConfirm:async()=>{try{const payload=collect();if(options.mode){payload.set('action',options.mode);payload.set('booking_id',options.bookingId);if(options.revision)payload.set('expected_revision',options.revision);}if(options.revisionToken)payload.set('revision_token',options.revisionToken);if(options.respond&&!options.selectOnly)return {revisionPayload:payload};return await post(options.submitUrl,payload);}catch(error){if(isConflict(error)){await showConflict(error,()=>form.elements.room_key.focus());if(options.respond&&!options.selectOnly)form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}Swal.showValidationMessage(error.message);if(options.respond&&!options.selectOnly&&error.payload?.code==='slot_unavailable')form.querySelector('.cb-timetable-checkbox:not(:checked)')?.click();return false;}}});
  if(result.isConfirmed){
   if(options.selectOnly){if(options.onSelection)await options.onSelection(result.value);}
   else if(result.value?.revisionPayload){

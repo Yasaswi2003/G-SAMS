@@ -1228,8 +1228,8 @@
 <form id="cuCsrfForm" hidden>{% csrf_token %}</form>
 {{ booking_room_catalog_json|json_script:"cuBookingRoomCatalog" }}
 
-<script src="{% static 'js/classroom_booking.js' %}?v=revision-10"></script>
-<script src="{% static 'js/booking_live.js' %}?v=3"></script>
+<script src="{% static 'js/classroom_booking.js' %}?v=revision-12"></script>
+<script src="{% static 'js/booking_live.js' %}?v=4"></script>
 <script>
 (function () {
     const filterForm = document.getElementById('cuFilterForm');
@@ -1465,10 +1465,34 @@
             if(revisionContext){ClassroomBooking.open({rooms:eligible,initial:{...revisionContext.fields,room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start},role:'TEACHER',mode:'edit',respond:true,extended:true,selectOnly:true,bookingId:revisionContext.booking_id,revision:revisionContext.revision,revisionToken:revisionContext.token,submitUrl:"{% url 'booking_revision_select' %}",availabilityUrl:"{% url 'classroom_availability' %}",onBackToForm:revisionFrame&&containingDialog?()=>containingDialog.close():null,onSelection:async result=>{const selected=result.selection;revisionContext.selection=selected;revisionContext.fields={...revisionContext.fields,...selected};if(revisionFrame){revisionFrame.dispatchEvent(new CustomEvent('revision-slot-selected',{detail:selected}));return;}const response=await Swal.fire({icon:'success',title:'Replacement slot selected',text:selected.room_name+' / '+selected.booking_date+' / '+selected.from_time+' - '+selected.to_time+'. Return to Booking Revision to review and resubmit.',confirmButtonText:'Back to Your Form',showCancelButton:true,cancelButtonText:'Stay on timetable',buttonsStyling:false,customClass:{actions:'cu-revision-selection-actions',confirmButton:'cu-button cu-button-primary',cancelButton:'cu-button cu-button-secondary'}});if(response.isConfirmed){const target=enclosingModal ? window.parent : window;target.BookingLoading.navigate(()=>target.location.assign(result.return_url));}else reloadSchedule();}});return;}
             ClassroomBooking.open({rooms:eligible,initial:{room_key:eligible[0]?.key||'',booking_date:ds.date,from_time:ds.start,duration_hours:1},
                 role:'{{ booking_role|escapejs }}',subjectCode:'{{ request.user.teaching_subject_code|escapejs }}',subjectName:'{{ request.user.teaching_subject_name|escapejs }}',
-                submitUrl:"{% url 'book_classroom' %}",availabilityUrl:"{% url 'classroom_availability' %}",onSuccess:reloadSchedule});
+                submitUrl:"{% url 'book_classroom' %}",availabilityUrl:"{% url 'classroom_availability' %}",
+                onSuccess:result=>{
+                    const bookedRoom=result.booking?.room;
+                    if(!bookedRoom){reloadSchedule();return;}
+                    const remaining=indexes.filter(index=>roomCatalog[index]?.key!==bookedRoom);
+                    if(remaining.length){
+                        el.dataset.freeRoomIndexes=JSON.stringify(remaining);
+                        bookingLive.acknowledge();
+                        return;
+                    }
+                    const card=document.createElement('button');
+                    card.type='button';
+                    card.className='cu-slot-booked cu-slot-user-booking cu-status-'+result.status;
+                    card.disabled=true;
+                    const dot=document.createElement('span');dot.className='cu-slot-dot';
+                    const content=document.createElement('span');content.className='cu-slot-content';
+                    const state=document.createElement('span');state.className='cu-slot-state';
+                    state.textContent=result.status==='confirmed'?'Confirmed':'Pending approval';
+                    const title=document.createElement('span');title.className='cu-slot-code';
+                    title.textContent=result.booking.title||'Classroom booking';
+                    content.append(state,title);
+                    card.append(dot,content);
+                    el.replaceWith(card);
+                    bookingLive.acknowledge();
+                }});
         });
     });
-    ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:reloadSchedule});
+    const bookingLive=ClassroomBookingLive({versionUrl:"{% url 'booking_updates' %}",refresh:reloadSchedule});
 })();
 </script>
 <link rel="stylesheet" href="{% static 'user/css/classroom_design.css' %}">
