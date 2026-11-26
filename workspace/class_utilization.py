@@ -124,10 +124,29 @@ def _room_type_label(record):
     return " / ".join(labels) or "Room"
 
 
+def _room_category(record):
+    room_type = _normalise(record.get("room_type"))
+    room_category = _normalise(record.get("room_category"))
+    theory_lab = _normalise(record.get("theory_lab"))
+    room_name = _normalise(record.get("room_name"))
+    type_fields = (room_type, room_category)
+    if any(re.search(r"(?:^|\W)(?:L\s*1|LEVEL\s*1)(?:\W|$)", value) for value in type_fields):
+        return "l1", "L1 Classroom"
+    if any(re.search(r"(?:^|\W)(?:L\s*2|LEVEL\s*2)(?:\W|$)", value) for value in type_fields):
+        return "l2", "L2 Classroom"
+    descriptive = (room_type, room_category, theory_lab, room_name)
+    if any("LAB" in value or "LABORATORY" in value for value in descriptive):
+        return "lab", "Laboratory"
+    if theory_lab == "THEORY" or room_category in {"CLASS ROOM", "CLASSROOM"}:
+        return "normal", "Normal Classroom"
+    return "unknown", "Other"
+
+
 def _room_quality(room):
     return (
         bool(room["building_code"])
         + (room["room_type_label"] != "Room")
+        + (room["category_key"] != "unknown")
         + (room["room_name"] != room["room_code"])
         + (room["capacity"] is not None)
     )
@@ -148,6 +167,7 @@ def _build_room_catalog(records):
             continue
 
         key = _room_key_value(campus, building_key, display_code)
+        category_key, category_label = _room_category(record)
         room = {
             "key": key,
             "campus": campus,
@@ -158,6 +178,8 @@ def _build_room_catalog(records):
             "room_code": display_code,
             "room_name": str(record.get("room_name") or "").strip() or display_code,
             "room_type_label": _room_type_label(record),
+            "category_key": category_key,
+            "category_label": category_label,
             "capacity": record.get("capacity"),
             "floor_code": str(record.get("floor_code") or "").strip(),
             "maintenance": any(str(record.get(field) or "").strip().upper() in {"M", "MAINTENANCE"} for field in ("room_status", "current_status")),
@@ -169,11 +191,13 @@ def _build_room_catalog(records):
         elif _room_quality(room) > _room_quality(existing):
             room_by_key[key] = room
         else:
-            for field in ("building", "building_code", "room_name", "room_type_label", "capacity"):
+            for field in ("building", "building_code", "room_name", "room_type_label", "category_key", "category_label", "capacity"):
                 if (
                     not existing[field]
                     or field == "room_name" and existing[field] == existing["room_code"]
                     or field == "room_type_label" and existing[field] == "Room"
+                    or field == "category_key" and existing[field] == "unknown"
+                    or field == "category_label" and existing[field] == "Other"
                     or field == "building" and existing[field] == "Unknown building"
                 ) and room[field]:
                     existing[field] = room[field]
@@ -254,7 +278,8 @@ def _campus_filter_options(rooms, campus_codes, selected=''):
     return sorted(labels.values(), key=str.casefold)
 
 
-def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, room_key=None, occupancy_only=False):
+def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, room_key=None,
+                    room_keys=None, occupancy_only=False):
     rows = TimeTableMaster.objects.using(GITAM_DATABASE).annotate(
         semester_key=Upper(Trim("sem_flag")),
         status_key=Upper(Trim("status_flag")),
@@ -268,6 +293,16 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
         room_numbers = [number for (alias_campus, number), keys in aliases.items() if alias_campus == campus and room_key in keys]
         rows = rows.alias(campus_key=Upper(Trim('campus_code')), room_alias=Upper(Trim('room_number'))).filter(
             campus_key=campus, room_alias__in=room_numbers,
+        )
+    elif room_keys:
+        scoped_keys = set(room_keys)
+        campuses = {room_by_key[key]['campus_key'] for key in scoped_keys if key in room_by_key}
+        room_numbers = {
+            number for (alias_campus, number), keys in aliases.items()
+            if keys & scoped_keys and alias_campus in campuses
+        }
+        rows = rows.alias(campus_key=Upper(Trim('campus_code')), room_alias=Upper(Trim('room_number'))).filter(
+            campus_key__in=campuses, room_alias__in=room_numbers,
         )
     if occupancy_only:
         fields = ("weekday", "from_time", "to_time", "dept_code", "campus_code", "room_number", "building_name")
@@ -307,6 +342,8 @@ def _load_timetable(semester, room_by_key, aliases, teacher_email_map=None, *, r
         if location not in resolved_rooms:
             resolved_rooms[location] = _resolve_room(row, room_by_key, aliases)
         room = resolved_rooms[location]
+        if room_keys and (not room or room["key"] not in room_keys):
+            continue
         if occupancy_only:
             if room:
                 schedules.append({
@@ -660,7 +697,10 @@ def class_utilization(request):
         return HttpResponseForbidden('Only Admin can schedule classroom maintenance.')
     timetable_popup = not revision_popup and (maintenance_picker or request.GET.get('timetable_popup') == '1' and bool(filters['selected_room_key']))
     scoped_room = filters['selected_room_key'] if timetable_popup or revision_popup else ''
-    timetable_scope = {'room_key': scoped_room} if scoped_room else {}
+    timetable_scope = {'room_key': scoped_room} if scoped_room else (
+        {'room_keys': {room['key'] for room in filters['room_choices']}}
+        if filters['selected_building'] else {}
+    )
     schedules = []
     if filters["selected_semester"]:
         try:

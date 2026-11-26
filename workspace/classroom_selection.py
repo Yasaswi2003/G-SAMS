@@ -35,7 +35,6 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
     for room in rooms:
         if room['campus_key'] == campus and room['building_key'] == building:
             rooms_by_floor[room.get('floor_code') or '__unrecorded__'].append(room)
-    candidates = rooms_by_floor.get(floor, ())
     now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
     minute = now.hour*60+now.minute
     by_room = defaultdict(list)
@@ -46,12 +45,12 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
                                      if day != today or window.end > now.time())
     held = list(ClassroomBooking.objects.filter(is_active=True,booking_date=today,
         from_time__lte=now.time().replace(tzinfo=None),to_time__gt=now.time().replace(tzinfo=None),
-        status__in=['pending','hod_approved','confirmed']).values('room_key','campus_code','building_name','room_code','status')) if candidates else []
+        status__in=['pending','hod_approved','confirmed']).values('room_key','campus_code','building_name','room_code','status')) if rooms_by_floor else []
     weekday = today.strftime('%A')
     occupied_now = {row['room_key'] for row in schedules
-                    if row['weekday'] == weekday and row['start_minutes'] <= minute < row['end_minutes']} if candidates else set()
-    cards=[]
-    for room in candidates:
+                    if row['weekday'] == weekday and row['start_minutes'] <= minute < row['end_minutes']} if rooms_by_floor else set()
+
+    def classroom_card(room):
         bookings=[b for b in held if b['room_key']==room['key'] or
                   (b['campus_code'].upper()==room['campus'].upper() and b['room_code']==room['room_code']
                    and b['building_name'] in (room['building'],room['building_code']))]
@@ -72,14 +71,21 @@ def selection_context(request, rooms, schedules, filters, today, *, partially_bo
                 details='Open the timetable to see all maintenance windows.',
                 full_day_label='Maintenance' if room.get('maintenance') else 'Under Maintenance',
             )
-        cards.append({**room,'state':state,'state_label':label,'floor_label':room.get('floor_code') or 'Not recorded',
+        return {**room,'state':state,'state_label':label,'floor_label':room.get('floor_code') or 'Not recorded',
                       'maintenance_hint':hint,
-                      'url':link(campus=room['campus'],building=room['building_key'],floor=room.get('floor_code') or '__unrecorded__',room=room['key'])})
+                      'url':link(campus=room['campus'],building=room['building_key'],floor=room.get('floor_code') or '__unrecorded__',room=room['key'])}
+
+    cards_by_floor = {
+        floor_key: [classroom_card(room) for room in floor_rooms]
+        for floor_key, floor_rooms in rooms_by_floor.items()
+    }
+    cards = cards_by_floor.get(floor, ())
     floor_cards = []
     floor_undo_records = {}
     for choice in filters['floor_choices']:
         floor_rooms = rooms_by_floor[choice['key']]
-        card = {**choice, 'url': link(floor=choice['key'], room=''), 'room_count': len(floor_rooms)}
+        card = {**choice, 'url': link(floor=choice['key'], room=''), 'room_count': len(floor_rooms),
+                'classrooms': cards_by_floor.get(choice['key'], ())}
         windows_by_date = defaultdict(lambda: defaultdict(list))
         floor_windows = {}
         for room in floor_rooms:

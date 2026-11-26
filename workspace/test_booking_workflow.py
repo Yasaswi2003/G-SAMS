@@ -1193,7 +1193,11 @@ class BookingWorkflowTests(TestCase):
             building=self.client.get(reverse('class_utilization'),{'campus':'VSP','building':'VSP|CHB'})
             self.assertEqual(building.context['selection_step'],3)
             self.assertEqual({f['key'] for f in building.context['floor_choices']},{'3','4'})
-            self.assertContains(building,'cu-floor-card',count=2)
+            self.assertContains(building,'cu-floor-heading',count=2)
+            self.assertEqual(
+                {floor['key']: [room['room_code'] for room in floor['classrooms']] for floor in building.context['floor_cards']},
+                {'3':['132'],'4':['133']},
+            )
             self.assertNotContains(building,'<select id="cuFloor"')
             floor_page=self.client.get(reverse('class_utilization')+building.context['floor_cards'][0]['url'])
             self.assertEqual(floor_page.context['selection_step'],4)
@@ -1251,7 +1255,7 @@ class BookingWorkflowTests(TestCase):
                 'date':self.day.isoformat(),'include_weekends':'1'}
         mixed=self.client.get(reverse('class_utilization'),params)
         self.assertEqual(mixed.context['classroom_cards'][0]['state'],'partial')
-        self.assertContains(mixed,'cu-classroom-card cu-room-partial')
+        self.assertContains(mixed,'cu-room-partial')
         params['date']=(self.day+timedelta(days=7)).isoformat()
         open_week=self.client.get(reverse('class_utilization'),params)
         self.assertEqual(open_week.context['classroom_cards'][0]['state'],'available')
@@ -1521,7 +1525,7 @@ class BookingWorkflowTests(TestCase):
             })
             self.assertEqual([card.get('state') for card in floors.context['floor_cards']],
                              ['partial-maintenance', None])
-            self.assertContains(floors, 'cu-floor-card cu-room-partial-maintenance', count=1)
+            self.assertContains(floors, 'cu-floor-state cu-floor-state-partial-maintenance', count=1)
             self.assertContains(floors, 'Partially Under Maintenance')
             self.assertContains(floors, 'Cleaning / Housekeeping')
         self.assertEqual(ClassroomMaintenance.objects.get().rooms.count(),2)
@@ -1536,7 +1540,7 @@ class BookingWorkflowTests(TestCase):
             })
         self.assertEqual([card.get('state') for card in floors.context['floor_cards']],
                          ['maintenance', None])
-        self.assertContains(floors, 'cu-floor-card cu-room-maintenance', count=1)
+        self.assertContains(floors, 'cu-floor-state cu-floor-state-maintenance', count=1)
 
     def test_maintenance_classroom_only_edits_preserve_one_time_and_recurring_schedules(self):
         from .models import ClassroomMaintenance, ClassroomMaintenanceRoom, ClassroomMaintenanceWindow
@@ -1919,8 +1923,8 @@ class BookingWorkflowTests(TestCase):
             floors = self.client.get(page_url, filters)
             self.assertEqual([card['state'] for card in floors.context['floor_cards']],
                              ['maintenance', 'maintenance', 'partial-maintenance'])
-            self.assertContains(floors, 'aria-hidden="true"></span>Entire Floor Under Maintenance', count=2)
-            self.assertContains(floors, 'aria-hidden="true"></span>Partially Under Maintenance', count=1)
+            self.assertContains(floors, 'Entire Floor Under Maintenance', count=2)
+            self.assertContains(floors, 'Partially Under Maintenance', count=1)
             partial = self.client.get(page_url, {**filters, 'floor': '3'})
             self.assertContains(partial, 'Proceed Further')
             self.assertNotContains(partial, 'Undo Maintenance')
@@ -2020,8 +2024,8 @@ class BookingWorkflowTests(TestCase):
             saved=self.client.post(url,{**payload,'action':'save','token':preview.json()['token']},content_type='application/json')
             self.assertEqual(saved.status_code,200,saved.content)
             picker=self.client.get(reverse('class_utilization'),{'campus':'VSP','building':'VSP|ICT','date':self.day.isoformat()})
-            self.assertContains(picker,'data-cm-mode="floor"')
-            self.assertContains(picker,'data-cm-card="2"')
+            self.assertContains(picker,'data-cm-mode="room"')
+            self.assertContains(picker,'data-cm-card="VSP|ICT|201"')
             rooms=self.client.get(reverse('class_utilization'),{'campus':'VSP','building':'VSP|ICT','floor':'1','date':self.day.isoformat()})
             self.assertContains(rooms,'data-cm-mode="room"')
             self.assertContains(rooms,'data-cm-card="VSP|ICT|102"')

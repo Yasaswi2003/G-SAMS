@@ -164,3 +164,52 @@ html:has(.cu-timetable-modal[open]) { overflow: hidden; }
 @media(max-width:480px){.classroom-design.cu-page .cu-filter-field{flex-basis:100%}.classroom-design.cu-page .cu-filter-actions{width:100%}.classroom-design.cu-page .cu-filter-actions .cu-button{flex:1}}
 
 .classroom-design.cu-page .cu-filter-field input:focus,.classroom-design.cu-page .cu-filter-field input:focus-visible,.classroom-design.cu-page .cu-filter-field select:focus,.classroom-design.cu-page .cu-filter-field select:focus-visible,.classroom-design.cu-page .cu-hours-control select:focus,.classroom-design.cu-page .cu-hours-control select:focus-visible{outline:none;box-shadow:none;border-color:#829c98}
+
+.cu-floor-accordions{display:grid;gap:10px;margin-top:16px}
+.cu-floor-section{border:1px solid #d8e6e2;border-radius:10px;background:#fff;box-shadow:0 2px 8px #143d3308}
+.cu-floor-heading{display:flex;align-items:center;gap:10px;min-height:50px;padding:11px 14px;list-style:none;cursor:pointer;border-radius:10px;background:#fbfdfc;transition:background .15s ease}
+.cu-floor-heading::-webkit-details-marker{display:none}
+.cu-floor-heading:hover{background:#f0f8f5}
+.cu-floor-title{font-size:14px;font-weight:800;color:#174c42}
+.cu-floor-state{margin-left:auto;font-size:10px;font-weight:700;color:#687d77}
+.cu-floor-state-maintenance,.cu-floor-state-partial-maintenance{color:#9a650f}
+.cu-floor-manage{font-size:10px;font-weight:700;color:#007367;text-decoration:none}
+.cu-floor-manage:hover{text-decoration:underline}
+.cu-floor-count{display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border-radius:13px;background:#e5f2ee;color:#356a60;font-size:10px;font-weight:800}
+.cu-floor-chevron{font-size:20px;color:#52766e;transition:transform .18s ease}
+.cu-floor-section[open] .cu-floor-chevron{transform:rotate(180deg)}
+.cu-floor-content{padding:14px;border-top:1px solid #e3ece9;overflow:visible}
+.cu-floor-section[open] .cu-floor-content{animation:cu-floor-reveal .18s ease-out}
+.cu-room-tiles,.cu-classroom-cards:has(.cu-room-tile){display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:9px;margin-top:0}
+.cu-category-legend{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:12px 0 2px;color:#607872;font-size:10.5px;font-weight:600}
+.cu-category-legend span{display:inline-flex;align-items:center;gap:5px}
+.cu-category-swatch{display:inline-block;width:10px;height:10px;border:2px solid;border-radius:3px}
+.cu-category-l1{--category-bg:#E8F1FF;--category-border:#3975D7;--category-text:#244F98}
+.cu-category-l2{--category-bg:#F1EAFE;--category-border:#8956C5;--category-text:#5E3692}
+.cu-category-normal{--category-bg:#E5F6F1;--category-border:#199B7A;--category-text:#116B56}
+.cu-category-lab{--category-bg:#FFF0DF;--category-border:#E99A36;--category-text:#9A5D13}
+.cu-category-unknown{--category-bg:#F2F4F5;--category-border:#9AA7A3;--category-text:#52635F}
+.cu-category-swatch,.cu-tooltip-category{background:var(--category-bg);border-color:var(--category-border);color:var(--category-text)}
+.cu-room-tile{position:relative;display:grid;place-items:center;min-width:0;height:48px;padding:7px 8px;border:1px solid var(--category-border,#c9ded8);border-left-width:4px;border-radius:8px;background:var(--category-bg,#f2fbf6);color:var(--category-text,#17664f);text-align:center;text-decoration:none;box-sizing:border-box;transition:transform .14s ease,box-shadow .14s ease,filter .14s ease}
+.cu-room-tile strong{font-size:13px;line-height:1.2;overflow:hidden;text-overflow:ellipsis}
+.cu-room-tile:hover,.cu-room-tile:focus-visible,.cu-room-tile.cu-tooltip-open{z-index:4;transform:translateY(-1px);filter:saturate(1.08);box-shadow:0 5px 14px #164d3d1c}
+.cu-room-tile:focus-visible{outline:2px solid #595959;outline-offset:2px}
+.cu-room-status-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #61736e;background:#159447}
+.cu-status-occupied{background:#D14352;box-shadow:0 0 0 1px #ad2f3e}
+.cu-status-reserved{background:#D89B28;box-shadow:0 0 0 1px #a87412}
+.cu-status-partial{background:#4D7FA5;box-shadow:0 0 0 1px #315f83}
+.cu-status-maintenance,.cu-status-partial-maintenance{width:8px;height:8px;border:0;background:#69746f;box-shadow:0 0 0 2px #fff,0 0 0 3px #69746f}
+.cu-status-maintenance:after,.cu-status-partial-maintenance:after{content:"";position:absolute;left:3px;top:-1px;width:2px;height:10px;background:#fff;transform:rotate(45deg)}
+.cu-room-tooltip{position:absolute;left:50%;bottom:calc(100% + 9px);z-index:8;display:none;grid-template-columns:1fr;width:max-content;max-width:250px;padding:10px 12px;border:1px solid #d5e4e0;border-radius:8px;background:#173d37;color:#fff;box-shadow:0 10px 28px #102b2540;font-size:10.5px;font-weight:500;line-height:1.55;text-align:left;transform:translateX(-50%);pointer-events:none}
+.cu-room-tooltip:after{content:"";position:absolute;top:100%;left:50%;border:6px solid transparent;border-top-color:#173d37;transform:translateX(-50%)}
+.cu-room-tooltip b{margin-bottom:3px;font-size:12px}
+.cu-room-tooltip span{white-space:normal}
+.cu-room-tooltip .cu-tooltip-category{width:max-content;max-width:100%;margin:0 0 5px;padding:2px 6px;border:1px solid var(--category-border);border-radius:10px;font-size:9px;font-weight:800}
+.cu-room-tile:hover .cu-room-tooltip,.cu-room-tile:focus-visible .cu-room-tooltip,.cu-room-tile.cu-tooltip-open .cu-room-tooltip{display:grid}
+.cu-empty-floor{margin:0;color:#758b85;font-size:12px}
+.cu-floor-section[hidden],[data-classroom-match][hidden]{display:none!important}
+.cm-card-choice>.cu-room-tile{width:100%;outline:1px dashed #94a3b8;outline-offset:-3px}
+.cm-card-choice>.cu-room-tile.cm-card-chosen{outline:2px solid #595959;outline-offset:-2px}
+@keyframes cu-floor-reveal{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.cu-floor-section[open] .cu-floor-content{animation:none}.cu-floor-chevron,.cu-room-tile{transition:none}}
+@media(max-width:600px){.cu-floor-content{padding:10px}.cu-room-tiles,.cu-classroom-cards:has(.cu-room-tile){grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:7px}.cu-floor-state{max-width:110px;text-align:right}.cu-room-tile{height:44px}.cu-room-tooltip{max-width:min(220px,calc(100vw - 48px))}}

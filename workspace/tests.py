@@ -96,6 +96,25 @@ class ClassUtilizationMasterDataTests(SimpleTestCase):
         self.assertEqual(aliases[("VSP", "ARB-305")], {room["key"]})
         self.assertEqual(room_by_key[room["key"]], room)
 
+    def test_room_master_categories_follow_master_field_priority(self):
+        cases = [
+            ({"room_type": "Flat", "room_category": "l1", "theory_lab": "LAB"}, "l1", "L1 Classroom"),
+            ({"room_type": "L2", "room_category": "General", "theory_lab": "Theory"}, "l2", "L2 Classroom"),
+            ({"room_type": "Lab", "room_category": "General", "theory_lab": "Theory"}, "lab", "Laboratory"),
+            ({"room_type": "Flat", "room_category": "Psychology Lab", "theory_lab": None}, "lab", "Laboratory"),
+            ({"room_type": "Flat", "room_category": "General", "theory_lab": "Theory", "room_name": "Computer Laboratory"}, "lab", "Laboratory"),
+            ({"room_type": "Flat", "room_category": "Class Room", "theory_lab": "Theory"}, "normal", "Normal Classroom"),
+            ({"room_type": "General", "room_category": "Staff Room", "theory_lab": None}, "unknown", "Other"),
+        ]
+        for index, (fields, expected_key, expected_label) in enumerate(cases):
+            with self.subTest(fields=fields):
+                rooms, _, _ = _build_room_catalog([{
+                    "campus_code": "VSP", "building_code": "ICT", "room_code": str(index),
+                    **fields,
+                }])
+                self.assertEqual(rooms[0]["category_key"], expected_key)
+                self.assertEqual(rooms[0]["category_label"], expected_label)
+
     def test_timetable_room_is_matched_by_campus_and_building(self):
         rooms, room_by_key, aliases = _build_room_catalog([
             {
